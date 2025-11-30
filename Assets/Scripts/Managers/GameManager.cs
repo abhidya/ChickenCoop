@@ -15,15 +15,22 @@ public class GameManager : MonoBehaviour
     public event Action<int> OnEggsChanged;
     public event Action<int> OnCoinsChanged;
     public event Action<int> OnHelperCountChanged;
+    public event Action<string, Vector3, Color> OnResourceGained; // For floating text feedback
 
-    [Header("Starting Resources")]
+    [Header("Game Configuration")]
+    [SerializeField] private GameConfig config;
+
+    [Header("Starting Resources (Used if no GameConfig)")]
     [SerializeField] private int startingCorn = 0;
     [SerializeField] private int startingEggs = 0;
     [SerializeField] private int startingCoins = 50;
 
-    [Header("Base Prices")]
+    [Header("Base Prices (Used if no GameConfig)")]
     [SerializeField] private int eggSellPrice = 10;
     [SerializeField] private int helperCost = 100;
+
+    // Expose config for other systems
+    public GameConfig Config => config;
 
     [Header("Game References")]
     [SerializeField] private Transform cornFieldPosition;
@@ -53,9 +60,17 @@ public class GameManager : MonoBehaviour
     public int Eggs => eggs;
     public int Coins => coins;
     public int HelperCount => helperCount;
-    public int EggSellPrice => Mathf.RoundToInt(eggSellPrice * priceMultiplier);
-    public int HelperCost => helperCost + (helperCount * 50);
+    public int EggSellPrice => Mathf.RoundToInt(GetEggSellPrice() * priceMultiplier);
+    public int HelperCost => GetHelperBaseCost() + (helperCount * GetHelperCostIncrease());
     public float SpeedMultiplier => speedMultiplier;
+
+    // Helper methods for config values with fallbacks
+    private int GetEggSellPrice() => config != null ? config.eggSellPrice : eggSellPrice;
+    private int GetHelperBaseCost() => config != null ? config.helperBaseCost : helperCost;
+    private int GetHelperCostIncrease() => config != null ? config.helperCostIncrease : 50;
+    private int GetStartingCorn() => config != null ? config.startingCorn : startingCorn;
+    private int GetStartingEggs() => config != null ? config.startingEggs : startingEggs;
+    private int GetStartingCoins() => config != null ? config.startingCoins : startingCoins;
 
     // Position getters for helpers and other systems
     public Transform CornFieldPosition => cornFieldPosition;
@@ -82,9 +97,9 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void InitializeGame()
     {
-        corn = startingCorn;
-        eggs = startingEggs;
-        coins = startingCoins;
+        corn = GetStartingCorn();
+        eggs = GetStartingEggs();
+        coins = GetStartingCoins();
         helperCount = 0;
 
         // Trigger initial UI updates
@@ -96,14 +111,29 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Add corn to inventory with optional animation trigger
     /// </summary>
-    public void AddCorn(int amount)
+    public void AddCorn(int amount, Vector3? worldPosition = null)
     {
         int actualAmount = Mathf.RoundToInt(amount * cornMultiplier);
         corn += actualAmount;
         OnCornChanged?.Invoke(corn);
 
+        // Trigger floating text feedback
+        if (worldPosition.HasValue)
+        {
+            Color cornColor = config != null ? config.cornColor : new Color(1f, 0.9f, 0.3f);
+            OnResourceGained?.Invoke($"+{actualAmount} 🌽", worldPosition.Value, cornColor);
+        }
+
         // Play collection sound
         AudioManager.Instance?.PlaySound("collect");
+    }
+
+    /// <summary>
+    /// Add corn to inventory (legacy overload without position)
+    /// </summary>
+    public void AddCorn(int amount)
+    {
+        AddCorn(amount, null);
     }
 
     /// <summary>
@@ -123,19 +153,34 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Add eggs to inventory
     /// </summary>
-    public void AddEgg(int amount)
+    public void AddEgg(int amount, Vector3? worldPosition = null)
     {
         int actualAmount = Mathf.RoundToInt(amount * eggMultiplier);
         eggs += actualAmount;
         OnEggsChanged?.Invoke(eggs);
 
+        // Trigger floating text feedback
+        if (worldPosition.HasValue)
+        {
+            Color eggColor = config != null ? config.eggColor : new Color(1f, 0.98f, 0.9f);
+            OnResourceGained?.Invoke($"+{actualAmount} 🥚", worldPosition.Value, eggColor);
+        }
+
         AudioManager.Instance?.PlaySound("egg");
+    }
+
+    /// <summary>
+    /// Add eggs to inventory (legacy overload without position)
+    /// </summary>
+    public void AddEgg(int amount)
+    {
+        AddEgg(amount, null);
     }
 
     /// <summary>
     /// Sell an egg at the store (returns false if no eggs)
     /// </summary>
-    public bool SellEgg()
+    public bool SellEgg(Vector3? worldPosition = null)
     {
         if (eggs > 0)
         {
@@ -143,7 +188,7 @@ public class GameManager : MonoBehaviour
             OnEggsChanged?.Invoke(eggs);
 
             int salePrice = EggSellPrice;
-            AddCoins(salePrice);
+            AddCoins(salePrice, worldPosition);
 
             // Spawn coin particles at store
             if (coinParticlePrefab != null && storePosition != null)
@@ -158,12 +203,35 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Sell an egg at the store (legacy overload without position)
+    /// </summary>
+    public bool SellEgg()
+    {
+        return SellEgg(null);
+    }
+
+    /// <summary>
     /// Add coins to player's balance
     /// </summary>
-    public void AddCoins(int amount)
+    public void AddCoins(int amount, Vector3? worldPosition = null)
     {
         coins += amount;
         OnCoinsChanged?.Invoke(coins);
+
+        // Trigger floating text feedback
+        if (worldPosition.HasValue)
+        {
+            Color coinColor = config != null ? config.coinColor : new Color(1f, 0.85f, 0.2f);
+            OnResourceGained?.Invoke($"+{amount} 💰", worldPosition.Value, coinColor);
+        }
+    }
+
+    /// <summary>
+    /// Add coins to player's balance (legacy overload without position)
+    /// </summary>
+    public void AddCoins(int amount)
+    {
+        AddCoins(amount, null);
     }
 
     /// <summary>
@@ -245,6 +313,47 @@ public class GameManager : MonoBehaviour
     public bool CanAfford(int amount)
     {
         return coins >= amount;
+    }
+
+    /// <summary>
+    /// Try to spend coins with error feedback if insufficient
+    /// </summary>
+    public bool TrySpendCoins(int amount, out int shortfall)
+    {
+        shortfall = amount - coins;
+        if (coins >= amount)
+        {
+            coins -= amount;
+            OnCoinsChanged?.Invoke(coins);
+            return true;
+        }
+        AudioManager.Instance?.PlaySound("error");
+        return false;
+    }
+
+    /// <summary>
+    /// Reset progress for prestige or new game
+    /// </summary>
+    public void ResetProgress()
+    {
+        corn = GetStartingCorn();
+        eggs = GetStartingEggs();
+        coins = GetStartingCoins();
+        helperCount = 0;
+        cornMultiplier = 1f;
+        eggMultiplier = 1f;
+        priceMultiplier = 1f;
+        speedMultiplier = 1f;
+
+        // Update UI
+        OnCornChanged?.Invoke(corn);
+        OnEggsChanged?.Invoke(eggs);
+        OnCoinsChanged?.Invoke(coins);
+        OnHelperCountChanged?.Invoke(helperCount);
+
+        // Clear saved data
+        PlayerPrefs.DeleteAll();
+        PlayerPrefs.Save();
     }
 
     /// <summary>
