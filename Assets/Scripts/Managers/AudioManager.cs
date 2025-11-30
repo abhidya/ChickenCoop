@@ -22,6 +22,7 @@ public class AudioManager : MonoBehaviour
     [SerializeField] private AudioClip upgradeSound;
     [SerializeField] private AudioClip eatSound;
     [SerializeField] private AudioClip clickSound;
+    [SerializeField] private AudioClip errorSound;
 
     [Header("Music")]
     [SerializeField] private AudioClip backgroundMusic;
@@ -79,7 +80,8 @@ public class AudioManager : MonoBehaviour
             { "coin", coinSound },
             { "upgrade", upgradeSound },
             { "eat", eatSound },
-            { "click", clickSound }
+            { "click", clickSound },
+            { "error", errorSound }
         };
 
         // Apply volume settings
@@ -237,6 +239,10 @@ public class AudioManager : MonoBehaviour
             case "click":
                 frequency = 1000f;
                 amplitude = 0.2f;
+                break;
+            case "error":
+                frequency = 220f; // A3 - low buzz for error
+                amplitude = 0.25f;
                 break;
         }
 

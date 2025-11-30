@@ -16,6 +16,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI eggsCountText;
     [SerializeField] private TextMeshProUGUI coinsCountText;
     [SerializeField] private TextMeshProUGUI helperCountText;
+    [SerializeField] private TextMeshProUGUI incomeRateText;
 
     [Header("Resource Icons")]
     [SerializeField] private RectTransform cornIcon;
@@ -29,10 +30,15 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button sellButton;
     [SerializeField] private Button hireHelperButton;
 
-    [Header("Upgrade Panel")]
+    [Header("Upgrade System")]
     [SerializeField] private GameObject upgradePanel;
     [SerializeField] private Button[] upgradeButtons;
     [SerializeField] private TextMeshProUGUI[] upgradeCostTexts;
+    [SerializeField] private TextMeshProUGUI[] upgradeNameTexts;
+    [SerializeField] private UpgradeData[] availableUpgrades;
+
+    [Header("Goal Display")]
+    [SerializeField] private TextMeshProUGUI nextGoalText;
 
     [Header("Progress Indicators")]
     [SerializeField] private Image cornProgressBar;
@@ -53,6 +59,9 @@ public class UIManager : MonoBehaviour
     private int targetEggs = 0;
     private int targetCoins = 0;
 
+    // Track purchased upgrades
+    private bool[] upgradesPurchased;
+
     private void Awake()
     {
         if (Instance == null)
@@ -67,6 +76,9 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
+        // Initialize upgrade tracking
+        upgradesPurchased = new bool[upgradeButtons.Length];
+
         // Subscribe to game events
         if (GameManager.Instance != null)
         {
@@ -81,6 +93,8 @@ public class UIManager : MonoBehaviour
 
         // Initialize displays
         UpdateAllDisplays();
+        UpdateNextGoal();
+        UpdateIncomeRate();
     }
 
     private void OnDestroy()
@@ -261,24 +275,56 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Update upgrade button visuals
+    /// Update upgrade button visuals using UpgradeData or fallback to hardcoded values
     /// </summary>
     private void UpdateUpgradeButtons()
     {
-        int[] upgradeCosts = { 100, 200, 300, 500, 750 };
+        // Fallback costs if no UpgradeData is assigned
+        int[] fallbackCosts = { 100, 200, 300, 500, 750 };
+        string[] fallbackNames = { "Corn+", "Eggs+", "Price+", "Speed+", "Store+" };
 
         for (int i = 0; i < upgradeButtons.Length; i++)
         {
-            if (upgradeButtons[i] != null && i < upgradeCosts.Length)
-            {
-                bool canAfford = GameManager.Instance.CanAfford(upgradeCosts[i]);
-                upgradeButtons[i].interactable = canAfford;
-                UpdateButtonVisual(upgradeButtons[i], canAfford);
+            if (upgradeButtons[i] == null) continue;
 
-                if (i < upgradeCostTexts.Length && upgradeCostTexts[i] != null)
-                {
-                    upgradeCostTexts[i].text = $"{upgradeCosts[i]}";
-                }
+            // Skip if already purchased
+            if (upgradesPurchased != null && i < upgradesPurchased.Length && upgradesPurchased[i])
+            {
+                upgradeButtons[i].interactable = false;
+                UpdateButtonVisual(upgradeButtons[i], false);
+                continue;
+            }
+
+            // Get cost from UpgradeData if available, otherwise use fallback
+            int cost;
+            string upgradeName;
+            
+            if (availableUpgrades != null && i < availableUpgrades.Length && availableUpgrades[i] != null)
+            {
+                cost = availableUpgrades[i].GetCost();
+                upgradeName = availableUpgrades[i].upgradeName;
+            }
+            else
+            {
+                cost = i < fallbackCosts.Length ? fallbackCosts[i] : 100;
+                upgradeName = i < fallbackNames.Length ? fallbackNames[i] : "Upgrade";
+            }
+
+            bool canAfford = GameManager.Instance.CanAfford(cost);
+            upgradeButtons[i].interactable = canAfford;
+            UpdateButtonVisual(upgradeButtons[i], canAfford);
+
+            // Update cost text
+            if (i < upgradeCostTexts.Length && upgradeCostTexts[i] != null)
+            {
+                upgradeCostTexts[i].text = $"💰{cost}";
+                upgradeCostTexts[i].color = canAfford ? Color.white : Color.red;
+            }
+
+            // Update name text if available
+            if (upgradeNameTexts != null && i < upgradeNameTexts.Length && upgradeNameTexts[i] != null)
+            {
+                upgradeNameTexts[i].text = upgradeName;
             }
         }
     }
@@ -389,18 +435,62 @@ public class UIManager : MonoBehaviour
 
     private void OnHireHelperClicked()
     {
-        if (GameManager.Instance.HireHelper())
+        int cost = GameManager.Instance.HelperCost;
+        if (GameManager.Instance.CanAfford(cost))
         {
-            // Play hire animation
-            if (hireHelperButton != null)
+            if (GameManager.Instance.HireHelper())
             {
-                PunchScale(hireHelperButton.GetComponent<RectTransform>());
+                // Play hire animation
+                if (hireHelperButton != null)
+                {
+                    PunchScale(hireHelperButton.GetComponent<RectTransform>());
+                }
+                UpdateNextGoal();
+                UpdateIncomeRate();
             }
+        }
+        else
+        {
+            // Show error feedback
+            int shortfall = cost - GameManager.Instance.Coins;
+            ShowCannotAfford(shortfall);
         }
     }
 
     private void OnUpgradeClicked(int upgradeIndex)
     {
+        // Use UpgradeData if available
+        if (availableUpgrades != null && upgradeIndex < availableUpgrades.Length && availableUpgrades[upgradeIndex] != null)
+        {
+            UpgradeData upgrade = availableUpgrades[upgradeIndex];
+            if (upgrade.Purchase())
+            {
+                // Mark as purchased
+                if (upgradesPurchased != null && upgradeIndex < upgradesPurchased.Length)
+                {
+                    upgradesPurchased[upgradeIndex] = true;
+                }
+
+                // Visual feedback
+                if (upgradeIndex < upgradeButtons.Length && upgradeButtons[upgradeIndex] != null)
+                {
+                    upgradeButtons[upgradeIndex].interactable = false;
+                    PunchScale(upgradeButtons[upgradeIndex].GetComponent<RectTransform>());
+                }
+
+                ShowUpgradeNotification($"{upgrade.upgradeName} upgraded!");
+                UpdateNextGoal();
+                UpdateIncomeRate();
+            }
+            else
+            {
+                int shortfall = upgrade.GetCost() - GameManager.Instance.Coins;
+                ShowCannotAfford(shortfall);
+            }
+            return;
+        }
+
+        // Fallback to hardcoded upgrades
         int[] upgradeCosts = { 100, 200, 300, 500, 750 };
         UpgradeType[] upgradeTypes = {
             UpgradeType.CornField,
@@ -416,6 +506,12 @@ public class UIManager : MonoBehaviour
             {
                 GameManager.Instance.ApplyUpgrade(upgradeTypes[upgradeIndex], 1.2f);
 
+                // Mark as purchased
+                if (upgradesPurchased != null && upgradeIndex < upgradesPurchased.Length)
+                {
+                    upgradesPurchased[upgradeIndex] = true;
+                }
+
                 // Disable the button after purchase
                 if (upgradeIndex < upgradeButtons.Length && upgradeButtons[upgradeIndex] != null)
                 {
@@ -424,8 +520,131 @@ public class UIManager : MonoBehaviour
                 }
 
                 ShowUpgradeNotification($"Upgrade purchased!");
+                UpdateNextGoal();
+                UpdateIncomeRate();
+            }
+            else
+            {
+                int shortfall = upgradeCosts[upgradeIndex] - GameManager.Instance.Coins;
+                ShowCannotAfford(shortfall);
             }
         }
+    }
+
+    /// <summary>
+    /// Show cannot afford error feedback
+    /// </summary>
+    private void ShowCannotAfford(int coinsNeeded)
+    {
+        AudioManager.Instance?.PlaySound("error");
+        ShowNotification($"Need {coinsNeeded} more coins!", Color.red);
+        
+        // Shake the coins icon
+        if (coinsIcon != null)
+        {
+            StartCoroutine(ShakeCoroutine(coinsIcon));
+        }
+    }
+
+    /// <summary>
+    /// Update the next goal display
+    /// </summary>
+    private void UpdateNextGoal()
+    {
+        if (nextGoalText == null || GameManager.Instance == null) return;
+
+        int coins = GameManager.Instance.Coins;
+        int helperCost = GameManager.Instance.HelperCost;
+
+        if (coins < helperCost)
+        {
+            int needed = helperCost - coins;
+            nextGoalText.text = $"🎯 Save {needed} more coins to hire a helper!";
+        }
+        else
+        {
+            // Check for affordable upgrades
+            bool hasAffordableUpgrade = false;
+            string upgradeGoal = "";
+
+            if (availableUpgrades != null)
+            {
+                for (int i = 0; i < availableUpgrades.Length; i++)
+                {
+                    if (availableUpgrades[i] != null && 
+                        (upgradesPurchased == null || i >= upgradesPurchased.Length || !upgradesPurchased[i]))
+                    {
+                        if (!availableUpgrades[i].CanPurchase())
+                        {
+                            int needed = availableUpgrades[i].GetCost() - coins;
+                            upgradeGoal = $"🎯 {needed} more for {availableUpgrades[i].upgradeName}!";
+                            break;
+                        }
+                        else
+                        {
+                            hasAffordableUpgrade = true;
+                        }
+                    }
+                }
+            }
+
+            if (hasAffordableUpgrade)
+            {
+                nextGoalText.text = "✨ You can afford an upgrade!";
+            }
+            else if (!string.IsNullOrEmpty(upgradeGoal))
+            {
+                nextGoalText.text = upgradeGoal;
+            }
+            else
+            {
+                nextGoalText.text = "👷 Hire more helpers to grow faster!";
+            }
+        }
+    }
+
+    /// <summary>
+    /// Update income rate display
+    /// </summary>
+    private void UpdateIncomeRate()
+    {
+        if (incomeRateText == null || GameManager.Instance == null) return;
+
+        int helpers = GameManager.Instance.HelperCount;
+        if (helpers <= 0)
+        {
+            incomeRateText.text = "Manual play";
+            return;
+        }
+
+        // Calculate approximate income
+        // Each helper completes a loop in ~7-8 seconds, selling an egg for EggSellPrice
+        float loopTime = 7.5f / GameManager.Instance.SpeedMultiplier;
+        float incomePerSecond = helpers * GameManager.Instance.EggSellPrice / loopTime;
+
+        incomeRateText.text = $"+{incomePerSecond:F1} 💰/sec";
+    }
+
+    /// <summary>
+    /// Shake coroutine for error feedback
+    /// </summary>
+    private IEnumerator ShakeCoroutine(RectTransform target)
+    {
+        Vector2 originalPos = target.anchoredPosition;
+        float duration = 0.3f;
+        float intensity = 5f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float remaining = 1f - (elapsed / duration);
+            float x = Random.Range(-intensity, intensity) * remaining;
+            target.anchoredPosition = originalPos + new Vector2(x, 0);
+            yield return null;
+        }
+
+        target.anchoredPosition = originalPos;
     }
 
     /// <summary>
@@ -471,10 +690,18 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void ShowUpgradeNotification(string message)
     {
-        StartCoroutine(ShowNotification(message));
+        StartCoroutine(ShowNotificationCoroutine(message, new Color(1f, 0.9f, 0.3f)));
     }
 
-    private IEnumerator ShowNotification(string message)
+    /// <summary>
+    /// Show a notification with custom color
+    /// </summary>
+    public void ShowNotification(string message, Color color)
+    {
+        StartCoroutine(ShowNotificationCoroutine(message, color));
+    }
+
+    private IEnumerator ShowNotificationCoroutine(string message, Color color)
     {
         // Create notification text
         GameObject notificationObj = new GameObject("Notification");
@@ -484,7 +711,7 @@ public class UIManager : MonoBehaviour
         text.text = message;
         text.fontSize = 24;
         text.alignment = TextAlignmentOptions.Center;
-        text.color = new Color(1f, 0.9f, 0.3f);
+        text.color = color;
 
         RectTransform rt = notificationObj.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
