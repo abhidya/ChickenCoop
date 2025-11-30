@@ -399,3 +399,4 @@ PlayerSettings:
     Others: 1
   bundleIdentifier: com.ChickenCoopGames.ChickenCoop
   scriptingBackend: 1
+  activeInputHandler: 0
