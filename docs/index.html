@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Chicken Coop - Cute Idle Farming Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #90c471 0%, #f5e6c8 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #unity-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #unity-canvas {
+            width: 100%;
+            height: 100%;
+            max-width: 1280px;
+            max-height: 720px;
+            background: #f5e6c8;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        
+        #unity-loading-bar {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        #unity-logo {
+            font-size: 48px;
+            animation: bounce 1s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        #unity-progress-bar-empty {
+            width: 200px;
+            height: 20px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #unity-progress-bar-full {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ffb347, #ffcc33);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        #unity-loading-text {
+            color: #5a4a3a;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        #unity-fullscreen-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        #unity-fullscreen-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+        
+        @media (max-width: 768px) {
+            #unity-canvas {
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="unity-container">
+        <canvas id="unity-canvas" tabindex="-1"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo">🐔</div>
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <div id="unity-loading-text">Loading Chicken Coop...</div>
+        </div>
+        <button id="unity-fullscreen-button">⛶</button>
+    </div>
+    
+    <script>
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+        var loadingText = document.querySelector("#unity-loading-text");
+        var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+
+        var buildUrl = "Build";
+        var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+        var config = {
+            dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+            frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+            codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "{{{ COMPANY_NAME }}}",
+            productName: "{{{ PRODUCT_NAME }}}",
+            productVersion: "{{{ PRODUCT_VERSION }}}",
+        };
+
+        // Mobile device detection and canvas sizing
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+            container.className = "unity-mobile";
+            canvas.className = "unity-mobile";
+        }
+
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                progressBarFull.style.width = 100 * progress + "%";
+                if (progress < 0.3) {
+                    loadingText.textContent = "Loading assets...";
+                } else if (progress < 0.7) {
+                    loadingText.textContent = "Preparing the farm...";
+                } else {
+                    loadingText.textContent = "Almost ready!";
+                }
+            }).then((unityInstance) => {
+                loadingBar.classList.add("hidden");
+                fullscreenButton.onclick = () => {
+                    unityInstance.SetFullscreen(1);
+                };
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>
