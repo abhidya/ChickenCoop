@@ -10,6 +10,21 @@ A cute, animated idle-farming game built with Unity 2D. Harvest corn, feed chick
 
 Play the game directly in your browser once built to WebGL!
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the [Documentation](./Documentation/) folder:
+
+| Document | Description |
+|----------|-------------|
+| [📖 INDEX](./Documentation/INDEX.md) | Documentation overview and architecture |
+| [🎬 GAME_STORY](./Documentation/GAME_STORY.md) | The game narrative as a movie script |
+| [🌾 FARM_SYSTEMS](./Documentation/FARM_SYSTEMS.md) | Core farming mechanics documentation |
+| [🔧 HELPER_CLASSES](./Documentation/HELPER_CLASSES.md) | Utility classes and helpers |
+| [📈 UPGRADE_SYSTEM](./Documentation/UPGRADE_SYSTEM.md) | Economy balance and progression |
+| [🔍 MISSING_FEATURES](./Documentation/MISSING_FEATURES.md) | Gap analysis and improvements |
+| [🎨 FREE_ASSETS](./Documentation/FREE_ASSETS.md) | Recommended free assets |
+| [💡 GAME_IDEAS](./Documentation/GAME_IDEAS.md) | Future feature ideas |
+
 ## 🌟 Features
 
 ### Core Gameplay
@@ -134,10 +149,17 @@ This project is open source and available under the MIT License.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to:
+Contributions are welcome! Please review the [Documentation](./Documentation/) before contributing:
+
+1. Read [MISSING_FEATURES.md](./Documentation/MISSING_FEATURES.md) for known gaps
+2. Check [GAME_IDEAS.md](./Documentation/GAME_IDEAS.md) for planned features
+3. Review [FREE_ASSETS.md](./Documentation/FREE_ASSETS.md) for asset guidelines
+
+Ways to contribute:
 - Report bugs
 - Suggest features
 - Submit pull requests
+- Improve documentation
 
 ## 🙏 Credits
 
