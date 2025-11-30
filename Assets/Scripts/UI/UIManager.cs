@@ -368,6 +368,8 @@ public class UIManager : MonoBehaviour
 
     private void OnCollectClicked()
     {
+        // Note: FindObjectsOfType is acceptable here as this is a simple idle game
+        // with typically very few eggs in the scene at once
         CollectibleEgg[] eggs = FindObjectsOfType<CollectibleEgg>();
         foreach (var egg in eggs)
         {

@@ -33,6 +33,9 @@ public class AudioManager : MonoBehaviour
     // Dictionary for quick sound lookup
     private Dictionary<string, AudioClip> soundClips;
 
+    // Cache for procedural sounds to avoid repeated allocations
+    private Dictionary<string, AudioClip> proceduralSoundCache;
+
     private void Awake()
     {
         if (Instance == null)
@@ -180,9 +183,23 @@ public class AudioManager : MonoBehaviour
     /// <summary>
     /// Generate and play a procedural sound effect when no audio clip is available
     /// This provides audio feedback even without actual sound files
+    /// Sounds are cached after first creation to avoid repeated allocations
     /// </summary>
     private void PlayProceduralSound(string soundType)
     {
+        // Initialize cache if needed
+        if (proceduralSoundCache == null)
+        {
+            proceduralSoundCache = new Dictionary<string, AudioClip>();
+        }
+
+        // Check if we already have this sound cached
+        if (proceduralSoundCache.TryGetValue(soundType, out AudioClip cachedClip))
+        {
+            sfxSource.PlayOneShot(cachedClip, sfxVolume);
+            return;
+        }
+
         // Create a simple procedural sound
         int sampleRate = 44100;
         int sampleLength = sampleRate / 10; // 0.1 seconds
@@ -232,6 +249,10 @@ public class AudioManager : MonoBehaviour
         }
 
         clip.SetData(samples, 0);
+
+        // Cache the generated clip for future use
+        proceduralSoundCache[soundType] = clip;
+
         sfxSource.PlayOneShot(clip, sfxVolume);
     }
 
