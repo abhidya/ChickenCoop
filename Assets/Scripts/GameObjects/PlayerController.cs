@@ -9,7 +9,6 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float tweenDuration = 0.5f;
 
     [Header("Animation Settings")]
     [SerializeField] private float bobAmount = 0.1f;

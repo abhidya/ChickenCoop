@@ -396,7 +396,7 @@ public class UIManager : MonoBehaviour
     // Button click handlers
     private void OnHarvestClicked()
     {
-        HarvestableField field = FindObjectOfType<HarvestableField>();
+        HarvestableField field = FindAnyObjectByType<HarvestableField>();
         if (field != null)
         {
             field.Harvest();
@@ -405,7 +405,7 @@ public class UIManager : MonoBehaviour
 
     private void OnFeedClicked()
     {
-        Chicken chicken = FindObjectOfType<Chicken>();
+        Chicken chicken = FindAnyObjectByType<Chicken>();
         if (chicken != null && chicken.CanInteract())
         {
             chicken.Feed();
@@ -414,9 +414,9 @@ public class UIManager : MonoBehaviour
 
     private void OnCollectClicked()
     {
-        // Note: FindObjectsOfType is acceptable here as this is a simple idle game
+        // Note: FindObjectsByType is used here as this is a simple idle game
         // with typically very few eggs in the scene at once
-        CollectibleEgg[] eggs = FindObjectsOfType<CollectibleEgg>();
+        CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
         foreach (var egg in eggs)
         {
             egg.Interact();
@@ -426,7 +426,7 @@ public class UIManager : MonoBehaviour
 
     private void OnSellClicked()
     {
-        StoreCounter store = FindObjectOfType<StoreCounter>();
+        StoreCounter store = FindAnyObjectByType<StoreCounter>();
         if (store != null && store.CanInteract())
         {
             store.SellEgg();
