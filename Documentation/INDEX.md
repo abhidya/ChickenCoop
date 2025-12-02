@@ -20,6 +20,10 @@ Welcome to the Chicken Coop game documentation! This folder contains comprehensi
 | Document | Description |
 |----------|-------------|
 | [DEPLOYMENT_FIX.md](./DEPLOYMENT_FIX.md) | **CRITICAL** - Fixes for missing scripts and WebGL deployment issues |
+| [SCENE_CLEANUP_GUIDE.md](./SCENE_CLEANUP_GUIDE.md) | **NEW** - Step-by-step guide to fix scene issues in Unity Editor |
+| [CODE_SAMPLES.md](./CODE_SAMPLES.md) | **NEW** - Code patterns, singleton usage, and best practices |
+| [PREFAB_SPECIFICATIONS.md](./PREFAB_SPECIFICATIONS.md) | **NEW** - Prefab structure and component requirements |
+| [SPRITE_SPECIFICATIONS.md](./SPRITE_SPECIFICATIONS.md) | **NEW** - Complete sprite asset specifications |
 | [UI_SETUP.md](./UI_SETUP.md) | Guide to creating and configuring the game UI in Unity |
 | [MISSING_FEATURES.md](./MISSING_FEATURES.md) | Gap analysis and recommended improvements |
 | [FREE_ASSETS.md](./FREE_ASSETS.md) | Free asset recommendations to replace placeholders |
@@ -31,11 +35,13 @@ Welcome to the Chicken Coop game documentation! This folder contains comprehensi
 
 ### For New Developers
 
-1. **START HERE**: Read [DEPLOYMENT_FIX.md](./DEPLOYMENT_FIX.md) - fixes critical issues!
-2. Set up UI: [UI_SETUP.md](./UI_SETUP.md) - create missing UI elements
-3. Understand gameplay: [GAME_STORY.md](./GAME_STORY.md) to understand the player experience
-4. Learn mechanics: [FARM_SYSTEMS.md](./FARM_SYSTEMS.md) to understand core mechanics
-5. Review utilities: [HELPER_CLASSES.md](./HELPER_CLASSES.md) for utility functions
+1. **START HERE**: Read [../UNITY_EDITOR_TASKS.md](../UNITY_EDITOR_TASKS.md) - Complete checklist for fixing issues!
+2. **Fix Scene Issues**: Follow [SCENE_CLEANUP_GUIDE.md](./SCENE_CLEANUP_GUIDE.md)
+3. **Learn Code Patterns**: Review [CODE_SAMPLES.md](./CODE_SAMPLES.md)
+4. Set up UI: [UI_SETUP.md](./UI_SETUP.md) - create missing UI elements
+5. Understand gameplay: [GAME_STORY.md](./GAME_STORY.md) to understand the player experience
+6. Learn mechanics: [FARM_SYSTEMS.md](./FARM_SYSTEMS.md) to understand core mechanics
+7. Review utilities: [HELPER_CLASSES.md](./HELPER_CLASSES.md) for utility functions
 
 ### For Designers
 
@@ -45,8 +51,10 @@ Welcome to the Chicken Coop game documentation! This folder contains comprehensi
 
 ### For Artists
 
-1. See [FREE_ASSETS.md](./FREE_ASSETS.md) for asset requirements
-2. Review sprite specifications in [FARM_SYSTEMS.md](./FARM_SYSTEMS.md)
+1. **Sprite Requirements**: [SPRITE_SPECIFICATIONS.md](./SPRITE_SPECIFICATIONS.md) - Complete sprite specs
+2. **Import Guide**: [../Assets/Sprites/README.md](../Assets/Sprites/README.md) - Unity import settings
+3. See [FREE_ASSETS.md](./FREE_ASSETS.md) for free asset resources
+4. Review visual style in [GAME_STORY.md](./GAME_STORY.md)
 
 ---
 
