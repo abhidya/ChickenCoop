@@ -4,14 +4,32 @@ This directory contains all visual assets for Chicken Coop.
 
 ## Current Status
 
-✅ **Placeholder sprites have been generated**
-- Simple colored geometric shapes
-- Functional for development and testing
-- Located in `Sprites/` subdirectories
+✅ **Visual GameObjects system ready**
+- GameObjects can be created with colored sprite placeholders
+- Each has a SpriteRenderer component ready for sprites
+- Use Editor menu: **Tools > Game Objects > Create All Visuals**
 
 ⚠️ **Production art needed**
-- Replace placeholders with Kenney assets (recommended)
-- See `Licenses/ASSET_CREDITS.md` for sources
+- Add sprite files to this directory
+- Assign sprites to GameObject SpriteRenderers
+- See `Licenses/ASSET_CREDITS.md` for free asset sources
+
+## Quick Start
+
+### Creating Visual GameObjects
+
+1. Open Unity Editor
+2. Go to **Tools > Game Objects > Create All Visuals**
+3. GameObjects will be created with colored placeholders
+4. Replace sprites in Inspector when you have proper art
+
+### Replacing Placeholder Sprites
+
+1. Add your sprite PNG files to `Assets/Art/Sprites/`
+2. Select GameObject in Hierarchy (e.g., "Player")
+3. In Inspector, find **Sprite Renderer** component
+4. Drag your sprite into the **Sprite** field
+5. Done! The colored circle is now replaced with your art
 
 ## Directory Structure
 
@@ -27,13 +45,14 @@ Art/
 └── README.md           # This file
 ```
 
-## How to Generate Placeholder Sprites
+## How to Create Visual GameObjects
 
-If sprites are missing, use the Unity Editor tool:
+If game objects are missing:
 
 1. Open Unity Editor
-2. Go to menu: **Tools > Create Placeholder Sprites**
-3. Sprites will be generated in `Assets/Art/Sprites/`
+2. Go to menu: **Tools > Game Objects > Create All Visuals**
+3. GameObjects will appear in scene with colored placeholders
+4. Replace the sprites in Inspector when you have real art
 
 ## How to Add Production Art
 
