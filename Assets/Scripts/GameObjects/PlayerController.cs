@@ -259,12 +259,3 @@ public class PlayerController : MonoBehaviour
         transform.localScale = original;
     }
 }
-
-/// <summary>
-/// Interface for interactable objects in the game
-/// </summary>
-public interface IInteractable
-{
-    void Interact();
-    bool CanInteract();
-}
