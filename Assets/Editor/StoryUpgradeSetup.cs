@@ -46,12 +46,8 @@ public class StoryUpgradeSetup : EditorWindow
         config.bobSpeed = 2.0f;
         config.bobAmount = 0.1f;
         
-        // Set colors
-        config.cornColor = new Color(1f, 0.9f, 0.3f);
-        config.eggColor = new Color(1f, 0.98f, 0.9f);
-        config.coinColor = new Color(1f, 0.85f, 0.2f);
-        config.readyColor = new Color(0.5f, 1f, 0.5f);
-        config.cooldownColor = new Color(0.7f, 0.7f, 0.7f);
+        // Set colors using story color palette
+        StoryColorPalette.ApplyToGameConfig(config);
 
         string configPath = soPath + "/GameConfig_Story.asset";
         AssetDatabase.CreateAsset(config, configPath);
@@ -204,6 +200,81 @@ public class StoryUpgradeSetup : EditorWindow
         message += "See ASSET_INTEGRATION_GUIDE.md for full details!";
         
         EditorUtility.DisplayDialog("Asset Locations", message, "OK");
+    }
+
+    [MenuItem("Tools/Story Upgrade/Setup Title Card")]
+    public static void SetupTitleCard()
+    {
+        // Find or create Canvas
+        Canvas canvas = GameObject.FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            EditorUtility.DisplayDialog("Error", 
+                "No Canvas found in scene!\n\n" +
+                "Please create a Canvas first:\n" +
+                "GameObject > UI > Canvas", 
+                "OK");
+            return;
+        }
+
+        // Create Title Card Panel
+        GameObject titlePanel = new GameObject("TitleCardPanel");
+        titlePanel.transform.SetParent(canvas.transform, false);
+        
+        RectTransform panelRect = titlePanel.AddComponent<RectTransform>();
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.sizeDelta = Vector2.zero;
+        
+        CanvasGroup canvasGroup = titlePanel.AddComponent<CanvasGroup>();
+        canvasGroup.alpha = 0f;
+        
+        UnityEngine.UI.Image panelImage = titlePanel.AddComponent<UnityEngine.UI.Image>();
+        panelImage.color = new Color(0, 0, 0, 0.7f);
+        
+        // Create Title Text
+        GameObject titleTextObj = new GameObject("TitleText");
+        titleTextObj.transform.SetParent(titlePanel.transform, false);
+        
+        RectTransform textRect = titleTextObj.AddComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0.5f, 0.5f);
+        textRect.anchorMax = new Vector2(0.5f, 0.5f);
+        textRect.pivot = new Vector2(0.5f, 0.5f);
+        textRect.sizeDelta = new Vector2(800, 200);
+        
+        TMPro.TextMeshProUGUI titleText = titleTextObj.AddComponent<TMPro.TextMeshProUGUI>();
+        titleText.text = "Chicken Coop – Act 1: Dawn on the Farm";
+        titleText.fontSize = 48;
+        titleText.alignment = TMPro.TextAlignmentOptions.Center;
+        titleText.color = Color.white;
+        
+        // Create TitleCardManager GameObject
+        GameObject managerObj = new GameObject("TitleCardManager");
+        TitleCardManager manager = managerObj.AddComponent<TitleCardManager>();
+        
+        // Assign references directly (fields are now public)
+        manager.titleText = titleText;
+        manager.titleCanvasGroup = canvasGroup;
+        manager.titleCardPanel = titlePanel;
+        
+        // Mark as modified
+        UnityEditor.Undo.RegisterCreatedObjectUndo(titlePanel, "Create Title Card");
+        UnityEditor.Undo.RegisterCreatedObjectUndo(managerObj, "Create Title Card Manager");
+        
+        EditorUtility.DisplayDialog("Success", 
+            "Title Card system created!\n\n" +
+            "Components created:\n" +
+            "- TitleCardPanel (in Canvas)\n" +
+            "- TitleCardManager (scene root)\n\n" +
+            "The title card will automatically show:\n" +
+            "- Act 1 on game start\n" +
+            "- Act 2 at 100 coins\n" +
+            "- Act 3 at 600 coins\n" +
+            "- Act 4 with 3+ helpers\n\n" +
+            "You can also trigger manually via code.", 
+            "OK");
+        
+        Selection.activeGameObject = managerObj;
     }
 
     [MenuItem("Tools/Story Upgrade/Validate Scene Setup")]
