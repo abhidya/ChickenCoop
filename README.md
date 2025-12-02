@@ -6,7 +6,25 @@ A cute, animated idle-farming game built with Unity 2D. Harvest corn, feed chick
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Platform](https://img.shields.io/badge/Platform-WebGL-blue)
 
-## 🔧 Important: Recent Fixes Applied
+## ✨ NEW: Story Upgrade Available!
+
+**🎬 Transform your game to match the 4-act cinematic story!**
+
+Complete documentation and tools are now available to upgrade your game with:
+- Full Happy Harvest asset integration
+- 4-act story progression (Dawn → Growth → Prosperity → Mastery)  
+- Proper economy balance (50 coins start, 10/egg, etc.)
+- 5 working upgrades with correct costs
+- Cinematic title cards
+- Pastel color scheme
+
+→ **Quick Start: [QUICK_IMPLEMENTATION_GUIDE.md](./QUICK_IMPLEMENTATION_GUIDE.md)** (30 minutes)
+
+→ **Complete Guide: [STORY_UPGRADE_README.md](./STORY_UPGRADE_README.md)** (1-2 hours)
+
+→ **Asset Catalog: [ASSET_INTEGRATION_GUIDE.md](./Documentation/ASSET_INTEGRATION_GUIDE.md)**
+
+## 🔧 Previous Fixes
 
 **Critical issues have been fixed!** If you previously had problems with:
 - "Missing script" errors when building
@@ -14,8 +32,6 @@ A cute, animated idle-farming game built with Unity 2D. Harvest corn, feed chick
 - No UI visible in the game
 
 → **See [FIXES_APPLIED.md](./FIXES_APPLIED.md)** for what was fixed and next steps.
-
-→ **See [Documentation/UI_SETUP.md](./Documentation/UI_SETUP.md)** to create the game UI.
 
 ## 🎮 Play Online
 
@@ -27,7 +43,13 @@ Comprehensive documentation is available in the [Documentation](./Documentation/
 
 | Document | Description |
 |----------|-------------|
-| [🛠️ FIXES_APPLIED](./FIXES_APPLIED.md) | **START HERE** - Recent critical fixes applied |
+| **Story Upgrade Guides** | |
+| [⚡ QUICK_IMPLEMENTATION_GUIDE](./QUICK_IMPLEMENTATION_GUIDE.md) | **START HERE** - 30-minute setup guide |
+| [📘 STORY_UPGRADE_README](./STORY_UPGRADE_README.md) | Complete story upgrade guide |
+| [🎨 ASSET_INTEGRATION_GUIDE](./Documentation/ASSET_INTEGRATION_GUIDE.md) | Asset catalog and integration steps |
+| [📋 STORY_UPGRADE_REQUIREMENTS](./Documentation/STORY_UPGRADE_REQUIREMENTS.md) | Technical specifications |
+| **Original Documentation** | |
+| [🛠️ FIXES_APPLIED](./FIXES_APPLIED.md) | Recent critical fixes applied |
 | [📖 INDEX](./Documentation/INDEX.md) | Documentation overview and architecture |
 | [🚀 DEPLOYMENT_FIX](./Documentation/DEPLOYMENT_FIX.md) | Deployment and script reference fixes |
 | [🎨 UI_SETUP](./Documentation/UI_SETUP.md) | How to create the game UI in Unity |
