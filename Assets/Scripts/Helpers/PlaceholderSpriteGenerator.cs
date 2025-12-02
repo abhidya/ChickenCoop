@@ -3,6 +3,10 @@ using UnityEngine;
 /// <summary>
 /// Utility class to generate simple placeholder sprites for the game.
 /// This provides basic colored sprites until proper art assets are added.
+/// 
+/// Note: The Texture2D objects created here are used by the Editor tool to generate
+/// PNG files. Once saved to disk, Unity's asset system manages the memory. These methods
+/// are designed for one-time use during asset creation, not runtime generation.
 /// </summary>
 public static class PlaceholderSpriteGenerator
 {
