@@ -6,17 +6,119 @@ This document provides recommendations for free assets to replace placeholder gr
 
 ## Table of Contents
 
-1. [Sprite Assets](#sprite-assets)
-2. [Audio Assets](#audio-assets)
-3. [Font Assets](#font-assets)
-4. [Particle Assets](#particle-assets)
-5. [Asset Integration Guide](#asset-integration-guide)
+1. [Unity Asset Store (Recommended)](#unity-asset-store-recommended)
+2. [2D Sprite Assets](#2d-sprite-assets)
+3. [Audio Assets](#audio-assets)
+4. [Font Assets](#font-assets)
+5. [Particle Assets](#particle-assets)
+6. [Asset Integration Guide](#asset-integration-guide)
 
 ---
 
-## Sprite Assets
+## Unity Asset Store (Recommended)
 
-### Recommended Asset Packs
+### 🌟 TOP PICKS - Unity Asset Store Free Farm Assets
+
+These assets are **highly recommended** as they're proven, tested, and directly compatible with Unity projects:
+
+#### 1. **Low Poly Farm Pack Lite** by JustCreate ⭐ BEST CHOICE
+**Store Link:** https://assetstore.unity.com/packages/3d/environments/industrial/low-poly-farm-pack-lite-188100
+
+**What's Included:**
+- Farm buildings (barn, silo, chicken coop)
+- Crops (corn, wheat, vegetables)
+- Farm animals (chickens, cows, pigs)
+- Farm equipment (tractor, tools)
+- Fences, gates, hay bales
+- Trees, rocks, grass
+
+**Why This Asset:**
+- ✅ **FREE and HIGH QUALITY**
+- ✅ Used by many Unity developers (proven in production)
+- ✅ Low poly style (performs well)
+- ✅ Includes chickens and farm elements we need
+- ✅ MIT or Unity Store Standard License (check license)
+- ✅ Easy to import and use
+
+**Perfect For:**
+- Chicken models
+- Corn field / crops
+- Farm platform/ground
+- Background elements
+- Store counter building
+
+**Note:** This is a **3D asset pack**. For a 2D game, you can either:
+1. Use the 3D models with orthographic camera
+2. Extract sprites by rendering the 3D models
+3. Use as reference for creating 2D sprites
+
+---
+
+#### 2. **Low Poly Food Lite** by JustCreate
+**Store Link:** https://assetstore.unity.com/packages/3d/props/food/low-poly-food-lite-258693
+
+**What's Included:**
+- Corn, eggs, vegetables
+- Food items and ingredients
+- Simple, clean style
+
+**Perfect For:**
+- Egg models
+- Corn item models
+- Store inventory visuals
+
+---
+
+#### 3. **Simple Foods** by BUBBA
+**What's Included:**
+- Stylized food icons
+- Clean, readable designs
+- Good for UI
+
+**Perfect For:**
+- UI icons (corn, egg, coin)
+- Inventory display
+
+---
+
+#### 4. **Free Pixel Food** by HENRY SOFTWARE
+**What's Included:**
+- Pixel art food sprites
+- Corn, eggs, vegetables
+
+**Perfect For:**
+- Retro pixel art style option
+- 2D sprites ready to use
+
+---
+
+#### 5. **Fantasy Wooden GUI : Free** by BLACK HAMMER
+**Store Link:** Search Unity Asset Store
+
+**What's Included:**
+- Wooden UI panels
+- Buttons, frames, borders
+- Fantasy farm aesthetic
+
+**Perfect For:**
+- UI panels and buttons
+- Store interface
+- Upgrade menu
+
+---
+
+### Reference: Proven Games Using These Assets
+
+From GitHub search, these games successfully use similar assets:
+- **2D-Farming-Game** (wkoziel) - Example farming game implementation
+- **CulinaryChaos** (TheLodge) - Uses multiple farm packs
+- **3D-Adventure-Game** (gkyriopoulos) - Uses JustCreate farm assets
+
+---
+
+## 2D Sprite Assets
+
+### Recommended 2D Asset Packs
 
 #### 1. Kenney Assets (CC0 - Public Domain)
 **Website:** https://kenney.nl/assets

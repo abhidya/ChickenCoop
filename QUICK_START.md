@@ -37,6 +37,13 @@ In Unity Editor menu:
    - Ensure only ONE has the tag
    - Set others to "Untagged"
 
+4. **Import Pretty Assets** ⭐ NEW!
+   - `Window > Asset Store`
+   - Search "Low Poly Farm Pack Lite" by JustCreate
+   - Click "Add to My Assets" + "Import"
+   - Get professional chickens, corn, farm buildings - FREE!
+   - See [UNITY_ASSET_STORE_GUIDE.md](./Documentation/UNITY_ASSET_STORE_GUIDE.md)
+
 ### Step 3: Validate (5 min)
 - `Tools > Validate Fix Requirements`
 - Address any failures

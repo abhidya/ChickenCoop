@@ -140,9 +140,41 @@ For each GameObject with a SpriteRenderer:
 - [ ] Remove any missing components
 - [ ] Save prefab
 
-### Phase 8: Create Placeholder Sprites (OPTIONAL) (10 minutes)
+### Phase 8A: Import Unity Asset Store Assets (RECOMMENDED) (15 minutes)
 
-If you want temporary placeholder sprites:
+⭐ **RECOMMENDED**: Use free Unity Asset Store assets for professional quality!
+
+**Import Low Poly Farm Pack Lite** (by JustCreate):
+
+- [ ] Open `Window > Asset Store` OR visit https://assetstore.unity.com/
+- [ ] Search for "Low Poly Farm Pack Lite"
+- [ ] Click "Add to My Assets" (sign in if needed)
+- [ ] Click "Open in Unity" / "Import"
+- [ ] In Package Manager, click "Download" then "Import"
+- [ ] Wait for import to complete (~30 seconds)
+- [ ] Find assets in `Assets/JustCreate/Low Poly Farm Pack Lite/`
+
+**What you get:**
+- ✅ Professional chicken models
+- ✅ Corn and crop models
+- ✅ Farm buildings (barn, store)
+- ✅ Fences, props, decorations
+- ✅ FREE and high quality!
+
+**Replace placeholders with 3D models**:
+- [ ] Set Main Camera to Orthographic (Projection: Orthographic, Size: 8)
+- [ ] Replace Chicken: Drag `Models/Animals/Chicken.fbx` to scene
+- [ ] Replace Corn: Drag `Models/Crops/Corn.fbx` to scene
+- [ ] Add farm building for store
+- [ ] Position models, adjust scale (try 0.5, 0.5, 0.5)
+- [ ] Add Directional Light (GameObject > Light > Directional)
+- [ ] Enable shadows for nice depth
+
+**See full guide**: [UNITY_ASSET_STORE_GUIDE.md](./Documentation/UNITY_ASSET_STORE_GUIDE.md)
+
+### Phase 8B: Create Placeholder Sprites (ALTERNATIVE) (10 minutes)
+
+If you prefer 2D sprites or can't use Asset Store:
 
 - [ ] **Run utility**: `Tools > Create Placeholder Sprites`
 - [ ] Click "Create All Placeholder Sprites"

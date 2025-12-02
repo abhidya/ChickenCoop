@@ -21,12 +21,13 @@ Welcome to the Chicken Coop game documentation! This folder contains comprehensi
 |----------|-------------|
 | [DEPLOYMENT_FIX.md](./DEPLOYMENT_FIX.md) | **CRITICAL** - Fixes for missing scripts and WebGL deployment issues |
 | [SCENE_CLEANUP_GUIDE.md](./SCENE_CLEANUP_GUIDE.md) | **NEW** - Step-by-step guide to fix scene issues in Unity Editor |
+| [UNITY_ASSET_STORE_GUIDE.md](./UNITY_ASSET_STORE_GUIDE.md) | ⭐ **NEW** - Import FREE Unity Asset Store assets to make game prettier! |
 | [CODE_SAMPLES.md](./CODE_SAMPLES.md) | **NEW** - Code patterns, singleton usage, and best practices |
 | [PREFAB_SPECIFICATIONS.md](./PREFAB_SPECIFICATIONS.md) | **NEW** - Prefab structure and component requirements |
 | [SPRITE_SPECIFICATIONS.md](./SPRITE_SPECIFICATIONS.md) | **NEW** - Complete sprite asset specifications |
 | [UI_SETUP.md](./UI_SETUP.md) | Guide to creating and configuring the game UI in Unity |
 | [MISSING_FEATURES.md](./MISSING_FEATURES.md) | Gap analysis and recommended improvements |
-| [FREE_ASSETS.md](./FREE_ASSETS.md) | Free asset recommendations to replace placeholders |
+| [FREE_ASSETS.md](./FREE_ASSETS.md) | Free asset recommendations (2D sprites, Asset Store, etc.) |
 | [GAME_IDEAS.md](./GAME_IDEAS.md) | Future feature ideas and expansion concepts |
 
 ---

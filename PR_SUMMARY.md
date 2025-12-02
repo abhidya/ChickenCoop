@@ -55,7 +55,13 @@ This PR provides **comprehensive tools and documentation** to fix the critical i
    - Component configuration details
    - Best practices and testing
 
-6. **Assets/Sprites/README.md** - Sprite asset guide
+6. **Documentation/UNITY_ASSET_STORE_GUIDE.md** ⭐ NEW! - Unity Asset Store integration
+   - How to import "Low Poly Farm Pack Lite" (FREE!)
+   - Step-by-step asset import guide
+   - Replace placeholders with professional 3D models
+   - Lighting and visual polish tips
+
+7. **Assets/Sprites/README.md** - Sprite asset guide
    - Import settings
    - Color palette
    - File naming conventions
