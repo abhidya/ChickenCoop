@@ -6,6 +6,17 @@ A cute, animated idle-farming game built with Unity 2D. Harvest corn, feed chick
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Platform](https://img.shields.io/badge/Platform-WebGL-blue)
 
+## 🔧 Important: Recent Fixes Applied
+
+**Critical issues have been fixed!** If you previously had problems with:
+- "Missing script" errors when building
+- WebGL builds not loading (gzip compression errors)
+- No UI visible in the game
+
+→ **See [FIXES_APPLIED.md](./FIXES_APPLIED.md)** for what was fixed and next steps.
+
+→ **See [Documentation/UI_SETUP.md](./Documentation/UI_SETUP.md)** to create the game UI.
+
 ## 🎮 Play Online
 
 Play the game directly in your browser once built to WebGL!
@@ -16,7 +27,10 @@ Comprehensive documentation is available in the [Documentation](./Documentation/
 
 | Document | Description |
 |----------|-------------|
+| [🛠️ FIXES_APPLIED](./FIXES_APPLIED.md) | **START HERE** - Recent critical fixes applied |
 | [📖 INDEX](./Documentation/INDEX.md) | Documentation overview and architecture |
+| [🚀 DEPLOYMENT_FIX](./Documentation/DEPLOYMENT_FIX.md) | Deployment and script reference fixes |
+| [🎨 UI_SETUP](./Documentation/UI_SETUP.md) | How to create the game UI in Unity |
 | [🎬 GAME_STORY](./Documentation/GAME_STORY.md) | The game narrative as a movie script |
 | [🌾 FARM_SYSTEMS](./Documentation/FARM_SYSTEMS.md) | Core farming mechanics documentation |
 | [🔧 HELPER_CLASSES](./Documentation/HELPER_CLASSES.md) | Utility classes and helpers |
