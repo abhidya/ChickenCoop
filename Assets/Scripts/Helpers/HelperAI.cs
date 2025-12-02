@@ -35,7 +35,9 @@ public class HelperAI : MonoBehaviour
     [SerializeField] private SpriteRenderer spriteRenderer;
 
     // State machine
+    #pragma warning disable CS0414 // Field is assigned but never read - used for debugging state transitions
     private HelperState currentState = HelperState.Idle;
+    #pragma warning restore CS0414
     private Vector3 targetPosition;
     private bool isMoving = false;
 
@@ -148,7 +150,7 @@ public class HelperAI : MonoBehaviour
             yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
 
             // Trigger chicken feeding (if chicken script exists)
-            Chicken chicken = FindObjectOfType<Chicken>();
+            Chicken chicken = FindAnyObjectByType<Chicken>();
             if (chicken != null)
             {
                 chicken.Feed();

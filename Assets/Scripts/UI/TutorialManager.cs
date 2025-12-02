@@ -60,7 +60,6 @@ public class TutorialManager : MonoBehaviour
     // Track actions for step completion
     private int cornHarvestedDuringTutorial = 0;
     private int eggsCollectedDuringTutorial = 0;
-    private int eggsSoldDuringTutorial = 0;
 
     private void Awake()
     {
@@ -402,6 +401,5 @@ public class TutorialManager : MonoBehaviour
         
         cornHarvestedDuringTutorial = 0;
         eggsCollectedDuringTutorial = 0;
-        eggsSoldDuringTutorial = 0;
     }
 }

@@ -9,7 +9,6 @@ public class EnvironmentAnimator : MonoBehaviour
     [Header("Sway Settings")]
     [SerializeField] private float swayAmount = 5f;
     [SerializeField] private float swaySpeed = 1f;
-    [SerializeField] private float randomOffset = 1f;
 
     [Header("References")]
     [SerializeField] private Transform[] swayingObjects;

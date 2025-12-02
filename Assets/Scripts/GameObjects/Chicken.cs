@@ -10,7 +10,6 @@ public class Chicken : MonoBehaviour, IInteractable
 {
     [Header("Production Settings")]
     [SerializeField] private int cornRequired = 1;
-    [SerializeField] private float eggLayDelay = 1.5f;
 
     [Header("Animation Settings")]
     [SerializeField] private float blinkInterval = 3f;
@@ -26,7 +25,6 @@ public class Chicken : MonoBehaviour, IInteractable
     [SerializeField] private GameObject eggPrefab;
 
     // State
-    private bool isFed = false;
     private bool isLayingEgg = false;
     private float blinkTimer = 0f;
     private float wiggleTimer = 0f;
