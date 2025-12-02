@@ -3,13 +3,7 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags:
-  - Corn
-  - Chicken
-  - Egg
-  - Store
-  - Helper
-  - Player
+  tags: []
   layers:
   - Default
   - TransparentFX
@@ -17,12 +11,9 @@ TagManager:
   - 
   - Water
   - UI
-  - 
-  - 
-  - Farm
-  - Characters
-  - Interactables
-  - 
+  - character
+  - interactable
+  - bottom
   - 
   - 
   - 
@@ -43,22 +34,22 @@ TagManager:
   - 
   - 
   - 
+  - 
+  - 
+  - InteractiveObject
   m_SortingLayers:
+  - name: Bottom
+    uniqueID: 1161173501
+    locked: 0
   - name: Default
     uniqueID: 0
     locked: 0
-  - name: Background
-    uniqueID: 1
+  - name: Objects
+    uniqueID: 1471039481
     locked: 0
-  - name: Ground
-    uniqueID: 2
-    locked: 0
-  - name: Characters
-    uniqueID: 3
+  - name: ObjectsFront
+    uniqueID: 3561676937
     locked: 0
   - name: Foreground
-    uniqueID: 4
-    locked: 0
-  - name: UI
-    uniqueID: 5
+    uniqueID: 1304480043
     locked: 0
