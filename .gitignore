@@ -10,13 +10,14 @@
 # MemoryCaptures can get excessive
 [Mm]emoryCaptures/
 
-# Asset meta data
+# Asset meta data (but NOT .cs.meta - those are needed!)
 *.pidb.meta
 *.pdb.meta
 *.mdb.meta
 
 # Unity3D specific files
-*.cs.meta
+# NOTE: *.cs.meta files MUST be tracked for Unity to maintain script GUIDs!
+# Excluding them causes "missing script" errors in scenes and prefabs.
 *.unityproj
 *.sln
 *.suo

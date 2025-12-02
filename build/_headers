@@ -1,0 +1,25 @@
+# GitHub Pages headers configuration for Unity WebGL builds
+# This fixes the "Content-Encoding: gzip" header issue
+
+/Build/*.gz
+  Content-Encoding: gzip
+  Cache-Control: max-age=31536000
+
+/Build/*.data.gz
+  Content-Type: application/octet-stream
+  Content-Encoding: gzip
+  Cache-Control: max-age=31536000
+
+/Build/*.wasm.gz
+  Content-Type: application/wasm
+  Content-Encoding: gzip
+  Cache-Control: max-age=31536000
+
+/Build/*.framework.js.gz
+  Content-Type: application/javascript
+  Content-Encoding: gzip
+  Cache-Control: max-age=31536000
+
+/Build/*.js
+  Content-Type: application/javascript
+  Cache-Control: max-age=31536000
