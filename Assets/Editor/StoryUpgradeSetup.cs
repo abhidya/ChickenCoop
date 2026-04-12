@@ -205,193 +205,21 @@ public class StoryUpgradeSetup : EditorWindow
     [MenuItem("Tools/Story Upgrade/Setup Title Card")]
     public static void SetupTitleCard()
     {
-        // Find or create Canvas
-        Canvas canvas = GameObject.FindAnyObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            EditorUtility.DisplayDialog("Error", 
-                "No Canvas found in scene!\n\n" +
-                "Please create a Canvas first:\n" +
-                "GameObject > UI > Canvas", 
-                "OK");
-            return;
-        }
+        string summary = StoryUpgradeSceneWiringUtility.AutoWireTitleCardOnly();
+        EditorUtility.DisplayDialog("Title Card Setup", summary, "OK");
+    }
 
-        // Create Title Card Panel
-        GameObject titlePanel = new GameObject("TitleCardPanel");
-        titlePanel.transform.SetParent(canvas.transform, false);
-        
-        RectTransform panelRect = titlePanel.AddComponent<RectTransform>();
-        panelRect.anchorMin = Vector2.zero;
-        panelRect.anchorMax = Vector2.one;
-        panelRect.sizeDelta = Vector2.zero;
-        
-        CanvasGroup canvasGroup = titlePanel.AddComponent<CanvasGroup>();
-        canvasGroup.alpha = 0f;
-        
-        UnityEngine.UI.Image panelImage = titlePanel.AddComponent<UnityEngine.UI.Image>();
-        panelImage.color = new Color(0, 0, 0, 0.7f);
-        
-        // Create Title Text
-        GameObject titleTextObj = new GameObject("TitleText");
-        titleTextObj.transform.SetParent(titlePanel.transform, false);
-        
-        RectTransform textRect = titleTextObj.AddComponent<RectTransform>();
-        textRect.anchorMin = new Vector2(0.5f, 0.5f);
-        textRect.anchorMax = new Vector2(0.5f, 0.5f);
-        textRect.pivot = new Vector2(0.5f, 0.5f);
-        textRect.sizeDelta = new Vector2(800, 200);
-        
-        TMPro.TextMeshProUGUI titleText = titleTextObj.AddComponent<TMPro.TextMeshProUGUI>();
-        titleText.text = "Chicken Coop – Act 1: Dawn on the Farm";
-        titleText.fontSize = 48;
-        titleText.alignment = TMPro.TextAlignmentOptions.Center;
-        titleText.color = Color.white;
-        
-        // Create TitleCardManager GameObject
-        GameObject managerObj = new GameObject("TitleCardManager");
-        TitleCardManager manager = managerObj.AddComponent<TitleCardManager>();
-        
-        // Assign references directly (fields are now public)
-        manager.titleText = titleText;
-        manager.titleCanvasGroup = canvasGroup;
-        manager.titleCardPanel = titlePanel;
-        
-        // Mark as modified
-        UnityEditor.Undo.RegisterCreatedObjectUndo(titlePanel, "Create Title Card");
-        UnityEditor.Undo.RegisterCreatedObjectUndo(managerObj, "Create Title Card Manager");
-        
-        EditorUtility.DisplayDialog("Success", 
-            "Title Card system created!\n\n" +
-            "Components created:\n" +
-            "- TitleCardPanel (in Canvas)\n" +
-            "- TitleCardManager (scene root)\n\n" +
-            "The title card will automatically show:\n" +
-            "- Act 1 on game start\n" +
-            "- Act 2 at 100 coins\n" +
-            "- Act 3 at 600 coins\n" +
-            "- Act 4 with 3+ helpers\n\n" +
-            "You can also trigger manually via code.", 
-            "OK");
-        
-        Selection.activeGameObject = managerObj;
+    [MenuItem("Tools/Story Upgrade/Auto Wire UI + Title Card")]
+    public static void AutoWireUIAndTitleCard()
+    {
+        string summary = StoryUpgradeSceneWiringUtility.AutoWireStoryScene();
+        EditorUtility.DisplayDialog("Story Upgrade Auto-Wire", summary, "OK");
     }
 
     [MenuItem("Tools/Story Upgrade/Validate Scene Setup")]
     public static void ValidateSceneSetup()
     {
-        string report = "Scene Validation Report:\n\n";
-        bool hasIssues = false;
-
-        // Check for GameManager
-        GameManager gm = GameObject.FindAnyObjectByType<GameManager>();
-        if (gm == null)
-        {
-            report += "❌ GameManager not found in scene!\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ GameManager found\n";
-            if (gm.Config == null)
-            {
-                report += "  ⚠️ GameConfig not assigned\n";
-                hasIssues = true;
-            }
-            else
-            {
-                report += "  ✓ GameConfig assigned\n";
-            }
-        }
-
-        // Check for UIManager
-        UIManager ui = GameObject.FindAnyObjectByType<UIManager>();
-        if (ui == null)
-        {
-            report += "❌ UIManager not found in scene!\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ UIManager found\n";
-        }
-
-        // Check for Canvas
-        Canvas canvas = GameObject.FindAnyObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            report += "❌ Canvas not found in scene!\n";
-            report += "  → Create one: GameObject > UI > Canvas\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ Canvas found\n";
-        }
-
-        // Check for EventSystem
-        UnityEngine.EventSystems.EventSystem es = GameObject.FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>();
-        if (es == null)
-        {
-            report += "❌ EventSystem not found!\n";
-            report += "  → Create one: GameObject > UI > Event System\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ EventSystem found\n";
-        }
-
-        // Check for main game objects
-        GameObject chicken = GameObject.Find("Chicken");
-        GameObject cornField = GameObject.Find("CornField");
-        GameObject store = GameObject.Find("Store");
-
-        if (chicken == null)
-        {
-            report += "⚠️ Chicken GameObject not found\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ Chicken found\n";
-        }
-
-        if (cornField == null)
-        {
-            report += "⚠️ CornField GameObject not found\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ CornField found\n";
-        }
-
-        if (store == null)
-        {
-            report += "⚠️ Store GameObject not found\n";
-            hasIssues = true;
-        }
-        else
-        {
-            report += "✓ Store found\n";
-        }
-
-        if (!hasIssues)
-        {
-            report += "\n✅ Scene setup looks good!\n";
-            report += "\nNext steps:\n";
-            report += "1. Assign GameConfig to GameManager\n";
-            report += "2. Wire UI elements to UIManager\n";
-            report += "3. Replace placeholder sprites\n";
-            report += "4. Add particle effects\n";
-        }
-        else
-        {
-            report += "\n⚠️ Scene needs setup work\n";
-            report += "\nRefer to UI_SETUP.md for instructions!";
-        }
-
+        string report = StoryUpgradeSceneWiringUtility.BuildValidationReport();
         EditorUtility.DisplayDialog("Scene Validation", report, "OK");
     }
 }

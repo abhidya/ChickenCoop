@@ -221,6 +221,8 @@ GameObject:
   m_Component:
   - component: {fileID: 201}
   - component: {fileID: 202}
+  - component: {fileID: 203}
+  - component: {fileID: 204}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -255,7 +257,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2ae56abc646fb995281c90c7d877b85, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
-  config: {fileID: 0}
+  config: {fileID: 11400000, guid: 8cf2a561b77042249a64f26c8198eaa9, type: 2}
   startingCorn: 0
   startingEggs: 0
   startingCoins: 50
@@ -268,6 +270,59 @@ MonoBehaviour:
   helperPrefab: {fileID: 0}
   coinParticlePrefab: {fileID: 0}
   sparkleParticlePrefab: {fileID: 0}
+--- !u!114 &203
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d2de54af5a16d5ed8889255fa3af2aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  sfxSource: {fileID: 0}
+  musicSource: {fileID: 0}
+  harvestSound: {fileID: 0}
+  collectSound: {fileID: 0}
+  eggSound: {fileID: 0}
+  sellSound: {fileID: 0}
+  coinSound: {fileID: 0}
+  upgradeSound: {fileID: 0}
+  eatSound: {fileID: 0}
+  clickSound: {fileID: 0}
+  errorSound: {fileID: 0}
+  backgroundMusic: {fileID: 0}
+  sfxVolume: 1
+  musicVolume: 0.5
+--- !u!114 &204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a49b2a5d630342c9aae1b38dce852055, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TitleCardManager
+  titleText: {fileID: 0}
+  titleCanvasGroup: {fileID: 0}
+  titleCardPanel: {fileID: 0}
+  fadeInDuration: 1
+  displayDuration: 3
+  fadeOutDuration: 1
+  showOnStart: 1
+  actTitles:
+  - Act 1: Dawn on the Farm
+  - Act 2: Growth & Expansion
+  - Act 3: The Path to Prosperity
+  - Act 4: Mastery
+  act2CoinsThreshold: 100
+  act3CoinsThreshold: 600
+  act4HelpersThreshold: 3
 --- !u!1 &400
 GameObject:
   m_ObjectHideFlags: 0
@@ -760,7 +815,12 @@ MonoBehaviour:
   upgradeButtons: []
   upgradeCostTexts: []
   upgradeNameTexts: []
-  availableUpgrades: []
+  availableUpgrades:
+  - {fileID: 11400000, guid: 639fcbb0e3c146aca06b4fd15d482fa9, type: 2}
+  - {fileID: 11400000, guid: 8445359d3075481ea909a97ba12e813e, type: 2}
+  - {fileID: 11400000, guid: 29f78d9c884a493f8d896281e54a0349, type: 2}
+  - {fileID: 11400000, guid: 8994e18a99ff42e2a5a2d821f88ced28, type: 2}
+  - {fileID: 11400000, guid: f97f91b2a2d949389bc6cb53a46dc2d1, type: 2}
   nextGoalText: {fileID: 0}
   cornProgressBar: {fileID: 0}
   eggProgressBar: {fileID: 0}
