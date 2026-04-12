@@ -9,6 +9,17 @@ using System.Collections;
 /// </summary>
 public class UIManager : MonoBehaviour
 {
+    public const int StoryUpgradeCount = 5;
+    public static readonly int[] StoryUpgradeCosts = { 100, 200, 300, 500, 750 };
+    public static readonly string[] StoryUpgradeNames =
+    {
+        "Better Seeds",
+        "Healthier Chickens",
+        "Premium Eggs",
+        "Faster Operations",
+        "Bigger Store"
+    };
+
     public static UIManager Instance { get; private set; }
 
     [Header("Resource Displays")]
@@ -76,8 +87,10 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
+        EnsureSerializedArrays();
+
         // Initialize upgrade tracking
-        upgradesPurchased = new bool[upgradeButtons.Length];
+        upgradesPurchased = new bool[upgradeButtons != null ? upgradeButtons.Length : 0];
 
         // Subscribe to game events
         if (GameManager.Instance != null)
@@ -95,6 +108,29 @@ public class UIManager : MonoBehaviour
         UpdateAllDisplays();
         UpdateNextGoal();
         UpdateIncomeRate();
+    }
+
+    private void EnsureSerializedArrays()
+    {
+        if (upgradeButtons == null)
+        {
+            upgradeButtons = new Button[0];
+        }
+
+        if (upgradeCostTexts == null)
+        {
+            upgradeCostTexts = new TextMeshProUGUI[0];
+        }
+
+        if (upgradeNameTexts == null)
+        {
+            upgradeNameTexts = new TextMeshProUGUI[0];
+        }
+
+        if (availableUpgrades == null)
+        {
+            availableUpgrades = new UpgradeData[0];
+        }
     }
 
     private void OnDestroy()
@@ -123,6 +159,8 @@ public class UIManager : MonoBehaviour
     /// </summary>
     private void SetupButtons()
     {
+        EnsureSerializedArrays();
+
         if (harvestButton != null)
         {
             harvestButton.onClick.AddListener(OnHarvestClicked);
@@ -279,9 +317,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     private void UpdateUpgradeButtons()
     {
-        // Fallback costs if no UpgradeData is assigned
-        int[] fallbackCosts = { 100, 200, 300, 500, 750 };
-        string[] fallbackNames = { "Corn+", "Eggs+", "Price+", "Speed+", "Store+" };
+        EnsureSerializedArrays();
 
         for (int i = 0; i < upgradeButtons.Length; i++)
         {
@@ -306,8 +342,8 @@ public class UIManager : MonoBehaviour
             }
             else
             {
-                cost = i < fallbackCosts.Length ? fallbackCosts[i] : 100;
-                upgradeName = i < fallbackNames.Length ? fallbackNames[i] : "Upgrade";
+                cost = i < StoryUpgradeCosts.Length ? StoryUpgradeCosts[i] : 100;
+                upgradeName = i < StoryUpgradeNames.Length ? StoryUpgradeNames[i] : "Upgrade";
             }
 
             bool canAfford = GameManager.Instance.CanAfford(cost);
@@ -315,7 +351,7 @@ public class UIManager : MonoBehaviour
             UpdateButtonVisual(upgradeButtons[i], canAfford);
 
             // Update cost text
-            if (i < upgradeCostTexts.Length && upgradeCostTexts[i] != null)
+            if (upgradeCostTexts != null && i < upgradeCostTexts.Length && upgradeCostTexts[i] != null)
             {
                 upgradeCostTexts[i].text = $"💰{cost}";
                 upgradeCostTexts[i].color = canAfford ? Color.white : Color.red;
@@ -491,7 +527,6 @@ public class UIManager : MonoBehaviour
         }
 
         // Fallback to hardcoded upgrades
-        int[] upgradeCosts = { 100, 200, 300, 500, 750 };
         UpgradeType[] upgradeTypes = {
             UpgradeType.CornField,
             UpgradeType.ChickenProduction,
@@ -500,9 +535,9 @@ public class UIManager : MonoBehaviour
             UpgradeType.StoreCapacity
         };
 
-        if (upgradeIndex < upgradeCosts.Length)
+        if (upgradeIndex < StoryUpgradeCosts.Length)
         {
-            if (GameManager.Instance.SpendCoins(upgradeCosts[upgradeIndex]))
+            if (GameManager.Instance.SpendCoins(StoryUpgradeCosts[upgradeIndex]))
             {
                 GameManager.Instance.ApplyUpgrade(upgradeTypes[upgradeIndex], 1.2f);
 
@@ -525,7 +560,7 @@ public class UIManager : MonoBehaviour
             }
             else
             {
-                int shortfall = upgradeCosts[upgradeIndex] - GameManager.Instance.Coins;
+                int shortfall = StoryUpgradeCosts[upgradeIndex] - GameManager.Instance.Coins;
                 ShowCannotAfford(shortfall);
             }
         }

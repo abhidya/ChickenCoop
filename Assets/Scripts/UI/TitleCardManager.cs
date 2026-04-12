@@ -8,6 +8,8 @@ using System.Collections;
 /// </summary>
 public class TitleCardManager : MonoBehaviour
 {
+    public const int StoryActCount = 4;
+
     [Header("References")]
     [SerializeField] public TextMeshProUGUI titleText;
     [SerializeField] public CanvasGroup titleCanvasGroup;
@@ -28,11 +30,18 @@ public class TitleCardManager : MonoBehaviour
         "Act 4: Mastery"
     };
 
+    [Header("Story Thresholds")]
+    [SerializeField] private int act2CoinsThreshold = 100;
+    [SerializeField] private int act3CoinsThreshold = 600;
+    [SerializeField] private int act4HelpersThreshold = 3;
+
     private bool isShowing = false;
     private int currentAct = 0;
 
     private void Start()
     {
+        ApplyStoryDefaults();
+
         // Ensure components exist
         if (titleCardPanel != null)
         {
@@ -76,12 +85,12 @@ public class TitleCardManager : MonoBehaviour
     private void OnCoinsChanged(int newCoins)
     {
         // Act 2 starts when player reaches 100 coins (first helper)
-        if (currentAct == 0 && newCoins >= 100)
+        if (currentAct == 0 && newCoins >= act2CoinsThreshold)
         {
             ShowTitleCard(1);
         }
         // Act 3 starts when player reaches 600 coins (enough for some upgrades)
-        else if (currentAct == 1 && newCoins >= 600)
+        else if (currentAct == 1 && newCoins >= act3CoinsThreshold)
         {
             ShowTitleCard(2);
         }
@@ -90,10 +99,44 @@ public class TitleCardManager : MonoBehaviour
     private void OnHelperCountChanged(int helperCount)
     {
         // Act 4 starts when player has 3+ helpers and significant progress
-        if (currentAct == 2 && helperCount >= 3)
+        if (currentAct == 2 && helperCount >= act4HelpersThreshold)
         {
             ShowTitleCard(3);
         }
+    }
+
+    public void ApplyStoryDefaults()
+    {
+        if (actTitles == null || actTitles.Length != StoryActCount)
+        {
+            actTitles = new string[StoryActCount];
+        }
+
+        actTitles[0] = "Act 1: Dawn on the Farm";
+        actTitles[1] = "Act 2: Growth & Expansion";
+        actTitles[2] = "Act 3: The Path to Prosperity";
+        actTitles[3] = "Act 4: Mastery";
+
+        act2CoinsThreshold = 100;
+        act3CoinsThreshold = 600;
+        act4HelpersThreshold = 3;
+    }
+
+    public bool HasRequiredReferences()
+    {
+        return titleText != null && titleCanvasGroup != null && titleCardPanel != null;
+    }
+
+    public string BuildValidationSummary()
+    {
+        return
+            "TitleCardManager\n" +
+            "- titleText: " + (titleText != null ? "OK" : "Missing") + "\n" +
+            "- titleCanvasGroup: " + (titleCanvasGroup != null ? "OK" : "Missing") + "\n" +
+            "- titleCardPanel: " + (titleCardPanel != null ? "OK" : "Missing") + "\n" +
+            "- act2CoinsThreshold: " + act2CoinsThreshold + "\n" +
+            "- act3CoinsThreshold: " + act3CoinsThreshold + "\n" +
+            "- act4HelpersThreshold: " + act4HelpersThreshold;
     }
 
     /// <summary>
