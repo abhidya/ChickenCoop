@@ -17,6 +17,7 @@ public class PlayerController : MonoBehaviour
     [Header("References")]
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Animator animator;
+    [SerializeField] private string happyHarvestCharacterResourcePath = "Character";
 
     // Movement state
     private Vector3 targetPosition;
@@ -26,7 +27,6 @@ public class PlayerController : MonoBehaviour
 
     // Current interaction target
     private IInteractable currentTarget;
-
     private void Start()
     {
         targetPosition = transform.position;
@@ -41,6 +41,8 @@ public class PlayerController : MonoBehaviour
         {
             animator = GetComponent<Animator>();
         }
+
+        ApplyHappyHarvestVisual();
     }
 
     private void Update()
@@ -257,5 +259,27 @@ public class PlayerController : MonoBehaviour
         }
 
         transform.localScale = original;
+    }
+
+    private void ApplyHappyHarvestVisual()
+    {
+        if (spriteRenderer == null || !spriteRenderer.enabled)
+        {
+            return;
+        }
+
+        GameObject visualPrefab = Resources.Load<GameObject>(happyHarvestCharacterResourcePath);
+        if (visualPrefab == null)
+        {
+            return;
+        }
+
+        Sprite replacementSprite = StoryVisualBinder.ExtractRepresentativeSprite(visualPrefab);
+
+        if (replacementSprite != null)
+        {
+            spriteRenderer.sprite = replacementSprite;
+            spriteRenderer.color = Color.white;
+        }
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections;
 
 /// <summary>
 /// GameManager - Central game controller that manages all game state, resources, and game loop.
@@ -54,6 +55,9 @@ public class GameManager : MonoBehaviour
     private float eggMultiplier = 1f;
     private float priceMultiplier = 1f;
     private float speedMultiplier = 1f;
+    private float storeEfficiencyMultiplier = 1f;
+
+    private static Sprite runtimeHelperSprite;
 
     // Properties for accessing resources
     public int Corn => corn;
@@ -63,6 +67,7 @@ public class GameManager : MonoBehaviour
     public int EggSellPrice => Mathf.RoundToInt(GetEggSellPrice() * priceMultiplier);
     public int HelperCost => GetHelperBaseCost() + (helperCount * GetHelperCostIncrease());
     public float SpeedMultiplier => speedMultiplier;
+    public float StoreEfficiencyMultiplier => storeEfficiencyMultiplier;
 
     // Helper methods for config values with fallbacks
     private int GetEggSellPrice() => config != null ? config.eggSellPrice : eggSellPrice;
@@ -92,6 +97,11 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        StartCoroutine(BootstrapStorySupport());
+    }
+
     /// <summary>
     /// Initialize game with starting resources
     /// </summary>
@@ -106,6 +116,7 @@ public class GameManager : MonoBehaviour
         OnCornChanged?.Invoke(corn);
         OnEggsChanged?.Invoke(eggs);
         OnCoinsChanged?.Invoke(coins);
+        OnHelperCountChanged?.Invoke(helperCount);
     }
 
     /// <summary>
@@ -259,16 +270,12 @@ public class GameManager : MonoBehaviour
             helperCount++;
             OnHelperCountChanged?.Invoke(helperCount);
 
-            // Spawn the helper
-            if (helperPrefab != null && helperSpawnPoint != null)
+            GameObject helper = SpawnHelperInstance();
+            Vector3 effectPosition = helper != null ? helper.transform.position : GetHelperSpawnPosition();
+
+            if (sparkleParticlePrefab != null)
             {
-                GameObject helper = Instantiate(helperPrefab, helperSpawnPoint.position, Quaternion.identity);
-                
-                // Spawn sparkle effect
-                if (sparkleParticlePrefab != null)
-                {
-                    Instantiate(sparkleParticlePrefab, helperSpawnPoint.position, Quaternion.identity);
-                }
+                Instantiate(sparkleParticlePrefab, effectPosition, Quaternion.identity);
             }
 
             AudioManager.Instance?.PlaySound("upgrade");
@@ -295,6 +302,9 @@ public class GameManager : MonoBehaviour
                 break;
             case UpgradeType.Speed:
                 speedMultiplier *= multiplier;
+                break;
+            case UpgradeType.StoreCapacity:
+                storeEfficiencyMultiplier *= multiplier;
                 break;
         }
 
@@ -344,6 +354,7 @@ public class GameManager : MonoBehaviour
         eggMultiplier = 1f;
         priceMultiplier = 1f;
         speedMultiplier = 1f;
+        storeEfficiencyMultiplier = 1f;
 
         // Update UI
         OnCornChanged?.Invoke(corn);
@@ -369,6 +380,7 @@ public class GameManager : MonoBehaviour
         PlayerPrefs.SetFloat("EggMultiplier", eggMultiplier);
         PlayerPrefs.SetFloat("PriceMultiplier", priceMultiplier);
         PlayerPrefs.SetFloat("SpeedMultiplier", speedMultiplier);
+        PlayerPrefs.SetFloat("StoreEfficiencyMultiplier", storeEfficiencyMultiplier);
         PlayerPrefs.Save();
     }
 
@@ -387,6 +399,7 @@ public class GameManager : MonoBehaviour
             eggMultiplier = PlayerPrefs.GetFloat("EggMultiplier", 1f);
             priceMultiplier = PlayerPrefs.GetFloat("PriceMultiplier", 1f);
             speedMultiplier = PlayerPrefs.GetFloat("SpeedMultiplier", 1f);
+            storeEfficiencyMultiplier = PlayerPrefs.GetFloat("StoreEfficiencyMultiplier", 1f);
 
             // Update UI
             OnCornChanged?.Invoke(corn);
@@ -394,6 +407,141 @@ public class GameManager : MonoBehaviour
             OnCoinsChanged?.Invoke(coins);
             OnHelperCountChanged?.Invoke(helperCount);
         }
+    }
+
+    private IEnumerator BootstrapStorySupport()
+    {
+        yield return null;
+        EnsureRuntimeStorySupport();
+    }
+
+    private void EnsureRuntimeStorySupport()
+    {
+        if (FindAnyObjectByType<FloatingTextManager>() == null)
+        {
+            new GameObject("FloatingTextManager").AddComponent<FloatingTextManager>();
+        }
+
+        if (FindAnyObjectByType<EnvironmentAnimator>() == null)
+        {
+            EnvironmentAnimator environmentAnimator = new GameObject("EnvironmentAnimator").AddComponent<EnvironmentAnimator>();
+            environmentAnimator.CreateAmbientParticles();
+        }
+
+        if (FindAnyObjectByType<DayNightCycle>() == null)
+        {
+            GameObject dayNightHost = Camera.main != null ? Camera.main.gameObject : new GameObject("DayNightCycle");
+            DayNightCycle cycle = dayNightHost.GetComponent<DayNightCycle>();
+            if (cycle == null)
+            {
+                cycle = dayNightHost.AddComponent<DayNightCycle>();
+            }
+
+            cycle.SetTimeOfDay(0.23f);
+        }
+
+        if (FindAnyObjectByType<TutorialManager>() == null)
+        {
+            Canvas canvas = FindAnyObjectByType<Canvas>();
+            GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
+            tutorialHost.AddComponent<TutorialManager>();
+        }
+    }
+
+    private GameObject SpawnHelperInstance()
+    {
+        Vector3 spawnPosition = GetHelperSpawnPosition();
+
+        if (helperPrefab != null)
+        {
+            return Instantiate(helperPrefab, spawnPosition, Quaternion.identity);
+        }
+
+        return CreateFallbackHelper(spawnPosition);
+    }
+
+    private Vector3 GetHelperSpawnPosition()
+    {
+        if (helperSpawnPoint != null)
+        {
+            return helperSpawnPoint.position;
+        }
+
+        PlayerController player = FindAnyObjectByType<PlayerController>();
+        if (player != null)
+        {
+            return player.transform.position + new Vector3(0.8f, -0.4f, 0f);
+        }
+
+        return transform.position + new Vector3(0f, -1f, 0f);
+    }
+
+    private GameObject CreateFallbackHelper(Vector3 spawnPosition)
+    {
+        GameObject helper = new GameObject($"Helper_{helperCount}");
+        helper.transform.position = spawnPosition;
+        helper.transform.localScale = Vector3.one * 0.9f;
+
+        SpriteRenderer helperRenderer = helper.AddComponent<SpriteRenderer>();
+        helperRenderer.sprite = GetHelperSprite();
+        helperRenderer.color = StoryColorPalette.GetHelperColor(helperCount);
+        helperRenderer.sortingOrder = 10;
+
+        PlayerController player = FindAnyObjectByType<PlayerController>();
+        if (player != null)
+        {
+            helper.layer = player.gameObject.layer;
+            helper.transform.localScale = player.transform.localScale * 0.9f;
+
+            SpriteRenderer playerRenderer = null;
+            SpriteRenderer[] playerRenderers = player.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (SpriteRenderer candidate in playerRenderers)
+            {
+                if (candidate != null && candidate.enabled && candidate.sprite != null)
+                {
+                    playerRenderer = candidate;
+                    break;
+                }
+            }
+
+            if (playerRenderer == null)
+            {
+                playerRenderer = player.GetComponent<SpriteRenderer>();
+            }
+
+            if (playerRenderer != null)
+            {
+                helperRenderer.sortingLayerID = playerRenderer.sortingLayerID;
+                helperRenderer.sortingOrder = playerRenderer.sortingOrder;
+                if (playerRenderer.sprite != null)
+                {
+                    helperRenderer.sprite = playerRenderer.sprite;
+                }
+            }
+        }
+
+        helper.AddComponent<HelperAI>();
+        return helper;
+    }
+
+    private Sprite GetHelperSprite()
+    {
+        if (runtimeHelperSprite != null)
+        {
+            return runtimeHelperSprite;
+        }
+
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+
+        runtimeHelperSprite = Sprite.Create(
+            texture,
+            new Rect(0, 0, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            1f);
+
+        return runtimeHelperSprite;
     }
 
     private void OnApplicationQuit()

@@ -322,13 +322,13 @@ public static class StoryUpgradeSceneWiringUtility
         panelObject.transform.SetParent(parent, false);
         panelObject.layer = LayerMask.NameToLayer("UI");
 
-        RectTransform rectTransform = panelObject.AddComponent<RectTransform>();
+        RectTransform resultRectTransform = panelObject.AddComponent<RectTransform>();
         panelObject.AddComponent<CanvasRenderer>();
         Image image = panelObject.AddComponent<Image>();
         image.color = StoryColorPalette.WithAlpha(StoryColorPalette.UIBackground, 0.88f);
 
         report.Created.Add(name);
-        return rectTransform;
+        return resultRectTransform;
     }
 
     private static void ConfigureTopPanel(RectTransform rectTransform)
@@ -812,7 +812,7 @@ public static class StoryUpgradeSceneWiringUtility
         text.fontSize = fontSize;
         text.color = StoryColorPalette.TextDark;
         text.alignment = alignment;
-        text.enableWordWrapping = false;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
         text.raycastTarget = false;
     }
 

@@ -23,6 +23,7 @@ public class Chicken : MonoBehaviour, IInteractable
     [SerializeField] private SpriteRenderer eyeSprite;
     [SerializeField] private Transform eggSpawnPoint;
     [SerializeField] private GameObject eggPrefab;
+    [SerializeField] private GameObject storyVisualPrefab;
 
     // State
     private bool isLayingEgg = false;
@@ -31,14 +32,27 @@ public class Chicken : MonoBehaviour, IInteractable
     private Vector3 originalScale;
     private Quaternion originalRotation;
 
+    public bool IsLayingEgg => isLayingEgg;
+
     private void Start()
     {
         originalScale = transform.localScale;
         originalRotation = transform.localRotation;
 
+        GameConfig config = GameManager.Instance != null ? GameManager.Instance.Config : null;
+        if (config != null)
+        {
+            cornRequired = config.cornToFeed;
+        }
+
         if (bodySprite == null)
         {
             bodySprite = GetComponent<SpriteRenderer>();
+        }
+
+        if (storyVisualPrefab != null)
+        {
+            StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, bodySprite);
         }
 
         // Randomize initial blink timer
@@ -116,7 +130,7 @@ public class Chicken : MonoBehaviour, IInteractable
     /// </summary>
     public bool CanInteract()
     {
-        return !isLayingEgg && GameManager.Instance.Corn >= cornRequired;
+        return !isLayingEgg && GameManager.Instance != null && GameManager.Instance.Corn >= cornRequired;
     }
 
     /// <summary>
@@ -124,12 +138,28 @@ public class Chicken : MonoBehaviour, IInteractable
     /// </summary>
     public void Feed()
     {
-        if (isLayingEgg) return;
+        TryFeed(true);
+    }
 
-        if (GameManager.Instance.UseCorn(cornRequired))
+    public bool FeedWithoutUsingCorn()
+    {
+        return TryFeed(false);
+    }
+
+    private bool TryFeed(bool consumeCorn)
+    {
+        if (isLayingEgg || GameManager.Instance == null)
         {
-            StartCoroutine(FeedAndLayEgg());
+            return false;
         }
+
+        if (consumeCorn && !GameManager.Instance.UseCorn(cornRequired))
+        {
+            return false;
+        }
+
+        StartCoroutine(FeedAndLayEgg());
+        return true;
     }
 
     /// <summary>
@@ -173,6 +203,8 @@ public class Chicken : MonoBehaviour, IInteractable
                 transform.localRotation = Quaternion.Lerp(originalRotation, Quaternion.Euler(peckRotation), t / 0.1f);
                 yield return null;
             }
+
+            SpawnPeckDust();
 
             // Return
             t = 0;
@@ -342,6 +374,35 @@ public class Chicken : MonoBehaviour, IInteractable
 
         ps.Play();
         Destroy(particles, 1f);
+    }
+
+    private void SpawnPeckDust()
+    {
+        Vector3 dustPosition = transform.position + new Vector3(0f, -0.35f, 0f);
+        GameObject dust = new GameObject("PeckDust");
+        dust.transform.position = dustPosition;
+
+        ParticleSystem ps = dust.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startSize = 0.08f;
+        main.startLifetime = 0.25f;
+        main.startColor = new Color(0.84f, 0.80f, 0.78f, 0.8f);
+        main.startSpeed = 0.3f;
+        main.gravityModifier = -0.05f;
+        main.maxParticles = 5;
+        main.duration = 0.1f;
+        main.loop = false;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 4) });
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 0.12f;
+
+        ps.Play();
+        Destroy(dust, 0.5f);
     }
 
     /// <summary>

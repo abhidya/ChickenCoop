@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 
@@ -36,10 +37,12 @@ public class TitleCardManager : MonoBehaviour
     [SerializeField] private int act4HelpersThreshold = 3;
 
     private bool isShowing = false;
-    private int currentAct = 0;
+    private int currentAct = -1;
+    private int pendingAct = -1;
 
     private void Start()
     {
+        EnsureRuntimeReferences();
         ApplyStoryDefaults();
 
         // Ensure components exist
@@ -145,9 +148,14 @@ public class TitleCardManager : MonoBehaviour
     public void ShowTitleCard(int actIndex)
     {
         if (actIndex < 0 || actIndex >= actTitles.Length) return;
-        if (actIndex <= currentAct) return; // Don't show previous acts
+        if (actIndex <= currentAct || actIndex <= pendingAct) return;
 
-        currentAct = actIndex;
+        if (isShowing)
+        {
+            pendingAct = Mathf.Max(pendingAct, actIndex);
+            return;
+        }
+
         StartCoroutine(ShowTitleCardCoroutine(actIndex));
     }
 
@@ -157,7 +165,7 @@ public class TitleCardManager : MonoBehaviour
     private IEnumerator ShowTitleCardDelayed(int actIndex, float delay)
     {
         yield return new WaitForSeconds(delay);
-        StartCoroutine(ShowTitleCardCoroutine(actIndex));
+        ShowTitleCard(actIndex);
     }
 
     /// <summary>
@@ -167,6 +175,7 @@ public class TitleCardManager : MonoBehaviour
     {
         if (isShowing) yield break;
         isShowing = true;
+        currentAct = actIndex;
 
         // Ensure panel is active
         if (titleCardPanel != null)
@@ -217,6 +226,14 @@ public class TitleCardManager : MonoBehaviour
         }
 
         isShowing = false;
+
+        if (pendingAct > currentAct)
+        {
+            int queuedAct = pendingAct;
+            pendingAct = -1;
+            yield return new WaitForSeconds(0.15f);
+            ShowTitleCard(queuedAct);
+        }
     }
 
     /// <summary>
@@ -243,6 +260,63 @@ public class TitleCardManager : MonoBehaviour
     /// </summary>
     public void ResetActs()
     {
-        currentAct = 0;
+        currentAct = -1;
+        pendingAct = -1;
+    }
+
+    private void EnsureRuntimeReferences()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (titleCardPanel == null)
+        {
+            GameObject panelObject = new GameObject("TitleCardPanel", typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            panelObject.transform.SetParent(canvas.transform, false);
+
+            RectTransform panelRect = panelObject.GetComponent<RectTransform>();
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = Vector2.zero;
+            panelRect.offsetMax = Vector2.zero;
+
+            Image background = panelObject.GetComponent<Image>();
+            background.color = new Color(0.08f, 0.06f, 0.05f, 0.72f);
+
+            titleCardPanel = panelObject;
+            titleCanvasGroup = panelObject.GetComponent<CanvasGroup>();
+        }
+
+        if (titleCanvasGroup == null)
+        {
+            titleCanvasGroup = titleCardPanel.GetComponent<CanvasGroup>();
+            if (titleCanvasGroup == null)
+            {
+                titleCanvasGroup = titleCardPanel.AddComponent<CanvasGroup>();
+            }
+        }
+
+        if (titleText == null)
+        {
+            GameObject textObject = new GameObject("TitleText", typeof(RectTransform));
+            textObject.transform.SetParent(titleCardPanel.transform, false);
+
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = new Vector2(0.15f, 0.4f);
+            textRect.anchorMax = new Vector2(0.85f, 0.6f);
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            titleText = textObject.AddComponent<TextMeshProUGUI>();
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.fontSize = 40f;
+            titleText.color = Color.white;
+            titleText.enableWordWrapping = true;
+        }
+
+        titleCardPanel.transform.SetAsLastSibling();
     }
 }

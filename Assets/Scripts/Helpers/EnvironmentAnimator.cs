@@ -22,7 +22,9 @@ public class EnvironmentAnimator : MonoBehaviour
 
     private void Start()
     {
+        AutoPopulateTargets();
         InitializeAnimations();
+        CreateAmbientParticles();
     }
 
     /// <summary>
@@ -180,7 +182,13 @@ public class EnvironmentAnimator : MonoBehaviour
     /// </summary>
     public void CreateAmbientParticles()
     {
+        if (transform.Find("AmbientParticles") != null)
+        {
+            return;
+        }
+
         GameObject ambient = new GameObject("AmbientParticles");
+        ambient.transform.SetParent(transform, false);
         ambient.transform.position = Vector3.zero;
 
         ParticleSystem ps = ambient.AddComponent<ParticleSystem>();
@@ -203,5 +211,26 @@ public class EnvironmentAnimator : MonoBehaviour
         shape.scale = new Vector3(10f, 6f, 1f);
 
         ps.Play();
+    }
+
+    private void AutoPopulateTargets()
+    {
+        if (swayingObjects == null || swayingObjects.Length == 0)
+        {
+            swayingObjects = new Transform[]
+            {
+                FindAnyObjectByType<HarvestableField>()?.transform,
+                FindAnyObjectByType<Chicken>()?.transform
+            };
+        }
+
+        if (bouncingObjects == null || bouncingObjects.Length == 0)
+        {
+            bouncingObjects = new Transform[]
+            {
+                FindAnyObjectByType<HarvestableField>()?.transform,
+                FindAnyObjectByType<StoreCounter>()?.transform
+            };
+        }
     }
 }

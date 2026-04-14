@@ -54,6 +54,13 @@ public class HelperAI : MonoBehaviour
         helperId = helperCounter++;
         originalScale = transform.localScale;
 
+        GameConfig config = GameManager.Instance != null ? GameManager.Instance.Config : null;
+        if (config != null)
+        {
+            moveSpeed = config.helperSpeed;
+            waitTime = config.helperWaitTime;
+        }
+
         if (spriteRenderer == null)
         {
             spriteRenderer = GetComponent<SpriteRenderer>();
@@ -109,6 +116,7 @@ public class HelperAI : MonoBehaviour
     private IEnumerator GoToAndHarvestCorn()
     {
         currentState = HelperState.MovingToCorn;
+        HarvestableField field = FindAnyObjectByType<HarvestableField>();
 
         if (GameManager.Instance.CornFieldPosition != null)
         {
@@ -123,10 +131,16 @@ public class HelperAI : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
 
-        // Add corn to inventory
-        GameManager.Instance.AddCorn(1);
+        if (field != null && field.IsReadyToHarvest())
+        {
+            field.Harvest();
+        }
+        else
+        {
+            GameManager.Instance.AddCorn(1, transform.position + Vector3.up * 0.5f);
+        }
 
-        yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
+        yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
     }
 
     /// <summary>
@@ -135,6 +149,7 @@ public class HelperAI : MonoBehaviour
     private IEnumerator GoToAndFeedChicken()
     {
         currentState = HelperState.MovingToChicken;
+        Chicken chicken = FindAnyObjectByType<Chicken>();
 
         if (GameManager.Instance.ChickenPosition != null)
         {
@@ -143,18 +158,10 @@ public class HelperAI : MonoBehaviour
 
         currentState = HelperState.FeedingChicken;
 
-        // Use corn to feed chicken
-        if (GameManager.Instance.UseCorn(1))
+        if (chicken != null && chicken.FeedWithoutUsingCorn())
         {
             PlaySquashStretch();
             yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-
-            // Trigger chicken feeding (if chicken script exists)
-            Chicken chicken = FindAnyObjectByType<Chicken>();
-            if (chicken != null)
-            {
-                chicken.Feed();
-            }
         }
 
         yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
@@ -166,14 +173,28 @@ public class HelperAI : MonoBehaviour
     private IEnumerator CollectEgg()
     {
         currentState = HelperState.CollectingEgg;
+        float timeout = 3f / Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f);
+        CollectibleEgg egg = null;
 
-        PlaySquashStretch();
-        yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
+        while (timeout > 0f)
+        {
+            egg = FindClosestEgg();
+            if (egg != null)
+            {
+                break;
+            }
 
-        // Add egg to inventory
-        GameManager.Instance.AddEgg(1);
+            timeout -= Time.deltaTime;
+            yield return null;
+        }
 
-        SpawnSparkle();
+        if (egg != null)
+        {
+            PlaySquashStretch();
+            yield return new WaitForSeconds(0.25f / GameManager.Instance.SpeedMultiplier);
+            egg.Interact();
+            SpawnSparkle();
+        }
 
         yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
     }
@@ -196,7 +217,15 @@ public class HelperAI : MonoBehaviour
         yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
 
         // Sell egg at store
-        GameManager.Instance.SellEgg();
+        StoreCounter store = FindAnyObjectByType<StoreCounter>();
+        if (store != null)
+        {
+            store.SellEgg();
+        }
+        else
+        {
+            GameManager.Instance.SellEgg(transform.position + Vector3.up * 0.5f);
+        }
 
         yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
 
@@ -240,6 +269,30 @@ public class HelperAI : MonoBehaviour
 
         transform.position = targetPosition;
         isMoving = false;
+    }
+
+    private CollectibleEgg FindClosestEgg()
+    {
+        CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
+        CollectibleEgg closestEgg = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (CollectibleEgg egg in eggs)
+        {
+            if (egg == null || !egg.CanInteract())
+            {
+                continue;
+            }
+
+            float distance = Vector3.Distance(transform.position, egg.transform.position);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestEgg = egg;
+            }
+        }
+
+        return closestEgg;
     }
 
     /// <summary>

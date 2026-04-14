@@ -19,7 +19,7 @@ public class RemoveMissingScripts : EditorWindow
             return;
         }
 
-        GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>();
+        GameObject[] allObjects = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         int removedCount = 0;
         int objectsAffected = 0;
         

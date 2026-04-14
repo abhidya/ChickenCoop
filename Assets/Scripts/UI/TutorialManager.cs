@@ -38,7 +38,7 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private string feedMessage = "Great! Now feed the chicken by tapping on it. 🐔";
     [SerializeField] private string collectMessage = "Collect the egg the chicken laid! 🥚";
     [SerializeField] private string sellMessage = "Sell your egg at the store for coins! 💰";
-    [SerializeField] private string hireMessage = "You have enough coins! Hire a helper to automate. 👷";
+    [SerializeField] private string hireMessage = "You've earned enough coins! Hire a helper to automate. 👷";
     [SerializeField] private string completeMessage = "Excellent! You've mastered the basics!\nKeep farming to grow your empire! 🏆";
 
     [Header("Target References")]
@@ -75,6 +75,9 @@ public class TutorialManager : MonoBehaviour
 
     private void Start()
     {
+        EnsureRuntimeReferences();
+        ResolveTargets();
+
         // Check if tutorial was already completed
         tutorialCompleted = PlayerPrefs.GetInt("TutorialCompleted", 0) == 1;
 
@@ -124,6 +127,15 @@ public class TutorialManager : MonoBehaviour
             float bob = Mathf.Sin(Time.time * arrowBobSpeed) * arrowBobAmount;
             arrowIndicator.anchoredPosition = arrowBasePosition + new Vector3(0, bob, 0);
         }
+
+        if (tutorialActive && currentStep == TutorialStep.FeedChicken)
+        {
+            CollectibleEgg egg = FindAnyObjectByType<CollectibleEgg>();
+            if (egg != null)
+            {
+                AdvanceToStep(TutorialStep.CollectEgg);
+            }
+        }
     }
 
     private IEnumerator StartTutorialDelayed()
@@ -137,6 +149,7 @@ public class TutorialManager : MonoBehaviour
     /// </summary>
     public void StartTutorial()
     {
+        ResolveTargets();
         tutorialActive = true;
         currentStep = TutorialStep.Welcome;
         
@@ -190,6 +203,7 @@ public class TutorialManager : MonoBehaviour
     private void ShowCurrentStep()
     {
         if (instructionText == null) return;
+        ResolveTargets();
 
         // Hide arrow by default
         if (arrowIndicator != null)
@@ -346,12 +360,7 @@ public class TutorialManager : MonoBehaviour
         int previousEggs = eggsCollectedDuringTutorial;
         eggsCollectedDuringTutorial = newValue;
 
-        if (currentStep == TutorialStep.FeedChicken && newValue > previousEggs)
-        {
-            // Chicken was fed and egg was produced
-            AdvanceToStep(TutorialStep.CollectEgg);
-        }
-        else if (currentStep == TutorialStep.CollectEgg && newValue > previousEggs)
+        if (currentStep == TutorialStep.CollectEgg && newValue > previousEggs)
         {
             // Egg was collected
             AdvanceToStep(TutorialStep.SellEgg);
@@ -364,10 +373,15 @@ public class TutorialManager : MonoBehaviour
 
         if (currentStep == TutorialStep.SellEgg)
         {
-            // Check if player sold an egg (coins increased)
-            if (newValue >= 60) // Started with 50, sold for 10
+            int helperCost = GameManager.Instance != null ? GameManager.Instance.HelperCost : 100;
+            if (newValue >= helperCost)
             {
                 AdvanceToStep(TutorialStep.HireHelper);
+            }
+            else if (instructionText != null)
+            {
+                int remaining = helperCost - newValue;
+                instructionText.text = $"Sell eggs until you reach {helperCost} coins! {remaining} more to go. 💰";
             }
         }
     }
@@ -401,5 +415,144 @@ public class TutorialManager : MonoBehaviour
         
         cornHarvestedDuringTutorial = 0;
         eggsCollectedDuringTutorial = 0;
+    }
+
+    private void EnsureRuntimeReferences()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (tutorialPanel == null)
+        {
+            tutorialPanel = new GameObject("TutorialPanel", typeof(RectTransform), typeof(Image));
+            tutorialPanel.transform.SetParent(canvas.transform, false);
+
+            RectTransform panelRect = tutorialPanel.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 1f);
+            panelRect.anchorMax = new Vector2(0.5f, 1f);
+            panelRect.pivot = new Vector2(0.5f, 1f);
+            panelRect.anchoredPosition = new Vector2(0f, -210f);
+            panelRect.sizeDelta = new Vector2(520f, 190f);
+
+            Image panelImage = tutorialPanel.GetComponent<Image>();
+            panelImage.color = new Color(1f, 0.98f, 0.77f, 0.92f);
+        }
+
+        if (instructionText == null)
+        {
+            GameObject textObject = new GameObject("InstructionText", typeof(RectTransform));
+            textObject.transform.SetParent(tutorialPanel.transform, false);
+
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = new Vector2(0.5f, 0.65f);
+            textRect.anchorMax = new Vector2(0.5f, 0.65f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.anchoredPosition = new Vector2(0f, 10f);
+            textRect.sizeDelta = new Vector2(460f, 90f);
+
+            instructionText = textObject.AddComponent<TextMeshProUGUI>();
+            instructionText.alignment = TextAlignmentOptions.Center;
+            instructionText.fontSize = 24f;
+            instructionText.color = StoryColorPalette.TextDark;
+            instructionText.enableWordWrapping = true;
+        }
+
+        if (skipButton == null)
+        {
+            skipButton = CreateRuntimeButton(tutorialPanel.transform, "SkipButton", "Skip", new Vector2(-120f, -62f));
+        }
+
+        if (nextButton == null)
+        {
+            nextButton = CreateRuntimeButton(tutorialPanel.transform, "NextButton", "Next", new Vector2(120f, -62f));
+        }
+
+        if (arrowIndicator == null)
+        {
+            GameObject arrowObject = new GameObject("TutorialArrow", typeof(RectTransform));
+            arrowObject.transform.SetParent(canvas.transform, false);
+            arrowIndicator = arrowObject.GetComponent<RectTransform>();
+            arrowIndicator.sizeDelta = new Vector2(60f, 60f);
+
+            TextMeshProUGUI arrowText = arrowObject.AddComponent<TextMeshProUGUI>();
+            arrowText.text = "▼";
+            arrowText.fontSize = 44f;
+            arrowText.alignment = TextAlignmentOptions.Center;
+            arrowText.color = StoryColorPalette.Special;
+        }
+    }
+
+    private void ResolveTargets()
+    {
+        if (cornFieldTarget == null)
+        {
+            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            if (field != null)
+            {
+                cornFieldTarget = field.transform;
+            }
+        }
+
+        if (chickenTarget == null)
+        {
+            Chicken chicken = FindAnyObjectByType<Chicken>();
+            if (chicken != null)
+            {
+                chickenTarget = chicken.transform;
+            }
+        }
+
+        if (storeTarget == null)
+        {
+            StoreCounter store = FindAnyObjectByType<StoreCounter>();
+            if (store != null)
+            {
+                storeTarget = store.transform;
+            }
+        }
+
+        if (hireButtonTarget == null && UIManager.Instance != null)
+        {
+            hireButtonTarget = UIManager.Instance.HireHelperButtonTransform;
+        }
+    }
+
+    private Button CreateRuntimeButton(Transform parent, string name, string label, Vector2 anchoredPosition)
+    {
+        GameObject buttonObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(parent, false);
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = new Vector2(150f, 42f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = StoryColorPalette.ButtonBlue;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+
+        GameObject textObject = new GameObject("Label", typeof(RectTransform));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI text = textObject.AddComponent<TextMeshProUGUI>();
+        text.text = label;
+        text.fontSize = 20f;
+        text.alignment = TextAlignmentOptions.Center;
+        text.color = StoryColorPalette.TextDark;
+
+        return button;
     }
 }

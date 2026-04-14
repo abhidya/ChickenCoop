@@ -11,7 +11,6 @@ public static class RemovePlaceholders
         
         // Find duplicate roots
         var roots = SceneManager.GetActiveScene().GetRootGameObjects();
-        int removed = 0;
 
         foreach (var root in roots)
         {

@@ -16,7 +16,7 @@ public class GameObjectCreatorWindow : EditorWindow
     [MenuItem("Tools/Game Objects/Create Player")]
     public static void CreatePlayer()
     {
-        GameObject go = FindObjectOfType<VisualGameObjectCreator>()?.CreatePlayerVisual();
+        GameObject go = Object.FindFirstObjectByType<VisualGameObjectCreator>()?.CreatePlayerVisual();
         if (go == null)
         {
             // Create temporary creator

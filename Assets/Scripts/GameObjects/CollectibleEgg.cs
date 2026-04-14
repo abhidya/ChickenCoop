@@ -24,7 +24,7 @@ public class CollectibleEgg : MonoBehaviour, IInteractable
     private void Collect()
     {
         isCollected = true;
-        GameManager.Instance.AddEgg(1);
+        GameManager.Instance.AddEgg(1, transform.position + Vector3.up * 0.4f);
 
         // Fly to UI animation
         StartCoroutine(CollectAnimation());

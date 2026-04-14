@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken Coop - Web</title>
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Floating particles container for UI feedback -->
+    <div id="particles-container"></div>
+
+    <div class="game-container">
+        <!-- Top UI HUD -->
+        <header class="hud">
+            <div class="resource glass">
+                <span class="icon">🪙</span>
+                <span id="coins" class="value">50</span>
+            </div>
+            <div class="resource glass">
+                <span class="icon">🌽</span>
+                <span id="corn" class="value">0</span>
+            </div>
+            <div class="resource glass">
+                <span class="icon">🥚</span>
+                <span id="eggs" class="value">0</span>
+            </div>
+        </header>
+
+        <!-- Main Farm Play Area -->
+        <main class="farm-area">
+            <!-- Background environment -->
+            <div class="grass-bg"></div>
+
+            <!-- Interactive Elements -->
+            <div class="farm-entity" id="corn-field" onclick="harvestCorn()">
+                <div class="entity-sprite corn-sprite">🌾</div>
+                <div class="entity-label glass">Corn Field</div>
+                <div class="cooldown-overlay" id="corn-cooldown"></div>
+            </div>
+
+            <div class="farm-entity" id="chicken" onclick="feedChicken()">
+                <div class="entity-sprite chicken-sprite">🐔</div>
+                <div class="entity-label glass">Feed Me</div>
+                <div id="egg-spawn-point"></div>
+            </div>
+
+            <div class="farm-entity" id="store" onclick="sellEgg()">
+                <div class="entity-sprite store-sprite">🏪</div>
+                <div class="entity-label glass">Store</div>
+            </div>
+
+            <div class="farm-entity" id="player">
+                <div class="entity-sprite player-sprite">🧑‍🌾</div>
+                <div class="entity-label glass">Player</div>
+            </div>
+        </main>
+
+        <!-- Automation & Shop Panel -->
+        <aside class="shop-panel glass">
+            <h2>Upgrades & Helpers</h2>
+            <div class="shop-items">
+                <button class="shop-btn" id="hire-helper" onclick="hireHelper()">
+                    <div class="btn-icon">👷</div>
+                    <div class="btn-info">
+                        <span class="btn-title">Hire Helper</span>
+                        <span class="btn-cost">🪙 <span id="helper-cost">100</span></span>
+                    </div>
+                </button>
+                <button class="shop-btn upgrade-btn" id="upgrade-corn" onclick="buyBetterSeeds()">
+                    <div class="btn-icon">✨</div>
+                    <div class="btn-info">
+                        <span class="btn-title">Better Seeds (x2 Corn)</span>
+                        <span class="btn-cost">🪙 <span id="corn-upg-cost">100</span></span>
+                    </div>
+                </button>
+                 <button class="shop-btn upgrade-btn" id="upgrade-eggs" onclick="buyPremiumEggs()">
+                    <div class="btn-icon">💎</div>
+                    <div class="btn-info">
+                        <span class="btn-title">Premium Eggs (+10 value)</span>
+                        <span class="btn-cost">🪙 <span id="egg-upg-cost">200</span></span>
+                    </div>
+                </button>
+            </div>
+            <div class="helper-status">
+                Active Helpers: <span id="active-helpers">0</span>
+            </div>
+        </aside>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

@@ -94,7 +94,7 @@ public class ValidateFixRequirements : EditorWindow
         AddHeader("1. Checking for Missing Scripts...");
 
         int missingCount = 0;
-        GameObject[] allObjects = FindObjectsOfType<GameObject>();
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
 
         foreach (GameObject go in allObjects)
         {
@@ -153,7 +153,7 @@ public class ValidateFixRequirements : EditorWindow
     {
         AddHeader("3. Checking Player Tag...");
 
-        GameObject[] allObjects = FindObjectsOfType<GameObject>();
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         var playersWithTag = allObjects.Where(go => go.CompareTag("Player")).ToList();
 
         if (playersWithTag.Count == 0)
@@ -275,7 +275,7 @@ public class ValidateFixRequirements : EditorWindow
         }
 
         // Check for GameManager singleton
-        GameManager gm = FindObjectOfType<GameManager>();
+        GameManager gm = Object.FindFirstObjectByType<GameManager>();
         if (gm != null)
         {
             AddPass("  ✓ GameManager instance found in scene");

@@ -21,16 +21,25 @@ public class HarvestableField : MonoBehaviour, IInteractable
     [Header("References")]
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Transform cornVisual;
+    [SerializeField] private GameObject storyVisualPrefab;
 
     // State
     private bool canHarvest = true;
     private float cooldownTimer = 0f;
     private Vector3 originalScale;
     private float bounceTimer = 0f;
+    private SpriteRenderer[] storyRenderers;
 
     private void Start()
     {
         originalScale = transform.localScale;
+
+        GameConfig config = GameManager.Instance != null ? GameManager.Instance.Config : null;
+        if (config != null)
+        {
+            cornPerHarvest = config.cornPerHarvest;
+            harvestCooldown = config.harvestCooldown;
+        }
 
         if (spriteRenderer == null)
         {
@@ -40,6 +49,15 @@ public class HarvestableField : MonoBehaviour, IInteractable
         if (spriteRenderer != null)
         {
             spriteRenderer.color = readyColor;
+        }
+
+        if (storyVisualPrefab != null)
+        {
+            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, spriteRenderer);
+            if (visual != null)
+            {
+                storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
+            }
         }
     }
 
@@ -107,6 +125,11 @@ public class HarvestableField : MonoBehaviour, IInteractable
         return canHarvest;
     }
 
+    public bool IsReadyToHarvest()
+    {
+        return canHarvest;
+    }
+
     /// <summary>
     /// Perform harvest action
     /// </summary>
@@ -118,7 +141,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
         cooldownTimer = harvestCooldown;
 
         // Add corn to inventory
-        GameManager.Instance.AddCorn(cornPerHarvest);
+        GameManager.Instance.AddCorn(cornPerHarvest, transform.position + Vector3.up * 0.6f);
 
         // Play harvest animation
         StartCoroutine(HarvestAnimation());
@@ -128,6 +151,8 @@ public class HarvestableField : MonoBehaviour, IInteractable
         {
             spriteRenderer.color = cooldownColor;
         }
+
+        ApplyStoryTint(cooldownColor);
 
         // Spawn pop particle effect
         SpawnHarvestParticles();
@@ -209,6 +234,8 @@ public class HarvestableField : MonoBehaviour, IInteractable
         {
             spriteRenderer.color = readyColor;
         }
+
+        ApplyStoryTint(readyColor);
 
         // Pop animation
         StartCoroutine(ReadyPopAnimation());
@@ -325,5 +352,21 @@ public class HarvestableField : MonoBehaviour, IInteractable
         }
 
         transform.localScale = originalScale;
+    }
+
+    private void ApplyStoryTint(Color tint)
+    {
+        if (storyRenderers == null)
+        {
+            return;
+        }
+
+        foreach (SpriteRenderer renderer in storyRenderers)
+        {
+            if (renderer != null)
+            {
+                renderer.color = tint;
+            }
+        }
     }
 }

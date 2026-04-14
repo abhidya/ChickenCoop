@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections;
 
@@ -73,6 +74,8 @@ public class UIManager : MonoBehaviour
     // Track purchased upgrades
     private bool[] upgradesPurchased;
 
+    public RectTransform HireHelperButtonTransform => hireHelperButton != null ? hireHelperButton.GetComponent<RectTransform>() : null;
+
     private void Awake()
     {
         if (Instance == null)
@@ -87,6 +90,7 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
+        EnsureRuntimeBindings();
         EnsureSerializedArrays();
 
         // Initialize upgrade tracking
@@ -133,6 +137,97 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    private void EnsureRuntimeBindings()
+    {
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        }
+
+        if (GetComponent<CanvasScaler>() == null)
+        {
+            CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+        }
+
+        if (GetComponent<GraphicRaycaster>() == null)
+        {
+            gameObject.AddComponent<GraphicRaycaster>();
+        }
+
+        EnsureEventSystem();
+
+        RectTransform canvasRect = transform as RectTransform;
+        RectTransform resourcePanel = EnsurePanel("ResourcePanel", canvasRect, new Vector2(20f, -20f), new Vector2(380f, 175f), new Vector2(0f, 1f), new Vector2(0f, 1f));
+        RectTransform buttonPanel = EnsurePanel("ButtonPanel", canvasRect, new Vector2(0f, 85f), new Vector2(940f, 120f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+        RectTransform upgradesRect = EnsurePanel("UpgradePanel", canvasRect, new Vector2(-20f, 0f), new Vector2(320f, 420f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+
+        cornCountText = EnsureText(resourcePanel, "CornCountText", "Corn: 0", new Vector2(12f, -12f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
+        eggsCountText = EnsureText(resourcePanel, "EggsCountText", "Eggs: 0", new Vector2(12f, -52f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
+        coinsCountText = EnsureText(resourcePanel, "CoinsCountText", "Coins: 50", new Vector2(12f, -92f), new Vector2(180f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
+        helperCountText = EnsureText(resourcePanel, "HelperCountText", "Helpers: 0", new Vector2(190f, -12f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f);
+        incomeRateText = EnsureText(resourcePanel, "IncomeRateText", "Manual play", new Vector2(190f, -52f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f);
+        nextGoalText = EnsureText(resourcePanel, "NextGoalText", "Save coins to hire helper!", new Vector2(12f, -132f), new Vector2(350f, 32f), new Vector2(0f, 1f), new Vector2(0f, 1f), 20f);
+
+        cornIcon = cornCountText != null ? cornCountText.rectTransform : cornIcon;
+        eggsIcon = eggsCountText != null ? eggsCountText.rectTransform : eggsIcon;
+        coinsIcon = coinsCountText != null ? coinsCountText.rectTransform : coinsIcon;
+
+        harvestButton = EnsureButton(buttonPanel, "HarvestButton", "Harvest", new Vector2(-360f, 0f), new Vector2(150f, 56f));
+        feedButton = EnsureButton(buttonPanel, "FeedButton", "Feed", new Vector2(-180f, 0f), new Vector2(150f, 56f));
+        collectButton = EnsureButton(buttonPanel, "CollectButton", "Collect", new Vector2(0f, 0f), new Vector2(150f, 56f));
+        sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(180f, 0f), new Vector2(150f, 56f));
+        hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(360f, 0f), new Vector2(170f, 56f));
+
+        upgradePanel = upgradesRect != null ? upgradesRect.gameObject : upgradePanel;
+        EnsureSerializedArrays();
+
+        if (upgradeButtons == null || upgradeButtons.Length != StoryUpgradeCount)
+        {
+            upgradeButtons = new Button[StoryUpgradeCount];
+        }
+
+        if (upgradeCostTexts == null || upgradeCostTexts.Length != StoryUpgradeCount)
+        {
+            upgradeCostTexts = new TextMeshProUGUI[StoryUpgradeCount];
+        }
+
+        if (upgradeNameTexts == null || upgradeNameTexts.Length != StoryUpgradeCount)
+        {
+            upgradeNameTexts = new TextMeshProUGUI[StoryUpgradeCount];
+        }
+
+        for (int i = 0; i < StoryUpgradeCount; i++)
+        {
+            float y = -24f - (i * 72f);
+            Button upgradeButton = EnsureButton(upgradesRect, $"UpgradeButton_{i + 1}", StoryUpgradeNames[i], new Vector2(0f, y), new Vector2(270f, 60f));
+            TextMeshProUGUI[] texts = upgradeButton.GetComponentsInChildren<TextMeshProUGUI>(true);
+
+            if (texts.Length == 0)
+            {
+                texts = new[] { EnsureButtonText(upgradeButton.transform, "Label", StoryUpgradeNames[i]) };
+            }
+
+            TextMeshProUGUI nameText = texts[0];
+            RectTransform nameRect = nameText.rectTransform;
+            nameRect.anchorMin = new Vector2(0f, 0.5f);
+            nameRect.anchorMax = new Vector2(1f, 0.5f);
+            nameRect.pivot = new Vector2(0.5f, 0.5f);
+            nameRect.anchoredPosition = new Vector2(-20f, 10f);
+            nameRect.sizeDelta = new Vector2(-12f, 24f);
+            nameText.fontSize = 20f;
+
+            TextMeshProUGUI costText = EnsureButtonSubtext(upgradeButton.transform, "CostText", $"💰{StoryUpgradeCosts[i]}", new Vector2(0f, -12f));
+
+            upgradeButtons[i] = upgradeButton;
+            upgradeNameTexts[i] = nameText;
+            upgradeCostTexts[i] = costText;
+        }
+    }
+
     private void OnDestroy()
     {
         // Unsubscribe from events
@@ -163,26 +258,31 @@ public class UIManager : MonoBehaviour
 
         if (harvestButton != null)
         {
+            harvestButton.onClick.RemoveAllListeners();
             harvestButton.onClick.AddListener(OnHarvestClicked);
         }
 
         if (feedButton != null)
         {
+            feedButton.onClick.RemoveAllListeners();
             feedButton.onClick.AddListener(OnFeedClicked);
         }
 
         if (collectButton != null)
         {
+            collectButton.onClick.RemoveAllListeners();
             collectButton.onClick.AddListener(OnCollectClicked);
         }
 
         if (sellButton != null)
         {
+            sellButton.onClick.RemoveAllListeners();
             sellButton.onClick.AddListener(OnSellClicked);
         }
 
         if (hireHelperButton != null)
         {
+            hireHelperButton.onClick.RemoveAllListeners();
             hireHelperButton.onClick.AddListener(OnHireHelperClicked);
         }
 
@@ -192,6 +292,7 @@ public class UIManager : MonoBehaviour
             int index = i;
             if (upgradeButtons[i] != null)
             {
+                upgradeButtons[i].onClick.RemoveAllListeners();
                 upgradeButtons[i].onClick.AddListener(() => OnUpgradeClicked(index));
             }
         }
@@ -265,11 +366,26 @@ public class UIManager : MonoBehaviour
         if (GameManager.Instance == null) return;
 
         // Feed button - needs corn
+        if (harvestButton != null)
+        {
+            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            bool canHarvest = field == null || field.CanInteract();
+            harvestButton.interactable = canHarvest;
+            UpdateButtonVisual(harvestButton, canHarvest);
+        }
+
         if (feedButton != null)
         {
             bool canFeed = GameManager.Instance.Corn > 0;
             feedButton.interactable = canFeed;
             UpdateButtonVisual(feedButton, canFeed);
+        }
+
+        if (collectButton != null)
+        {
+            bool canCollect = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None).Length > 0;
+            collectButton.interactable = canCollect;
+            UpdateButtonVisual(collectButton, canCollect);
         }
 
         // Sell button - needs eggs
@@ -419,6 +535,9 @@ public class UIManager : MonoBehaviour
         {
             PunchScale(coinsIcon);
         }
+
+        UpdateNextGoal();
+        UpdateIncomeRate();
     }
 
     private void OnHelperCountChanged(int newValue)
@@ -427,11 +546,15 @@ public class UIManager : MonoBehaviour
         {
             helperCountText.text = newValue.ToString();
         }
+
+        UpdateNextGoal();
+        UpdateIncomeRate();
     }
 
     // Button click handlers
     private void OnHarvestClicked()
     {
+        AudioManager.Instance?.PlaySound("click");
         HarvestableField field = FindAnyObjectByType<HarvestableField>();
         if (field != null)
         {
@@ -441,6 +564,7 @@ public class UIManager : MonoBehaviour
 
     private void OnFeedClicked()
     {
+        AudioManager.Instance?.PlaySound("click");
         Chicken chicken = FindAnyObjectByType<Chicken>();
         if (chicken != null && chicken.CanInteract())
         {
@@ -450,6 +574,7 @@ public class UIManager : MonoBehaviour
 
     private void OnCollectClicked()
     {
+        AudioManager.Instance?.PlaySound("click");
         // Note: FindObjectsByType is used here as this is a simple idle game
         // with typically very few eggs in the scene at once
         CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
@@ -462,6 +587,7 @@ public class UIManager : MonoBehaviour
 
     private void OnSellClicked()
     {
+        AudioManager.Instance?.PlaySound("click");
         StoreCounter store = FindAnyObjectByType<StoreCounter>();
         if (store != null && store.CanInteract())
         {
@@ -471,6 +597,7 @@ public class UIManager : MonoBehaviour
 
     private void OnHireHelperClicked()
     {
+        AudioManager.Instance?.PlaySound("click");
         int cost = GameManager.Instance.HelperCost;
         if (GameManager.Instance.CanAfford(cost))
         {
@@ -495,6 +622,7 @@ public class UIManager : MonoBehaviour
 
     private void OnUpgradeClicked(int upgradeIndex)
     {
+        AudioManager.Instance?.PlaySound("click");
         // Use UpgradeData if available
         if (availableUpgrades != null && upgradeIndex < availableUpgrades.Length && availableUpgrades[upgradeIndex] != null)
         {
@@ -654,7 +782,7 @@ public class UIManager : MonoBehaviour
 
         // Calculate approximate income
         // Each helper completes a loop in ~7-8 seconds, selling an egg for EggSellPrice
-        float loopTime = 7.5f / GameManager.Instance.SpeedMultiplier;
+        float loopTime = 7.2f / (GameManager.Instance.SpeedMultiplier * GameManager.Instance.StoreEfficiencyMultiplier);
         float incomePerSecond = helpers * GameManager.Instance.EggSellPrice / loopTime;
 
         incomeRateText.text = $"+{incomePerSecond:F1} 💰/sec";
@@ -818,5 +946,161 @@ public class UIManager : MonoBehaviour
         }
 
         target.localScale = originalScale;
+    }
+
+    private void EnsureEventSystem()
+    {
+        EventSystem eventSystem = FindAnyObjectByType<EventSystem>();
+        if (eventSystem == null)
+        {
+            GameObject eventSystemObject = new GameObject("EventSystem");
+            eventSystem = eventSystemObject.AddComponent<EventSystem>();
+        }
+
+        if (eventSystem.GetComponent<StandaloneInputModule>() == null)
+        {
+            eventSystem.gameObject.AddComponent<StandaloneInputModule>();
+        }
+    }
+
+    private RectTransform EnsurePanel(string name, RectTransform parent, Vector2 anchoredPosition, Vector2 size, Vector2 anchorMin, Vector2 anchorMax)
+    {
+        Transform existing = parent.Find(name);
+        GameObject panelObject = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(Image));
+        if (panelObject.transform.parent != parent)
+        {
+            panelObject.transform.SetParent(parent, false);
+        }
+
+        Image image = panelObject.GetComponent<Image>();
+        if (image == null)
+        {
+            image = panelObject.AddComponent<Image>();
+        }
+
+        image.color = new Color(1f, 0.98f, 0.77f, 0.82f);
+
+        RectTransform rect = panelObject.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = anchorMax;
+        rect.sizeDelta = size;
+        rect.anchoredPosition = anchoredPosition;
+        return rect;
+    }
+
+    private TextMeshProUGUI EnsureText(RectTransform parent, string name, string content, Vector2 anchoredPosition, Vector2 size, Vector2 anchorMin, Vector2 anchorMax, float fontSize)
+    {
+        Transform existing = parent.Find(name);
+        GameObject textObject = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform));
+        if (textObject.transform.parent != parent)
+        {
+            textObject.transform.SetParent(parent, false);
+        }
+
+        RectTransform rect = textObject.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = anchorMax;
+        rect.sizeDelta = size;
+        rect.anchoredPosition = anchoredPosition;
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        if (text == null)
+        {
+            text = textObject.AddComponent<TextMeshProUGUI>();
+        }
+
+        text.text = content;
+        text.fontSize = fontSize;
+        text.color = StoryColorPalette.TextDark;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        return text;
+    }
+
+    private Button EnsureButton(RectTransform parent, string name, string label, Vector2 anchoredPosition, Vector2 size)
+    {
+        Transform existing = parent.Find(name);
+        GameObject buttonObject = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        if (buttonObject.transform.parent != parent)
+        {
+            buttonObject.transform.SetParent(parent, false);
+        }
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = StoryColorPalette.ButtonGreen;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+
+        TextMeshProUGUI text = EnsureButtonText(buttonObject.transform, "Label", label);
+        text.alignment = TextAlignmentOptions.Center;
+        text.fontSize = 22f;
+
+        return button;
+    }
+
+    private TextMeshProUGUI EnsureButtonText(Transform parent, string name, string label)
+    {
+        Transform existing = parent.Find(name);
+        GameObject textObject = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform));
+        if (textObject.transform.parent != parent)
+        {
+            textObject.transform.SetParent(parent, false);
+        }
+
+        RectTransform rect = textObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(10f, 10f);
+        rect.offsetMax = new Vector2(-10f, -10f);
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        if (text == null)
+        {
+            text = textObject.AddComponent<TextMeshProUGUI>();
+        }
+
+        text.text = label;
+        text.color = StoryColorPalette.TextDark;
+        text.enableWordWrapping = true;
+        text.alignment = TextAlignmentOptions.Center;
+        return text;
+    }
+
+    private TextMeshProUGUI EnsureButtonSubtext(Transform parent, string name, string label, Vector2 anchoredPosition)
+    {
+        Transform existing = parent.Find(name);
+        GameObject textObject = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform));
+        if (textObject.transform.parent != parent)
+        {
+            textObject.transform.SetParent(parent, false);
+        }
+
+        RectTransform rect = textObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(220f, 18f);
+        rect.anchoredPosition = anchoredPosition;
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        if (text == null)
+        {
+            text = textObject.AddComponent<TextMeshProUGUI>();
+        }
+
+        text.text = label;
+        text.fontSize = 16f;
+        text.color = StoryColorPalette.TextDark;
+        text.alignment = TextAlignmentOptions.Center;
+        return text;
     }
 }

@@ -20,11 +20,13 @@ public class StoreCounter : MonoBehaviour, IInteractable
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Transform coinSpawnPoint;
     [SerializeField] private GameObject coinParticlePrefab;
+    [SerializeField] private GameObject storyVisualPrefab;
 
     // State
     private bool canSell = true;
     private Vector3 originalScale;
     private float bounceTimer = 0f;
+    private SpriteRenderer[] storyRenderers;
 
     private void Start()
     {
@@ -33,6 +35,15 @@ public class StoreCounter : MonoBehaviour, IInteractable
         if (spriteRenderer == null)
         {
             spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        if (storyVisualPrefab != null)
+        {
+            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, spriteRenderer);
+            if (visual != null)
+            {
+                storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
+            }
         }
 
         UpdateVisual();
@@ -63,9 +74,11 @@ public class StoreCounter : MonoBehaviour, IInteractable
     {
         if (spriteRenderer != null)
         {
-            bool hasEggs = GameManager.Instance.Eggs > 0;
+            bool hasEggs = GameManager.Instance != null && GameManager.Instance.Eggs > 0;
             spriteRenderer.color = hasEggs ? activeColor : inactiveColor;
         }
+
+        ApplyStoryTint(GameManager.Instance != null && GameManager.Instance.Eggs > 0 ? activeColor : inactiveColor);
     }
 
     /// <summary>
@@ -84,7 +97,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
     /// </summary>
     public bool CanInteract()
     {
-        return canSell && GameManager.Instance.Eggs > 0;
+        return GameManager.Instance != null && canSell && GameManager.Instance.Eggs > 0;
     }
 
     /// <summary>
@@ -97,15 +110,14 @@ public class StoreCounter : MonoBehaviour, IInteractable
         canSell = false;
 
         // Perform sale
-        if (GameManager.Instance.SellEgg())
+        Vector3 salePosition = coinSpawnPoint != null ? coinSpawnPoint.position : transform.position + new Vector3(0, 0.5f, 0);
+        if (GameManager.Instance.SellEgg(salePosition))
         {
             // Play sale animation
             StartCoroutine(SaleAnimation());
 
             // Spawn coin burst
             SpawnCoinBurst();
-
-            AudioManager.Instance?.PlaySound("sell");
         }
 
         // Cooldown
@@ -138,7 +150,8 @@ public class StoreCounter : MonoBehaviour, IInteractable
     /// </summary>
     private IEnumerator SellCooldown()
     {
-        yield return new WaitForSeconds(sellCooldown / GameManager.Instance.SpeedMultiplier);
+        float sellRate = GameManager.Instance.SpeedMultiplier * GameManager.Instance.StoreEfficiencyMultiplier;
+        yield return new WaitForSeconds(sellCooldown / sellRate);
         canSell = true;
     }
 
@@ -209,7 +222,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
     /// </summary>
     public void UpgradeStore()
     {
-        GameManager.Instance.ApplyUpgrade(UpgradeType.EggPrice, 1.2f);
+        GameManager.Instance.ApplyUpgrade(UpgradeType.StoreCapacity, 1.2f);
 
         // Visual feedback
         StartCoroutine(UpgradeAnimation());
@@ -272,5 +285,21 @@ public class StoreCounter : MonoBehaviour, IInteractable
 
         ps.Play();
         Destroy(sparkles, 1f);
+    }
+
+    private void ApplyStoryTint(Color tint)
+    {
+        if (storyRenderers == null)
+        {
+            return;
+        }
+
+        foreach (SpriteRenderer renderer in storyRenderers)
+        {
+            if (renderer != null)
+            {
+                renderer.color = tint;
+            }
+        }
     }
 }
