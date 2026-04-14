@@ -17,13 +17,15 @@ public class PlayerController : MonoBehaviour
     [Header("References")]
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Animator animator;
-    [SerializeField] private string happyHarvestCharacterResourcePath = "Character";
+    [SerializeField] private GameObject storyVisualPrefab;
+    [SerializeField] private string happyHarvestFarmerLibraryResourcePath = "HappyHarvestFarmer";
 
     // Movement state
     private Vector3 targetPosition;
     private bool isMoving = false;
     private float bobTimer = 0f;
     private Vector3 originalScale;
+    private Transform happyHarvestVisualRoot;
 
     // Current interaction target
     private IInteractable currentTarget;
@@ -100,7 +102,9 @@ public class PlayerController : MonoBehaviour
         // Flip sprite based on movement direction
         if (spriteRenderer != null)
         {
-            spriteRenderer.flipX = position.x < transform.position.x;
+            bool faceLeft = position.x < transform.position.x;
+            spriteRenderer.flipX = faceLeft;
+            StoryVisualBinder.SetFacing(happyHarvestVisualRoot, faceLeft);
         }
 
         // Spawn dust puff at start of movement
@@ -268,18 +272,21 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        GameObject visualPrefab = Resources.Load<GameObject>(happyHarvestCharacterResourcePath);
+        GameObject visualPrefab = storyVisualPrefab;
         if (visualPrefab == null)
         {
             return;
         }
 
-        Sprite replacementSprite = StoryVisualBinder.ExtractRepresentativeSprite(visualPrefab);
-
-        if (replacementSprite != null)
+        GameObject visualInstance = StoryVisualBinder.AttachVisualPrefab(transform, visualPrefab, spriteRenderer);
+        if (visualInstance == null)
         {
-            spriteRenderer.sprite = replacementSprite;
-            spriteRenderer.color = Color.white;
+            return;
         }
+
+        happyHarvestVisualRoot = visualInstance.transform;
+        StoryVisualBinder.ApplySpriteLibrary(visualInstance, happyHarvestFarmerLibraryResourcePath);
+        happyHarvestVisualRoot.localScale = Vector3.one * 0.45f;
+        happyHarvestVisualRoot.localPosition = new Vector3(0f, -0.35f, 0f);
     }
 }

@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Reflection;
+using System.Collections.Generic;
 
 /// <summary>
 /// StoryVisualBinder - Attaches Happy Harvest art prefabs onto simple gameplay objects
@@ -6,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public static class StoryVisualBinder
 {
+    private static readonly Dictionary<int, Transform> AttachedVisualRoots = new Dictionary<int, Transform>();
+
     public static GameObject AttachVisualPrefab(Transform host, GameObject visualPrefab, SpriteRenderer placeholderRenderer = null)
     {
         if (host == null || visualPrefab == null)
@@ -13,21 +17,36 @@ public static class StoryVisualBinder
             return null;
         }
 
-        Transform existing = host.Find(visualPrefab.name + "_Visual");
-        if (existing != null)
+        int hostId = host.GetInstanceID();
+        if (AttachedVisualRoots.TryGetValue(hostId, out Transform existing) && existing != null)
         {
+            AlignSortingAndLayers(host.gameObject, existing.gameObject, placeholderRenderer);
+            if (placeholderRenderer != null)
+            {
+                placeholderRenderer.enabled = false;
+            }
             return existing.gameObject;
         }
 
-        GameObject instance = Object.Instantiate(visualPrefab, host);
+        GameObject instance = Object.Instantiate(visualPrefab);
         instance.name = visualPrefab.name + "_Visual";
-        instance.transform.localPosition = Vector3.zero;
-        instance.transform.localRotation = Quaternion.identity;
+        instance.transform.position = host.position;
+        instance.transform.rotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one;
 
+        NormalizeNestedPrefabChildren(instance.transform);
         PruneNonVisualChildren(instance.transform);
         StripGameplayComponents(instance);
         DisableMarkerRenderers(instance.transform);
+        NormalizeSpriteRenderers(instance.transform);
+        AlignSortingAndLayers(host.gameObject, instance, placeholderRenderer);
+        StoryVisualFollower follower = instance.GetComponent<StoryVisualFollower>();
+        if (follower == null)
+        {
+            follower = instance.AddComponent<StoryVisualFollower>();
+        }
+        follower.Bind(host);
+        AttachedVisualRoots[hostId] = instance.transform;
 
         if (placeholderRenderer != null)
         {
@@ -35,23 +54,6 @@ public static class StoryVisualBinder
         }
 
         return instance;
-    }
-
-    public static Sprite ExtractRepresentativeSprite(GameObject visualPrefab)
-    {
-        if (visualPrefab == null)
-        {
-            return null;
-        }
-
-        GameObject temp = Object.Instantiate(visualPrefab);
-        temp.hideFlags = HideFlags.HideAndDontSave;
-
-        Transform visualRoot = FindPreferredVisualRoot(temp.transform);
-        Sprite sprite = FindBestSprite(visualRoot != null ? visualRoot : temp.transform);
-
-        Object.Destroy(temp);
-        return sprite;
     }
 
     private static void StripGameplayComponents(GameObject root)
@@ -64,7 +66,7 @@ public static class StoryVisualBinder
                 continue;
             }
 
-            if (component is Transform || component is SpriteRenderer || component is Animator || component.GetType().Name == "SortingGroup")
+            if (component is Transform || component is SpriteRenderer || component is Animator || ShouldKeepVisualComponent(component))
             {
                 continue;
             }
@@ -108,9 +110,145 @@ public static class StoryVisualBinder
             }
 
             string path = BuildPath(renderer.transform).ToLowerInvariant();
-            bool looksLikeMarker = path.Contains("ui target") || path.Contains("target") || path.Contains("marker") || path.Contains("logic");
+            bool looksLikeMarker = path.Contains("ui target") || path.Contains("target") || path.Contains("marker") || path.Contains("logic") || path.Contains("shadow");
             bool outsideVisualRoot = preferredVisualRoot != null && !renderer.transform.IsChildOf(preferredVisualRoot);
             renderer.enabled = !looksLikeMarker && !outsideVisualRoot;
+        }
+    }
+
+    private static void NormalizeSpriteRenderers(Transform root)
+    {
+        SpriteRenderer[] renderers = root.GetComponentsInChildren<SpriteRenderer>(true);
+        foreach (SpriteRenderer renderer in renderers)
+        {
+            if (renderer == null || !renderer.enabled)
+            {
+                continue;
+            }
+
+            renderer.sharedMaterial = null;
+            renderer.color = Color.white;
+            renderer.maskInteraction = SpriteMaskInteraction.None;
+        }
+    }
+
+    private static void AlignSortingAndLayers(GameObject host, GameObject visualRoot, SpriteRenderer placeholderRenderer)
+    {
+        if (host == null || visualRoot == null)
+        {
+            return;
+        }
+
+        int baseLayer = host.layer;
+        int sortingLayerId = placeholderRenderer != null ? placeholderRenderer.sortingLayerID : 0;
+        int sortingOrder = placeholderRenderer != null ? placeholderRenderer.sortingOrder + 1 : 10;
+
+        Transform[] transforms = visualRoot.GetComponentsInChildren<Transform>(true);
+        foreach (Transform t in transforms)
+        {
+            t.gameObject.layer = baseLayer;
+        }
+
+        Component[] components = visualRoot.GetComponentsInChildren<Component>(true);
+        foreach (Component component in components)
+        {
+            if (component == null)
+            {
+                continue;
+            }
+
+            if (component is SpriteRenderer renderer)
+            {
+                renderer.sortingLayerID = sortingLayerId;
+                renderer.sortingOrder = sortingOrder;
+            }
+            else if (component.GetType().Name == "SortingGroup")
+            {
+                var type = component.GetType();
+                type.GetProperty("sortingLayerID")?.SetValue(component, sortingLayerId);
+                type.GetProperty("sortingOrder")?.SetValue(component, sortingOrder);
+            }
+        }
+    }
+
+    private static void NormalizeNestedPrefabChildren(Transform root)
+    {
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            if (!child.name.StartsWith("Prefab_"))
+            {
+                continue;
+            }
+
+            child.localPosition = Vector3.zero;
+            child.localRotation = Quaternion.identity;
+            child.localScale = Vector3.one;
+        }
+    }
+
+    public static void SetFacing(Transform visualRoot, bool faceLeft)
+    {
+        if (visualRoot == null)
+        {
+            return;
+        }
+
+        Vector3 localScale = visualRoot.localScale;
+        float magnitude = Mathf.Abs(localScale.x);
+        localScale.x = faceLeft ? -magnitude : magnitude;
+        visualRoot.localScale = localScale;
+    }
+
+    public static Transform FindAttachedVisualRoot(Transform host)
+    {
+        if (host == null)
+        {
+            return null;
+        }
+
+        int hostId = host.GetInstanceID();
+        if (AttachedVisualRoots.TryGetValue(hostId, out Transform attachedRoot) && attachedRoot != null)
+        {
+            return attachedRoot;
+        }
+
+        return null;
+    }
+
+    public static void ApplySpriteLibrary(GameObject root, string resourcesPath)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(resourcesPath))
+        {
+            return;
+        }
+
+        Object spriteLibraryAsset = Resources.Load(resourcesPath);
+        if (spriteLibraryAsset == null)
+        {
+            return;
+        }
+
+        Component[] components = root.GetComponentsInChildren<Component>(true);
+        foreach (Component component in components)
+        {
+            if (component == null || component.GetType().Name != "SpriteLibrary")
+            {
+                continue;
+            }
+
+            PropertyInfo property = component.GetType().GetProperty("spriteLibraryAsset", BindingFlags.Public | BindingFlags.Instance);
+            if (property != null && property.CanWrite)
+            {
+                property.SetValue(component, spriteLibraryAsset);
+                continue;
+            }
+
+            FieldInfo field = component.GetType().GetField("m_SpriteLibraryAsset", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field != null)
+            {
+                field.SetValue(component, spriteLibraryAsset);
+            }
         }
     }
 
@@ -129,30 +267,35 @@ public static class StoryVisualBinder
         return null;
     }
 
-    private static Sprite FindBestSprite(Transform root)
+    private static bool ShouldKeepVisualComponent(Component component)
     {
-        SpriteRenderer[] renderers = root.GetComponentsInChildren<SpriteRenderer>(true);
-        foreach (SpriteRenderer renderer in renderers)
+        string typeName = component.GetType().Name;
+        switch (typeName)
         {
-            if (renderer == null || renderer.sprite == null)
-            {
-                continue;
-            }
-
-            string path = BuildPath(renderer.transform).ToLowerInvariant();
-            if (path.Contains("ui target") || path.Contains("target") || path.Contains("marker") || path.Contains("logic"))
-            {
-                continue;
-            }
-
-            return renderer.sprite;
+            case "SortingGroup":
+            case "SpriteResolver":
+            case "SpriteLibrary":
+            case "SpriteSkin":
+            case "Light2D":
+                return true;
         }
 
-        return null;
+        string namespaceName = component.GetType().Namespace ?? string.Empty;
+        if (namespaceName.StartsWith("UnityEngine.U2D") || namespaceName.StartsWith("UnityEngine.Rendering"))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static string BuildPath(Transform current)
     {
+        if (current == null)
+        {
+            return string.Empty;
+        }
+
         string path = current.name;
         while (current.parent != null)
         {
@@ -161,5 +304,28 @@ public static class StoryVisualBinder
         }
 
         return path;
+    }
+}
+
+public sealed class StoryVisualFollower : MonoBehaviour
+{
+    private Transform target;
+    private Vector3 offset;
+
+    public void Bind(Transform newTarget)
+    {
+        target = newTarget;
+        offset = transform.position - target.position;
+    }
+
+    private void LateUpdate()
+    {
+        if (target == null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        transform.position = target.position + offset;
     }
 }

@@ -1790,6 +1790,7 @@ MonoBehaviour:
   bobSpeed: 8
   spriteRenderer: {fileID: 0}
   animator: {fileID: 0}
+  storyVisualPrefab: {fileID: 100100000, guid: f8d24aa3b2fcc6f4d9bddba5a1e896b3, type: 3}
 --- !u!212 &509844818
 SpriteRenderer:
   m_ObjectHideFlags: 0

@@ -520,6 +520,27 @@ public class GameManager : MonoBehaviour
             }
         }
 
+        GameObject happyHarvestCharacter = Resources.Load<GameObject>("HappyHarvestCharacterBase");
+        if (happyHarvestCharacter != null)
+        {
+            GameObject visualInstance = StoryVisualBinder.AttachVisualPrefab(helper.transform, happyHarvestCharacter, helperRenderer);
+            if (visualInstance != null)
+            {
+                StoryVisualBinder.ApplySpriteLibrary(visualInstance, "HappyHarvestFarmer");
+                visualInstance.transform.localScale = Vector3.one * 0.4f;
+                visualInstance.transform.localPosition = new Vector3(0f, -0.35f, 0f);
+
+                SpriteRenderer[] renderers = visualInstance.GetComponentsInChildren<SpriteRenderer>(true);
+                foreach (SpriteRenderer renderer in renderers)
+                {
+                    if (renderer != null)
+                    {
+                        renderer.color = Color.Lerp(renderer.color, StoryColorPalette.GetHelperColor(helperCount), 0.25f);
+                    }
+                }
+            }
+        }
+
         helper.AddComponent<HelperAI>();
         return helper;
     }

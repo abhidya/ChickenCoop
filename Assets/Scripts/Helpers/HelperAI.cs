@@ -44,6 +44,7 @@ public class HelperAI : MonoBehaviour
     // Animation
     private float bobTimer = 0f;
     private Vector3 originalScale;
+    private Transform happyHarvestVisualRoot;
 
     // Helper ID for visual distinction
     private int helperId;
@@ -65,6 +66,8 @@ public class HelperAI : MonoBehaviour
         {
             spriteRenderer = GetComponent<SpriteRenderer>();
         }
+
+        happyHarvestVisualRoot = StoryVisualBinder.FindAttachedVisualRoot(transform);
 
         // Give each helper a slightly different color tint
         if (spriteRenderer != null)
@@ -244,7 +247,9 @@ public class HelperAI : MonoBehaviour
         // Flip sprite based on direction
         if (spriteRenderer != null)
         {
-            spriteRenderer.flipX = position.x < transform.position.x;
+            bool faceLeft = position.x < transform.position.x;
+            spriteRenderer.flipX = faceLeft;
+            StoryVisualBinder.SetFacing(happyHarvestVisualRoot, faceLeft);
         }
 
         SpawnDustPuff();

@@ -457,7 +457,7 @@ public class TutorialManager : MonoBehaviour
             instructionText.alignment = TextAlignmentOptions.Center;
             instructionText.fontSize = 24f;
             instructionText.color = StoryColorPalette.TextDark;
-            instructionText.enableWordWrapping = true;
+            instructionText.textWrappingMode = TextWrappingModes.Normal;
         }
 
         if (skipButton == null)

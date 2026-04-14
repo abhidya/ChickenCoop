@@ -1070,7 +1070,7 @@ public class UIManager : MonoBehaviour
 
         text.text = label;
         text.color = StoryColorPalette.TextDark;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
         text.alignment = TextAlignmentOptions.Center;
         return text;
     }

@@ -314,7 +314,7 @@ public class TitleCardManager : MonoBehaviour
             titleText.alignment = TextAlignmentOptions.Center;
             titleText.fontSize = 40f;
             titleText.color = Color.white;
-            titleText.enableWordWrapping = true;
+            titleText.textWrappingMode = TextWrappingModes.Normal;
         }
 
         titleCardPanel.transform.SetAsLastSibling();
