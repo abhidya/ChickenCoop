@@ -92,6 +92,17 @@ public class HarvestableField : MonoBehaviour, IInteractable
     }
 
     /// <summary>
+    /// Returns 0-1 progress of corn growth.
+    /// 1.0 means ready to harvest.
+    /// </summary>
+    public float GetGrowthProgress()
+    {
+        if (canHarvest) return 1f;
+        if (harvestCooldown <= 0) return 1f;
+        return 1f - Mathf.Clamp01(cooldownTimer / harvestCooldown);
+    }
+
+    /// <summary>
     /// Update ambient bounce animation
     /// </summary>
     private void UpdateAnimation()

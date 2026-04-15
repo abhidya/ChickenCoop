@@ -465,8 +465,7 @@ public class PlayerController : MonoBehaviour
 
         happyHarvestVisualRoot.localPosition = HappyHarvestVisualOffset;
 
-        Vector3 scale = happyHarvestVisualRoot.localScale;
-        float facing = scale.x < 0f ? -1f : 1f;
+        float facing = (spriteRenderer != null && spriteRenderer.flipX) ? -1f : 1f;
         happyHarvestVisualRoot.localScale = new Vector3(
             HappyHarvestVisualScale * facing,
             HappyHarvestVisualScale,

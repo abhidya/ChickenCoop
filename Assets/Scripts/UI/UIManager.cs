@@ -29,6 +29,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI coinsCountText;
     [SerializeField] private TextMeshProUGUI helperCountText;
     [SerializeField] private TextMeshProUGUI incomeRateText;
+    [SerializeField] private TextMeshProUGUI timeText;
 
     [Header("Resource Icons")]
     [SerializeField] private RectTransform cornIcon;
@@ -113,8 +114,17 @@ public class UIManager : MonoBehaviour
         EnsureRuntimeBindings();
         EnsureSerializedArrays();
 
+        Instance = this;
+        
+        // Ensure Canvas is set to Screen Space - Overlay for maximum WebGL compatibility
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        }
+
         // Initialize upgrade tracking
-        upgradesPurchased = new bool[upgradeButtons != null ? upgradeButtons.Length : 0];
+        upgradesPurchased = new bool[availableUpgrades != null ? availableUpgrades.Length : 0];
 
         // Subscribe to game events
         if (GameManager.Instance != null)
@@ -159,18 +169,27 @@ public class UIManager : MonoBehaviour
 
     private void EnsureRuntimeBindings()
     {
+        if (!(transform is RectTransform))
+        {
+            gameObject.AddComponent<RectTransform>();
+        }
+
         Canvas canvas = GetComponent<Canvas>();
         if (canvas == null)
         {
             canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         }
+        
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 999; // Ensure it's on top of everything
 
         if (GetComponent<CanvasScaler>() == null)
         {
             CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
         }
 
         if (GetComponent<GraphicRaycaster>() == null)
@@ -186,8 +205,13 @@ public class UIManager : MonoBehaviour
         RectTransform upgradesRect = EnsurePanel("UpgradePanel", canvasRect, new Vector2(-20f, 0f), new Vector2(320f, 420f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
 
         cornCountText = EnsureText(resourcePanel, "CornCountText", "Corn: 0", new Vector2(12f, -12f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
+        cornProgressBar = EnsureProgressBar(resourcePanel, "CornProgressBar", new Vector2(12f, -44f), new Vector2(150f, 6f));
+        
         eggsCountText = EnsureText(resourcePanel, "EggsCountText", "Eggs: 0", new Vector2(12f, -52f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
+        eggProgressBar = EnsureProgressBar(resourcePanel, "EggProgressBar", new Vector2(12f, -84f), new Vector2(150f, 6f));
+        
         coinsCountText = EnsureText(resourcePanel, "CoinsCountText", "Coins: 50", new Vector2(12f, -92f), new Vector2(180f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
+        timeText = EnsureText(resourcePanel, "TimeText", "00:00", new Vector2(190f, -92f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f); 
         helperCountText = EnsureText(resourcePanel, "HelperCountText", "Helpers: 0", new Vector2(190f, -12f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f);
         incomeRateText = EnsureText(resourcePanel, "IncomeRateText", "Manual play", new Vector2(190f, -52f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f);
         nextGoalText = EnsureText(resourcePanel, "NextGoalText", "Save coins to hire helper!", new Vector2(12f, -132f), new Vector2(350f, 32f), new Vector2(0f, 1f), new Vector2(0f, 1f), 20f);
@@ -267,6 +291,53 @@ public class UIManager : MonoBehaviour
 
         // Update button states
         UpdateButtonStates();
+
+        // Update progress bars
+        UpdateProgressBars();
+
+        // Update time
+        UpdateTimeDisplay();
+    }
+
+    private void UpdateTimeDisplay()
+    {
+        if (timeText != null)
+        {
+            DayNightCycle cycle = FindAnyObjectByType<DayNightCycle>();
+            if (cycle != null)
+            {
+                timeText.text = cycle.GetTimeString();
+            }
+        }
+    }
+
+    private void UpdateProgressBars()
+    {
+        // Update Corn Progress
+        if (cornProgressBar != null)
+        {
+            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            if (field != null)
+            {
+                float progress = field.GetGrowthProgress();
+                cornProgressBar.fillAmount = progress;
+                // Fade out when full (1.0)
+                cornProgressBar.transform.parent.gameObject.SetActive(progress < 1.0f);
+            }
+        }
+
+        // Update Egg Progress
+        if (eggProgressBar != null)
+        {
+            Chicken chicken = FindAnyObjectByType<Chicken>();
+            if (chicken != null)
+            {
+                float progress = chicken.GetProductionProgress();
+                eggProgressBar.fillAmount = progress;
+                // Only show while laying egg
+                eggProgressBar.transform.parent.gameObject.SetActive(progress > 0.01f);
+            }
+        }
     }
 
     /// <summary>
@@ -1166,5 +1237,44 @@ public class UIManager : MonoBehaviour
         text.color = StoryColorPalette.TextDark;
         text.alignment = TextAlignmentOptions.Center;
         return text;
+    }
+
+    private Image EnsureProgressBar(Transform parent, string name, Vector2 anchoredPosition, Vector2 size)
+    {
+        // Background
+        Transform existingBg = parent.Find(name + "_Bg");
+        GameObject bgObject = existingBg != null ? existingBg.gameObject : new GameObject(name + "_Bg", typeof(RectTransform));
+        if (bgObject.transform.parent != parent) bgObject.transform.SetParent(parent, false);
+
+        RectTransform bgRect = bgObject.GetComponent<RectTransform>();
+        bgRect.anchorMin = new Vector2(0f, 1f);
+        bgRect.anchorMax = new Vector2(0f, 1f);
+        bgRect.pivot = new Vector2(0f, 1f);
+        bgRect.anchoredPosition = anchoredPosition;
+        bgRect.sizeDelta = size;
+
+        Image bgImage = bgObject.GetComponent<Image>();
+        if (bgImage == null) bgImage = bgObject.AddComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 0.4f);
+
+        // Fill
+        Transform existingFill = bgObject.transform.Find("Fill");
+        GameObject fillObject = existingFill != null ? existingFill.gameObject : new GameObject("Fill", typeof(RectTransform));
+        if (fillObject.transform.parent != bgObject.transform) fillObject.transform.SetParent(bgObject.transform, false);
+
+        RectTransform fillRect = fillObject.GetComponent<RectTransform>();
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.offsetMin = Vector2.zero;
+        fillRect.offsetMax = Vector2.zero;
+
+        Image fillImage = fillObject.GetComponent<Image>();
+        if (fillImage == null) fillImage = fillObject.AddComponent<Image>();
+        fillImage.color = StoryColorPalette.CoinGold;
+        fillImage.type = Image.Type.Filled;
+        fillImage.fillMethod = Image.FillMethod.Horizontal;
+        fillImage.fillAmount = 0.5f;
+
+        return fillImage;
     }
 }

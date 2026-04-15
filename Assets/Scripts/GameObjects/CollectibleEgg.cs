@@ -7,6 +7,22 @@ using System.Collections;
 public class CollectibleEgg : MonoBehaviour, IInteractable
 {
     private bool isCollected = false;
+    private const float CollectionDistance = 1.5f;
+
+    private void Update()
+    {
+        if (isCollected || GameManager.Instance == null || GameManager.Instance.Player == null)
+        {
+            return;
+        }
+
+        // Auto-collect if player is within range
+        float dist = Vector3.Distance(transform.position, GameManager.Instance.Player.transform.position);
+        if (dist < CollectionDistance)
+        {
+            Collect();
+        }
+    }
 
     public void Interact()
     {

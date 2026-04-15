@@ -34,6 +34,7 @@ public class Chicken : MonoBehaviour, IInteractable
     private float wiggleTimer = 0f;
     private Vector3 originalScale;
     private Quaternion originalRotation;
+    private float productionProgress = 0f;
 
     public bool IsLayingEgg => isLayingEgg;
 
@@ -135,15 +136,21 @@ public class Chicken : MonoBehaviour, IInteractable
         }
     }
 
-    /// <summary>
-    /// Player interaction - feed the chicken
-    /// </summary>
     public void Interact()
     {
         if (CanInteract())
         {
             Feed();
         }
+    }
+
+    /// <summary>
+    /// Returns 0-1 progress of egg production
+    /// </summary>
+    public float GetProductionProgress()
+    {
+        if (!isLayingEgg) return 0f;
+        return productionProgress;
     }
 
     /// <summary>
@@ -189,22 +196,27 @@ public class Chicken : MonoBehaviour, IInteractable
     private IEnumerator FeedAndLayEgg()
     {
         isLayingEgg = true;
+        productionProgress = 0.1f;
 
         // Eating animation - pecking motion
         yield return StartCoroutine(EatingAnimation());
+        productionProgress = 0.4f;
 
         AudioManager.Instance?.PlaySound("eat");
 
         // Short pause
         yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
+        productionProgress = 0.6f;
 
         // Egg laying animation
         yield return StartCoroutine(LayEggAnimation());
+        productionProgress = 1.0f;
 
         // Spawn egg
         SpawnEgg();
 
         isLayingEgg = false;
+        productionProgress = 0f;
     }
 
     /// <summary>

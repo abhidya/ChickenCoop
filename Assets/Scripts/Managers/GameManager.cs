@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using System;
 using System.Collections;
 
@@ -73,6 +75,7 @@ public class GameManager : MonoBehaviour
     public int HelperCost => GetHelperBaseCost() + (helperCount * GetHelperCostIncrease());
     public float SpeedMultiplier => speedMultiplier;
     public float StoreEfficiencyMultiplier => storeEfficiencyMultiplier;
+    public PlayerController Player => FindAnyObjectByType<PlayerController>();
 
     // Helper methods for config values with fallbacks
     private int GetEggSellPrice() => config != null ? config.eggSellPrice : eggSellPrice;
@@ -96,10 +99,26 @@ public class GameManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
             InitializeGame();
             ResolveSceneReferences();
+            EnsureEventSystem();
         }
         else
         {
             Destroy(gameObject);
+        }
+    }
+
+    /// <summary>
+    /// Ensures a standard EventSystem exists in the scene for UI interactivity.
+    /// Crucial for WebGL environments.
+    /// </summary>
+    private void EnsureEventSystem()
+    {
+        if (FindAnyObjectByType<EventSystem>() == null)
+        {
+            GameObject es = new GameObject("EventSystem");
+            es.AddComponent<EventSystem>();
+            es.AddComponent<StandaloneInputModule>();
+            Debug.Log("[GameManager] Created missing EventSystem for UI support.");
         }
     }
 
@@ -491,6 +510,11 @@ public class GameManager : MonoBehaviour
             environmentAnimator.CreateAmbientParticles();
         }
 
+        if (FindAnyObjectByType<UIManager>() == null)
+        {
+            new GameObject("UIManager").AddComponent<UIManager>();
+        }
+
         if (FindAnyObjectByType<DayNightCycle>() == null)
         {
             GameObject dayNightHost = Camera.main != null ? Camera.main.gameObject : new GameObject("DayNightCycle");
@@ -529,14 +553,16 @@ public class GameManager : MonoBehaviour
 
     private void EnsureChickenObject()
     {
-        if (FindAnyObjectByType<Chicken>() != null)
+        Chicken existing = FindAnyObjectByType<Chicken>();
+        if (existing != null)
         {
+            existing.transform.position = new Vector3(-3f, 2, 0f);
             return;
         }
 
         GameObject chicken = new GameObject("Chicken");
         chicken.tag = "Chicken";
-        chicken.transform.position = new Vector3(10f, 0f, 0f);
+        chicken.transform.position = new Vector3(-3f, 2f, 0f);
 
         SpriteRenderer renderer = chicken.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
@@ -564,8 +590,10 @@ public class GameManager : MonoBehaviour
 
     private void EnsureCornFieldObject()
     {
-        if (FindAnyObjectByType<HarvestableField>() != null)
+        HarvestableField existing = FindAnyObjectByType<HarvestableField>();
+        if (existing != null)
         {
+            existing.transform.position = new Vector3(-4f, 0f, 0f);
             return;
         }
 
@@ -591,14 +619,17 @@ public class GameManager : MonoBehaviour
 
     private void EnsureStoreCounterObject()
     {
-        if (FindAnyObjectByType<StoreCounter>() != null)
+        StoreCounter existing = FindAnyObjectByType<StoreCounter>();
+        if (existing != null)
         {
+            existing.transform.position = new Vector3(5f, 0f, 0f);
             return;
         }
 
         GameObject store = new GameObject("StoreCounter");
         store.tag = "Store";
-        store.transform.position = new Vector3(20f, 0f, 0f);
+        store.transform.position = new Vector3(5f, 0f, 0f);
+        store.transform.localScale = new Vector3(.5f, .5f, 0f);
 
         SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
