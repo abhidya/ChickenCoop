@@ -208,7 +208,7 @@ public class EnvironmentAnimator : MonoBehaviour
 
         var shape = ps.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(10f, 6f, 1f);
+        shape.scale = new Vector3(50f, 10f, 1f); // Expanded to cover much larger world area
 
         ps.Play();
     }

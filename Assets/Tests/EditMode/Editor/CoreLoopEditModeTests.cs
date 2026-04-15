@@ -15,6 +15,9 @@ public class CoreLoopEditModeTests
 
         gameManagerObject = new GameObject("GameManager_Test");
         gameManager = gameManagerObject.AddComponent<GameManager>();
+        SetGameManagerSingleton(gameManager);
+        InvokePrivateMethod(gameManager, "InitializeGame");
+        InvokePrivateMethod(gameManager, "ResolveSceneReferences");
     }
 
     [TearDown]
@@ -55,6 +58,7 @@ public class CoreLoopEditModeTests
         GameObject fieldObject = new GameObject("CornField_Test");
         fieldObject.AddComponent<SpriteRenderer>();
         HarvestableField field = fieldObject.AddComponent<HarvestableField>();
+        InvokePrivateMethod(field, "Start");
 
         Assert.AreEqual(0, gameManager.Corn);
 
@@ -70,6 +74,7 @@ public class CoreLoopEditModeTests
         chickenObject.AddComponent<SpriteRenderer>();
         chickenObject.AddComponent<CircleCollider2D>();
         Chicken chicken = chickenObject.AddComponent<Chicken>();
+        InvokePrivateMethod(chicken, "Start");
 
         gameManager.AddCorn(1);
         Assert.AreEqual(1, gameManager.Corn);
@@ -87,6 +92,7 @@ public class CoreLoopEditModeTests
         storeObject.AddComponent<SpriteRenderer>();
         storeObject.AddComponent<BoxCollider2D>();
         StoreCounter store = storeObject.AddComponent<StoreCounter>();
+        InvokePrivateMethod(store, "Start");
 
         gameManager.AddEgg(1);
         int coinsBefore = gameManager.Coins;
@@ -101,5 +107,17 @@ public class CoreLoopEditModeTests
     {
         FieldInfo backingField = typeof(GameManager).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
         backingField?.SetValue(null, null);
+    }
+
+    private static void SetGameManagerSingleton(GameManager instance)
+    {
+        FieldInfo backingField = typeof(GameManager).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+        backingField?.SetValue(null, instance);
+    }
+
+    private static void InvokePrivateMethod(object target, string methodName)
+    {
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        method?.Invoke(target, null);
     }
 }

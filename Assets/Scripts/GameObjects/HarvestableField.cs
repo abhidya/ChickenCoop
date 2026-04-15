@@ -300,7 +300,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
         shape.radius = 0.1f;
 
         ps.Play();
-        Destroy(particles, 1f);
+        DestroyTemporaryObject(particles, 1f);
     }
 
     /// <summary>
@@ -331,7 +331,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
         shape.radius = 0.3f;
 
         ps.Play();
-        Destroy(sparkle, 0.8f);
+        DestroyTemporaryObject(sparkle, 0.8f);
     }
 
     /// <summary>
@@ -377,5 +377,21 @@ public class HarvestableField : MonoBehaviour, IInteractable
                 renderer.color = tint;
             }
         }
+    }
+
+    private static void DestroyTemporaryObject(Object target, float delay = 0f)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        if (Application.isPlaying)
+        {
+            Destroy(target, delay);
+            return;
+        }
+
+        Object.DestroyImmediate(target);
     }
 }

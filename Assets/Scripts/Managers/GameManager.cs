@@ -536,7 +536,7 @@ public class GameManager : MonoBehaviour
 
         GameObject chicken = new GameObject("Chicken");
         chicken.tag = "Chicken";
-        chicken.transform.position = new Vector3(2f, 0f, 0f);
+        chicken.transform.position = new Vector3(10f, 0f, 0f);
 
         SpriteRenderer renderer = chicken.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
@@ -598,7 +598,7 @@ public class GameManager : MonoBehaviour
 
         GameObject store = new GameObject("StoreCounter");
         store.tag = "Store";
-        store.transform.position = new Vector3(4f, 0f, 0f);
+        store.transform.position = new Vector3(20f, 0f, 0f);
 
         SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
         renderer.enabled = false;

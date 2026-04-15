@@ -124,6 +124,18 @@ public class TutorialManager : MonoBehaviour
     {
         if (tutorialActive && arrowIndicator != null && arrowIndicator.gameObject.activeSelf)
         {
+            // If the arrow is pointing at a world target, we need to update its screen position 
+            // every frame because the camera is now moving.
+            if (currentStep == TutorialStep.HarvestCorn || currentStep == TutorialStep.FeedChicken || 
+                currentStep == TutorialStep.CollectEgg || currentStep == TutorialStep.SellEgg)
+            {
+                Transform currentTarget = GetCurrentStepTarget();
+                if (currentTarget != null)
+                {
+                    UpdateArrowPosition(currentTarget);
+                }
+            }
+
             // Bob the arrow up and down
             float bob = Mathf.Sin(Time.time * arrowBobSpeed) * arrowBobAmount;
             arrowIndicator.anchoredPosition = arrowBasePosition + new Vector3(0, bob, 0);
@@ -137,6 +149,30 @@ public class TutorialManager : MonoBehaviour
                 AdvanceToStep(TutorialStep.CollectEgg);
             }
         }
+    }
+
+    private Transform GetCurrentStepTarget()
+    {
+        switch (currentStep)
+        {
+            case TutorialStep.HarvestCorn: return cornFieldTarget;
+            case TutorialStep.FeedChicken: return chickenTarget;
+            case TutorialStep.CollectEgg: return chickenTarget;
+            case TutorialStep.SellEgg: return storeTarget;
+            default: return null;
+        }
+    }
+
+    private void UpdateArrowPosition(Transform target)
+    {
+        Vector3 screenPos = Camera.main.WorldToScreenPoint(target.position);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            arrowIndicator.parent as RectTransform,
+            screenPos,
+            null,
+            out Vector2 localPoint
+        );
+        arrowBasePosition = localPoint + new Vector2(0, 50f);
     }
 
     private IEnumerator StartTutorialDelayed()

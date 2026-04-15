@@ -222,7 +222,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
 
         AudioManager.Instance?.PlaySound("coin");
 
-        Destroy(particles, 1.5f);
+        DestroyTemporaryObject(particles, 1.5f);
     }
 
     /// <summary>
@@ -292,7 +292,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
         shape.radius = 0.5f;
 
         ps.Play();
-        Destroy(sparkles, 1f);
+        DestroyTemporaryObject(sparkles, 1f);
     }
 
     private void ApplyStoryTint(Color tint)
@@ -309,5 +309,21 @@ public class StoreCounter : MonoBehaviour, IInteractable
                 renderer.color = tint;
             }
         }
+    }
+
+    private static void DestroyTemporaryObject(Object target, float delay = 0f)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        if (Application.isPlaying)
+        {
+            Destroy(target, delay);
+            return;
+        }
+
+        Object.DestroyImmediate(target);
     }
 }

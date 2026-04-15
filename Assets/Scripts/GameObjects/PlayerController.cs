@@ -66,6 +66,42 @@ public class PlayerController : MonoBehaviour
     private void LateUpdate()
     {
         SyncHappyHarvestVisualTransform();
+        UpdateCameraFollow();
+    }
+
+    /// <summary>
+    /// Smoothly follow the player with the camera to allow for larger world exploration.
+    /// Supports both standard cameras and Cinemachine configurations.
+    /// </summary>
+    private void UpdateCameraFollow()
+    {
+        Camera mainCam = Camera.main;
+        if (mainCam == null) return;
+
+        // Try to handle Cinemachine if it's being used for this scene
+        var cinemachineCam = mainCam.GetComponent<Unity.Cinemachine.CinemachineCamera>();
+        if (cinemachineCam != null)
+        {
+            if (cinemachineCam.Follow != transform)
+            {
+                cinemachineCam.Follow = transform;
+                cinemachineCam.LookAt = transform;
+                Debug.Log("[Player] Assigned Cinemachine follow to player.");
+            }
+            return; // Cinemachine takes over movement if configured
+        }
+
+        // Fallback for standard cameras: simple smooth follow on X-axis
+        Vector3 camPos = mainCam.transform.position;
+        float targetX = transform.position.x;
+        
+        // Smoothly interpolate camera X position to follow the player
+        float smoothedX = Mathf.Lerp(camPos.x, targetX, Time.deltaTime * 5f);
+        
+        // Keep the camera within reasonable bounds if needed (optional)
+        // smoothedX = Mathf.Clamp(smoothedX, -10f, 25f);
+
+        mainCam.transform.position = new Vector3(smoothedX, camPos.y, camPos.z);
     }
 
     /// <summary>
