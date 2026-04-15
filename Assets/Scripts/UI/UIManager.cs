@@ -75,6 +75,26 @@ public class UIManager : MonoBehaviour
     private bool[] upgradesPurchased;
 
     public RectTransform HireHelperButtonTransform => hireHelperButton != null ? hireHelperButton.GetComponent<RectTransform>() : null;
+    public bool AreAllUpgradesPurchased
+    {
+        get
+        {
+            if (upgradesPurchased == null || upgradesPurchased.Length == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < upgradesPurchased.Length; i++)
+            {
+                if (!upgradesPurchased[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
 
     private void Awake()
     {
@@ -674,6 +694,11 @@ public class UIManager : MonoBehaviour
                 ShowUpgradeNotification($"{upgrade.upgradeName} upgraded!");
                 UpdateNextGoal();
                 UpdateIncomeRate();
+                TitleCardManager titleCardManager = FindAnyObjectByType<TitleCardManager>();
+                if (titleCardManager != null)
+                {
+                    titleCardManager.EvaluateStoryProgress();
+                }
             }
             else
             {
@@ -714,6 +739,11 @@ public class UIManager : MonoBehaviour
                 ShowUpgradeNotification($"Upgrade purchased!");
                 UpdateNextGoal();
                 UpdateIncomeRate();
+                TitleCardManager titleCardManager = FindAnyObjectByType<TitleCardManager>();
+                if (titleCardManager != null)
+                {
+                    titleCardManager.EvaluateStoryProgress();
+                }
             }
             else
             {

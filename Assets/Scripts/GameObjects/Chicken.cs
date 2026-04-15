@@ -141,9 +141,9 @@ public class Chicken : MonoBehaviour, IInteractable
         TryFeed(true);
     }
 
-    public bool FeedWithoutUsingCorn()
+    public bool FeedWithCorn()
     {
-        return TryFeed(false);
+        return TryFeed(true);
     }
 
     private bool TryFeed(bool consumeCorn)

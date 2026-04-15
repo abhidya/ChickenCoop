@@ -128,20 +128,18 @@ public class HelperAI : MonoBehaviour
 
         currentState = HelperState.HarvestingCorn;
 
+        if (field == null || !field.IsReadyToHarvest())
+        {
+            yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
+            yield break;
+        }
+
         // Play harvest animation
         PlaySquashStretch();
         SpawnDustPuff();
 
         yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-
-        if (field != null && field.IsReadyToHarvest())
-        {
-            field.Harvest();
-        }
-        else
-        {
-            GameManager.Instance.AddCorn(1, transform.position + Vector3.up * 0.5f);
-        }
+        field.Harvest();
 
         yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
     }
@@ -161,7 +159,7 @@ public class HelperAI : MonoBehaviour
 
         currentState = HelperState.FeedingChicken;
 
-        if (chicken != null && chicken.FeedWithoutUsingCorn())
+        if (chicken != null && chicken.FeedWithCorn())
         {
             PlaySquashStretch();
             yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
@@ -193,6 +191,14 @@ public class HelperAI : MonoBehaviour
 
         if (egg != null)
         {
+            yield return StartCoroutine(MoveTo(egg.transform.position));
+
+            if (egg == null || !egg.CanInteract())
+            {
+                yield return new WaitForSeconds(0.1f / GameManager.Instance.SpeedMultiplier);
+                yield break;
+            }
+
             PlaySquashStretch();
             yield return new WaitForSeconds(0.25f / GameManager.Instance.SpeedMultiplier);
             egg.Interact();

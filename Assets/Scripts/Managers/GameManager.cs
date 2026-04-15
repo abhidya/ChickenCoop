@@ -125,6 +125,11 @@ public class GameManager : MonoBehaviour
         OnHelperCountChanged?.Invoke(helperCount);
     }
 
+    private bool HasSavedProgress()
+    {
+        return PlayerPrefs.HasKey("Corn");
+    }
+
     /// <summary>
     /// Add corn to inventory with optional animation trigger
     /// </summary>
@@ -395,30 +400,39 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void LoadGame()
     {
-        if (PlayerPrefs.HasKey("Corn"))
+        if (!HasSavedProgress())
         {
-            corn = PlayerPrefs.GetInt("Corn");
-            eggs = PlayerPrefs.GetInt("Eggs");
-            coins = PlayerPrefs.GetInt("Coins");
-            helperCount = PlayerPrefs.GetInt("Helpers");
-            cornMultiplier = PlayerPrefs.GetFloat("CornMultiplier", 1f);
-            eggMultiplier = PlayerPrefs.GetFloat("EggMultiplier", 1f);
-            priceMultiplier = PlayerPrefs.GetFloat("PriceMultiplier", 1f);
-            speedMultiplier = PlayerPrefs.GetFloat("SpeedMultiplier", 1f);
-            storeEfficiencyMultiplier = PlayerPrefs.GetFloat("StoreEfficiencyMultiplier", 1f);
-
-            // Update UI
-            OnCornChanged?.Invoke(corn);
-            OnEggsChanged?.Invoke(eggs);
-            OnCoinsChanged?.Invoke(coins);
-            OnHelperCountChanged?.Invoke(helperCount);
+            return;
         }
+
+        corn = PlayerPrefs.GetInt("Corn");
+        eggs = PlayerPrefs.GetInt("Eggs");
+        coins = PlayerPrefs.GetInt("Coins");
+        helperCount = PlayerPrefs.GetInt("Helpers");
+        cornMultiplier = PlayerPrefs.GetFloat("CornMultiplier", 1f);
+        eggMultiplier = PlayerPrefs.GetFloat("EggMultiplier", 1f);
+        priceMultiplier = PlayerPrefs.GetFloat("PriceMultiplier", 1f);
+        speedMultiplier = PlayerPrefs.GetFloat("SpeedMultiplier", 1f);
+        storeEfficiencyMultiplier = PlayerPrefs.GetFloat("StoreEfficiencyMultiplier", 1f);
+
+        RestoreLoadedHelpers();
+
+        // Update UI
+        OnCornChanged?.Invoke(corn);
+        OnEggsChanged?.Invoke(eggs);
+        OnCoinsChanged?.Invoke(coins);
+        OnHelperCountChanged?.Invoke(helperCount);
     }
 
     private IEnumerator BootstrapStorySupport()
     {
         yield return null;
         EnsureRuntimeStorySupport();
+
+        if (HasSavedProgress())
+        {
+            LoadGame();
+        }
     }
 
     private void ResolveSceneReferences()
@@ -613,6 +627,29 @@ public class GameManager : MonoBehaviour
         }
 
         return CreateFallbackHelper(spawnPosition);
+    }
+
+    private void RestoreLoadedHelpers()
+    {
+        if (helperCount <= 0)
+        {
+            return;
+        }
+
+        int existingHelperCount = FindObjectsByType<HelperAI>(FindObjectsSortMode.None).Length;
+        if (existingHelperCount >= helperCount)
+        {
+            return;
+        }
+
+        int savedHelperCount = helperCount;
+        for (int i = existingHelperCount; i < savedHelperCount; i++)
+        {
+            helperCount = i + 1;
+            SpawnHelperInstance();
+        }
+
+        helperCount = savedHelperCount;
     }
 
     private Vector3 GetHelperSpawnPosition()

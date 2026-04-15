@@ -87,24 +87,41 @@ public class TitleCardManager : MonoBehaviour
     /// </summary>
     private void OnCoinsChanged(int newCoins)
     {
-        // Act 2 starts when player reaches 100 coins (first helper)
-        if (currentAct == 0 && newCoins >= act2CoinsThreshold)
-        {
-            ShowTitleCard(1);
-        }
-        // Act 3 starts when player reaches 600 coins (enough for some upgrades)
-        else if (currentAct == 1 && newCoins >= act3CoinsThreshold)
-        {
-            ShowTitleCard(2);
-        }
+        EvaluateStoryProgress();
     }
 
     private void OnHelperCountChanged(int helperCount)
     {
-        // Act 4 starts when player has 3+ helpers and significant progress
-        if (currentAct == 2 && helperCount >= act4HelpersThreshold)
+        EvaluateStoryProgress();
+    }
+
+    public void EvaluateStoryProgress()
+    {
+        GameManager gameManager = GameManager.Instance;
+        if (gameManager == null)
         {
-            ShowTitleCard(3);
+            return;
+        }
+
+        if (currentAct == 0 && gameManager.Coins >= act2CoinsThreshold)
+        {
+            ShowTitleCard(1);
+            return;
+        }
+
+        if (currentAct == 1 && gameManager.Coins >= act3CoinsThreshold)
+        {
+            ShowTitleCard(2);
+            return;
+        }
+
+        if (currentAct == 2 && gameManager.HelperCount >= act4HelpersThreshold)
+        {
+            UIManager uiManager = UIManager.Instance;
+            if (uiManager != null && uiManager.AreAllUpgradesPurchased)
+            {
+                ShowTitleCard(3);
+            }
         }
     }
 
