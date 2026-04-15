@@ -540,11 +540,10 @@ public class GameManager : MonoBehaviour
             GameObject visual = StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
             if (visual != null)
             {
-                // Safely guarantee Chicken draws over environment geometry by boosting its inherited SpriteOrders
-                foreach (var sr in visual.GetComponentsInChildren<SpriteRenderer>(true))
-                {
-                    sr.sortingOrder += 100;
-                }
+                // Safely guarantee Chicken draws over environment geometry by applying a master SortingGroup.
+                UnityEngine.Rendering.SortingGroup sGroup = chicken.GetComponent<UnityEngine.Rendering.SortingGroup>();
+                if (sGroup == null) sGroup = chicken.AddComponent<UnityEngine.Rendering.SortingGroup>();
+                sGroup.sortingOrder = 5000;
             }
         }
     }
@@ -687,6 +686,10 @@ public class GameManager : MonoBehaviour
                 visualInstance.transform.localScale = Vector3.one * 0.4f;
                 StoryVisualFollower follower = visualInstance.GetComponent<StoryVisualFollower>();
                 if (follower != null) follower.offset = new Vector3(0f, -0.35f, 0f);
+
+                UnityEngine.Rendering.SortingGroup sGroup = visualInstance.GetComponent<UnityEngine.Rendering.SortingGroup>();
+                if (sGroup == null) sGroup = visualInstance.AddComponent<UnityEngine.Rendering.SortingGroup>();
+                sGroup.sortingOrder = 5000;
 
                 SpriteRenderer[] renderers = visualInstance.GetComponentsInChildren<SpriteRenderer>(true);
                 foreach (SpriteRenderer renderer in renderers)

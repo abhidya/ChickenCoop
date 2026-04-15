@@ -26,6 +26,14 @@ public class PlayerController : MonoBehaviour
     private float bobTimer = 0f;
     private Vector3 originalScale;
     private Transform happyHarvestVisualRoot;
+    private static readonly Vector3 HappyHarvestVisualOffset = new Vector3(0f, -0.35f, 0f);
+    private const float HappyHarvestVisualScale = 0.45f;
+    private Vector2 lastMoveDirection = Vector2.down;
+
+    private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
+    private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    private static readonly int DirXHash = Animator.StringToHash("DirX");
+    private static readonly int DirYHash = Animator.StringToHash("DirY");
 
     // Current interaction target
     private IInteractable currentTarget;
@@ -45,6 +53,7 @@ public class PlayerController : MonoBehaviour
         }
 
         ApplyHappyHarvestVisual();
+        UpdateAnimatorParameters(Vector2.zero, false);
     }
 
     private void Update()
@@ -52,6 +61,11 @@ public class PlayerController : MonoBehaviour
         HandleInput();
         UpdateMovement();
         UpdateAnimation();
+    }
+
+    private void LateUpdate()
+    {
+        SyncHappyHarvestVisualTransform();
     }
 
     /// <summary>
@@ -130,6 +144,11 @@ public class PlayerController : MonoBehaviour
         targetPosition = position;
         targetPosition.z = transform.position.z;
         isMoving = true;
+        Vector2 plannedMove = targetPosition - transform.position;
+        if (plannedMove.sqrMagnitude > 0.0001f)
+        {
+            lastMoveDirection = plannedMove.normalized;
+        }
 
         // Flip sprite based on movement direction
         if (spriteRenderer != null)
@@ -144,6 +163,7 @@ public class PlayerController : MonoBehaviour
 
         // Start tween movement
         StopAllCoroutines();
+        UpdateAnimatorParameters(plannedMove, true);
         StartCoroutine(TweenMove());
     }
 
@@ -156,12 +176,6 @@ public class PlayerController : MonoBehaviour
         float elapsed = 0f;
         float duration = Vector3.Distance(startPos, targetPosition) / moveSpeed;
 
-        // Set animator to walking if available
-        if (animator != null)
-        {
-            animator.SetBool("IsWalking", true);
-        }
-
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime * GameManager.Instance.SpeedMultiplier;
@@ -170,19 +184,17 @@ public class PlayerController : MonoBehaviour
             // Use smooth step for easing
             t = t * t * (3f - 2f * t);
 
-            transform.position = Vector3.Lerp(startPos, targetPosition, t);
+            Vector3 nextPosition = Vector3.Lerp(startPos, targetPosition, t);
+            Vector2 moveDelta = nextPosition - transform.position;
+            transform.position = nextPosition;
+            UpdateAnimatorParameters(moveDelta, true);
 
             yield return null;
         }
 
         transform.position = targetPosition;
         isMoving = false;
-
-        // Set animator to idle
-        if (animator != null)
-        {
-            animator.SetBool("IsWalking", false);
-        }
+        UpdateAnimatorParameters(Vector2.zero, false);
 
         // Interact with target if we have one
         if (currentTarget != null)
@@ -315,30 +327,36 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // Resolve visual prefab — serialized field first, then Resources
-        GameObject visualPrefab = storyVisualPrefab;
-        if (visualPrefab == null)
-        {
-            visualPrefab = Resources.Load<GameObject>("Character");
-        }
+        GameObject visualInstance = FindExistingHappyHarvestVisual();
 
-        if (visualPrefab == null)
+        if (visualInstance == null)
         {
-            Debug.LogWarning("[PlayerController] Could not find Character prefab via Inspector or Resources.");
-            return;
-        }
+            // Resolve visual prefab — serialized field first, then Resources
+            GameObject visualPrefab = storyVisualPrefab;
+            if (visualPrefab == null)
+            {
+                visualPrefab = Resources.Load<GameObject>("Character");
+            }
 
-        // Use AttachVisualPrefabAsChild with preserveRigComponents=true so SpriteSkin/U2D
-        // bone deformation components are preserved — required for eyes/face to render correctly.
-        GameObject visualInstance = StoryVisualBinder.AttachVisualPrefabAsChild(
-            transform, visualPrefab, spriteRenderer, "CharacterVisual", true);
+            if (visualPrefab == null)
+            {
+                Debug.LogWarning("[PlayerController] Could not find Character prefab via Inspector or Resources.");
+                return;
+            }
+
+            // Use AttachVisualPrefabAsChild with preserveRigComponents=true so SpriteSkin/U2D
+            // bone deformation components are preserved — required for eyes/face to render correctly.
+            visualInstance = StoryVisualBinder.AttachVisualPrefabAsChild(
+                transform, visualPrefab, spriteRenderer, "CharacterVisual", true);
+        }
 
         if (visualInstance != null)
         {
-            foreach (var sr in visualInstance.GetComponentsInChildren<SpriteRenderer>(true))
-            {
-                sr.sortingOrder += 100;
-            }
+            // The cleanest way to ensure dynamically instantiated characters draw over all static
+            // structures (which may contain their own SortingGroups) is applying a master SortingGroup.
+            UnityEngine.Rendering.SortingGroup sGroup = gameObject.GetComponent<UnityEngine.Rendering.SortingGroup>();
+            if (sGroup == null) sGroup = gameObject.AddComponent<UnityEngine.Rendering.SortingGroup>();
+            sGroup.sortingOrder = 5000;
         }
 
         if (visualInstance == null)
@@ -347,8 +365,115 @@ public class PlayerController : MonoBehaviour
         }
 
         happyHarvestVisualRoot = visualInstance.transform;
+        if (happyHarvestVisualRoot.parent != transform)
+        {
+            happyHarvestVisualRoot.SetParent(transform, false);
+        }
+
         StoryVisualBinder.ApplySpriteLibrary(visualInstance, happyHarvestFarmerLibraryResourcePath);
-        happyHarvestVisualRoot.localScale = Vector3.one * 0.45f;
-        happyHarvestVisualRoot.localPosition = new Vector3(0f, -0.35f, 0f);
+        happyHarvestVisualRoot.localScale = Vector3.one * HappyHarvestVisualScale;
+        happyHarvestVisualRoot.localPosition = HappyHarvestVisualOffset;
+
+        if (animator == null)
+        {
+            animator = visualInstance.GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = visualInstance.GetComponentInChildren<Animator>(true);
+            }
+        }
+
+        if (spriteRenderer != null)
+        {
+            StoryVisualBinder.SetFacing(happyHarvestVisualRoot, spriteRenderer.flipX);
+        }
+    }
+
+    private GameObject FindExistingHappyHarvestVisual()
+    {
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            string lowered = child.name.ToLowerInvariant();
+            if (lowered == "visual" || lowered == "charactervisual" || lowered.Contains("visual"))
+            {
+                return child.gameObject;
+            }
+        }
+
+        return null;
+    }
+
+    private void SyncHappyHarvestVisualTransform()
+    {
+        if (happyHarvestVisualRoot == null)
+        {
+            return;
+        }
+
+        if (happyHarvestVisualRoot.parent != transform)
+        {
+            happyHarvestVisualRoot.SetParent(transform, false);
+        }
+
+        happyHarvestVisualRoot.localPosition = HappyHarvestVisualOffset;
+
+        Vector3 scale = happyHarvestVisualRoot.localScale;
+        float facing = scale.x < 0f ? -1f : 1f;
+        happyHarvestVisualRoot.localScale = new Vector3(
+            HappyHarvestVisualScale * facing,
+            HappyHarvestVisualScale,
+            HappyHarvestVisualScale);
+    }
+
+    private void UpdateAnimatorParameters(Vector2 moveDelta, bool movingNow)
+    {
+        if (animator == null)
+        {
+            return;
+        }
+
+        if (moveDelta.sqrMagnitude > 0.0001f)
+        {
+            lastMoveDirection = moveDelta.normalized;
+        }
+
+        if (HasAnimatorParameter(animator, IsWalkingHash))
+        {
+            animator.SetBool(IsWalkingHash, movingNow);
+        }
+
+        if (HasAnimatorParameter(animator, SpeedHash))
+        {
+            animator.SetFloat(SpeedHash, movingNow ? 1f : 0f);
+        }
+
+        if (HasAnimatorParameter(animator, DirXHash))
+        {
+            animator.SetFloat(DirXHash, lastMoveDirection.x);
+        }
+
+        if (HasAnimatorParameter(animator, DirYHash))
+        {
+            animator.SetFloat(DirYHash, lastMoveDirection.y);
+        }
+    }
+
+    private static bool HasAnimatorParameter(Animator targetAnimator, int hash)
+    {
+        if (targetAnimator == null)
+        {
+            return false;
+        }
+
+        foreach (AnimatorControllerParameter parameter in targetAnimator.parameters)
+        {
+            if (parameter.nameHash == hash)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
