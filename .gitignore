@@ -77,3 +77,4 @@ crashlytics-build.properties
 .codex/skills/.system/**
 !.codex/prompts/
 !.codex/prompts/**
+.codex/*

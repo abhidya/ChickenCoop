@@ -39,7 +39,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
 
         if (storyVisualPrefab != null)
         {
-            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, spriteRenderer);
+            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, spriteRenderer, true);
             if (visual != null)
             {
                 storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);

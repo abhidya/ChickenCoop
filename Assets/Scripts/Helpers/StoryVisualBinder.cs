@@ -10,7 +10,7 @@ public static class StoryVisualBinder
 {
     private static readonly Dictionary<int, Transform> AttachedVisualRoots = new Dictionary<int, Transform>();
 
-    public static GameObject AttachVisualPrefab(Transform host, GameObject visualPrefab, SpriteRenderer placeholderRenderer = null)
+    public static GameObject AttachVisualPrefab(Transform host, GameObject visualPrefab, SpriteRenderer placeholderRenderer = null, bool preserveRigComponents = false)
     {
         if (host == null || visualPrefab == null)
         {
@@ -30,13 +30,19 @@ public static class StoryVisualBinder
             return existingRoot.gameObject;
         }
 
-        GameObject instance = Object.Instantiate(visualPrefab);
+        GameObject instance = UnityEngine.Object.Instantiate<GameObject>(visualPrefab);
         instance.name = visualPrefab.name + "_Visual";
-        instance.transform.position = host.position;
         instance.transform.rotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one;
 
-        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: true, preserveRigComponents: false);
+        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: true, preserveRigComponents: preserveRigComponents);
+
+        // NormalizeRootTransform inside PrepareVisualInstance resets localPosition to zero (world origin).
+        // Re-position the visual at the host and re-bind the follower so offset is correctly (0,0,0).
+        instance.transform.position = host.position;
+        StoryVisualFollower follower = instance.GetComponent<StoryVisualFollower>();
+        if (follower != null) follower.Bind(host);
+
         AttachedVisualRoots[host.GetInstanceID()] = instance.transform;
         return instance;
     }
@@ -59,7 +65,7 @@ public static class StoryVisualBinder
             AttachedVisualRoots.Remove(hostId);
         }
 
-        GameObject instance = Object.Instantiate(visualPrefab, host);
+        GameObject instance = UnityEngine.Object.Instantiate<GameObject>(visualPrefab, host);
         instance.name = string.IsNullOrWhiteSpace(childName) ? "Visual" : childName;
         instance.transform.localPosition = Vector3.zero;
         instance.transform.localRotation = Quaternion.identity;
@@ -150,7 +156,6 @@ public static class StoryVisualBinder
 
     private static void DisableMarkerRenderers(Transform root)
     {
-        Transform preferredVisualRoot = FindPreferredVisualRoot(root);
         SpriteRenderer[] renderers = root.GetComponentsInChildren<SpriteRenderer>(true);
         foreach (SpriteRenderer renderer in renderers)
         {
@@ -159,10 +164,16 @@ public static class StoryVisualBinder
                 continue;
             }
 
-            string path = BuildPath(renderer.transform).ToLowerInvariant();
-            bool looksLikeMarker = path.Contains("ui target") || path.Contains("target") || path.Contains("marker") || path.Contains("logic") || path.Contains("shadow");
-            bool outsideVisualRoot = preferredVisualRoot != null && !renderer.transform.IsChildOf(preferredVisualRoot);
-            renderer.enabled = !looksLikeMarker && !outsideVisualRoot;
+            // Only disable renderers that are clearly UI markers or invisible placeholder nodes.
+            // Avoid matching broad terms like "target" which appear in animation rig bone names.
+            string nameLower = renderer.transform.name.ToLowerInvariant();
+            bool looksLikeMarker = nameLower == "ui target" || nameLower.Contains("uimarker")
+                || nameLower.StartsWith("logic") || nameLower == "logic"
+                || (nameLower.Contains("shadow") && renderer.sprite == null);
+            if (looksLikeMarker)
+            {
+                renderer.enabled = false;
+            }
         }
     }
 
@@ -184,39 +195,18 @@ public static class StoryVisualBinder
     private static void AlignSortingAndLayers(GameObject host, GameObject visualRoot, SpriteRenderer placeholderRenderer)
     {
         if (host == null || visualRoot == null)
-        {
             return;
-        }
 
         int baseLayer = host.layer;
-        int sortingLayerId = placeholderRenderer != null ? placeholderRenderer.sortingLayerID : 0;
-        int sortingOrder = placeholderRenderer != null ? placeholderRenderer.sortingOrder + 1 : 10;
-
         Transform[] transforms = visualRoot.GetComponentsInChildren<Transform>(true);
         foreach (Transform t in transforms)
         {
             t.gameObject.layer = baseLayer;
         }
 
-        Component[] components = visualRoot.GetComponentsInChildren<Component>(true);
-        foreach (Component component in components)
+        if (placeholderRenderer != null)
         {
-            if (component == null)
-            {
-                continue;
-            }
-
-            if (component is SpriteRenderer renderer)
-            {
-                renderer.sortingLayerID = sortingLayerId;
-                renderer.sortingOrder = sortingOrder;
-            }
-            else if (component.GetType().Name == "SortingGroup")
-            {
-                var type = component.GetType();
-                type.GetProperty("sortingLayerID")?.SetValue(component, sortingLayerId);
-                type.GetProperty("sortingOrder")?.SetValue(component, sortingOrder);
-            }
+            placeholderRenderer.enabled = false;
         }
     }
 
@@ -284,12 +274,6 @@ public static class StoryVisualBinder
             return;
         }
 
-        Object spriteLibraryAsset = Resources.Load(resourcesPath);
-        if (spriteLibraryAsset == null)
-        {
-            return;
-        }
-
         Component[] components = root.GetComponentsInChildren<Component>(true);
         foreach (Component component in components)
         {
@@ -298,17 +282,36 @@ public static class StoryVisualBinder
                 continue;
             }
 
+            // Load as the exact type the property expects so Unity accepts the assignment.
             PropertyInfo property = component.GetType().GetProperty("spriteLibraryAsset", BindingFlags.Public | BindingFlags.Instance);
             if (property != null && property.CanWrite)
             {
-                property.SetValue(component, spriteLibraryAsset);
+                System.Type assetType = property.PropertyType;
+                Object spriteLibraryAsset = Resources.Load(resourcesPath, assetType);
+                if (spriteLibraryAsset == null)
+                {
+                    // Fallback: try loading without type (legacy)
+                    spriteLibraryAsset = Resources.Load(resourcesPath);
+                }
+                if (spriteLibraryAsset != null)
+                {
+                    property.SetValue(component, spriteLibraryAsset);
+                }
                 continue;
             }
 
             FieldInfo field = component.GetType().GetField("m_SpriteLibraryAsset", BindingFlags.NonPublic | BindingFlags.Instance);
             if (field != null)
             {
-                field.SetValue(component, spriteLibraryAsset);
+                Object spriteLibraryAsset = Resources.Load(resourcesPath, field.FieldType);
+                if (spriteLibraryAsset == null)
+                {
+                    spriteLibraryAsset = Resources.Load(resourcesPath);
+                }
+                if (spriteLibraryAsset != null)
+                {
+                    field.SetValue(component, spriteLibraryAsset);
+                }
             }
         }
     }
@@ -420,7 +423,7 @@ public static class StoryVisualBinder
 public sealed class StoryVisualFollower : MonoBehaviour
 {
     private Transform target;
-    private Vector3 offset;
+    public Vector3 offset;
 
     public void Bind(Transform newTarget)
     {

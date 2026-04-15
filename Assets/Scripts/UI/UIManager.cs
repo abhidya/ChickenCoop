@@ -551,47 +551,76 @@ public class UIManager : MonoBehaviour
         UpdateIncomeRate();
     }
 
-    // Button click handlers
+    // --- Button click handlers ---
+    // All actions route through PlayerController so the player walks to the target first.
+
+    private PlayerController GetPlayer()
+    {
+        return FindAnyObjectByType<PlayerController>();
+    }
+
     private void OnHarvestClicked()
     {
-        AudioManager.Instance?.PlaySound("click");
+        try { AudioManager.Instance?.PlaySound("click"); } catch {}
         HarvestableField field = FindAnyObjectByType<HarvestableField>();
         if (field != null)
         {
-            field.Harvest();
+            PlayerController player = GetPlayer();
+            if (player != null)
+                player.MoveToAndInteract(field.transform.position, field);
+            else
+                field.Harvest();
+        }
+        else
+        {
+            GameManager.Instance?.AddCorn(1);
         }
     }
 
     private void OnFeedClicked()
     {
-        AudioManager.Instance?.PlaySound("click");
+        try { AudioManager.Instance?.PlaySound("click"); } catch {}
         Chicken chicken = FindAnyObjectByType<Chicken>();
-        if (chicken != null && chicken.CanInteract())
+        if (chicken != null)
         {
-            chicken.Feed();
+            PlayerController player = GetPlayer();
+            if (player != null)
+                player.MoveToAndInteract(chicken.transform.position, chicken);
+            else if (chicken.CanInteract())
+                chicken.Feed();
         }
     }
 
     private void OnCollectClicked()
     {
-        AudioManager.Instance?.PlaySound("click");
-        // Note: FindObjectsByType is used here as this is a simple idle game
-        // with typically very few eggs in the scene at once
+        try { AudioManager.Instance?.PlaySound("click"); } catch {}
         CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
         foreach (var egg in eggs)
         {
-            egg.Interact();
-            break; // Collect one at a time
+            PlayerController player = GetPlayer();
+            if (player != null)
+                player.MoveToAndInteract(egg.transform.position, egg);
+            else
+                egg.Interact();
+            break;
         }
     }
 
     private void OnSellClicked()
     {
-        AudioManager.Instance?.PlaySound("click");
+        try { AudioManager.Instance?.PlaySound("click"); } catch {}
         StoreCounter store = FindAnyObjectByType<StoreCounter>();
-        if (store != null && store.CanInteract())
+        if (store != null)
         {
-            store.SellEgg();
+            PlayerController player = GetPlayer();
+            if (player != null)
+                player.MoveToAndInteract(store.transform.position, store);
+            else if (store.CanInteract())
+                store.SellEgg();
+        }
+        else
+        {
+            GameManager.Instance?.SellEgg();
         }
     }
 

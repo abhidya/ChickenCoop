@@ -51,9 +51,17 @@ public class HarvestableField : MonoBehaviour, IInteractable
             spriteRenderer.color = readyColor;
         }
 
-        if (storyVisualPrefab != null)
+        // Resolve visual prefab — serialized field first, then Resources fallback
+        GameObject resolvedPrefab = storyVisualPrefab;
+        if (resolvedPrefab == null)
         {
-            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, spriteRenderer);
+            resolvedPrefab = Resources.Load<GameObject>("HappyHarvestCorn");
+        }
+
+        if (resolvedPrefab != null)
+        {
+            GameObject visual = StoryVisualBinder.AttachVisualPrefab(
+                transform, resolvedPrefab, spriteRenderer, true);
             if (visual != null)
             {
                 storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
@@ -135,6 +143,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
     /// </summary>
     public void Harvest()
     {
+        Debug.Log($"[HarvestableField] Harvest called. canHarvest={canHarvest}");
         if (!canHarvest) return;
 
         canHarvest = false;

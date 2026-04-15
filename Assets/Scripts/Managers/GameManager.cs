@@ -495,6 +495,15 @@ public class GameManager : MonoBehaviour
             GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
             tutorialHost.AddComponent<TutorialManager>();
         }
+
+        // Add Global Light 2D if missing for URP 2D
+        if (FindAnyObjectByType<UnityEngine.Rendering.Universal.Light2D>() == null)
+        {
+            GameObject lightHost = new GameObject("Global Light 2D");
+            var light = lightHost.AddComponent<UnityEngine.Rendering.Universal.Light2D>();
+            light.lightType = UnityEngine.Rendering.Universal.Light2D.LightType.Global;
+            light.intensity = 1.0f;
+        }
     }
 
     private void EnsureCoreGameplayObjects()
@@ -528,7 +537,15 @@ public class GameManager : MonoBehaviour
         GameObject visualPrefab = Resources.Load<GameObject>(RuntimeChickenVisualResourcePath);
         if (visualPrefab != null)
         {
-            StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
+            GameObject visual = StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
+            if (visual != null)
+            {
+                // Safely guarantee Chicken draws over environment geometry by boosting its inherited SpriteOrders
+                foreach (var sr in visual.GetComponentsInChildren<SpriteRenderer>(true))
+                {
+                    sr.sortingOrder += 100;
+                }
+            }
         }
     }
 
@@ -555,7 +572,7 @@ public class GameManager : MonoBehaviour
         GameObject visualPrefab = Resources.Load<GameObject>(RuntimeCornVisualResourcePath);
         if (visualPrefab != null)
         {
-            StoryVisualBinder.AttachVisualPrefab(cornField.transform, visualPrefab, renderer);
+            StoryVisualBinder.AttachVisualPrefab(cornField.transform, visualPrefab, renderer, true);
         }
     }
 
@@ -583,7 +600,7 @@ public class GameManager : MonoBehaviour
         GameObject visualPrefab = Resources.Load<GameObject>(RuntimeStoreVisualResourcePath);
         if (visualPrefab != null)
         {
-            StoryVisualBinder.AttachVisualPrefab(store.transform, visualPrefab, renderer);
+            StoryVisualBinder.AttachVisualPrefab(store.transform, visualPrefab, renderer, true);
         }
     }
 
@@ -662,12 +679,14 @@ public class GameManager : MonoBehaviour
         GameObject happyHarvestCharacter = Resources.Load<GameObject>("Character");
         if (happyHarvestCharacter != null)
         {
-            GameObject visualInstance = StoryVisualBinder.AttachVisualPrefab(helper.transform, happyHarvestCharacter, helperRenderer);
+            GameObject visualInstance = StoryVisualBinder.AttachVisualPrefab(
+                helper.transform, happyHarvestCharacter, helperRenderer, true);
             if (visualInstance != null)
             {
                 StoryVisualBinder.ApplySpriteLibrary(visualInstance, "HappyHarvestFarmer");
                 visualInstance.transform.localScale = Vector3.one * 0.4f;
-                visualInstance.transform.localPosition = new Vector3(0f, -0.35f, 0f);
+                StoryVisualFollower follower = visualInstance.GetComponent<StoryVisualFollower>();
+                if (follower != null) follower.offset = new Vector3(0f, -0.35f, 0f);
 
                 SpriteRenderer[] renderers = visualInstance.GetComponentsInChildren<SpriteRenderer>(true);
                 foreach (SpriteRenderer renderer in renderers)

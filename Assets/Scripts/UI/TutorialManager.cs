@@ -155,6 +155,7 @@ public class TutorialManager : MonoBehaviour
         
         if (tutorialPanel != null)
         {
+            tutorialPanel.transform.SetAsLastSibling();
             tutorialPanel.SetActive(true);
         }
 

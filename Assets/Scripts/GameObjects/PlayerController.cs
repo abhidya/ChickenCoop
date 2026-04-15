@@ -55,14 +55,45 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
+    /// Safely check if a pointer is strictly over a UI Button to bypass broken WebGL background canvases
+    /// </summary>
+    private bool IsPointerOverUIButton()
+    {
+        if (UnityEngine.EventSystems.EventSystem.current == null) return false;
+        
+        UnityEngine.EventSystems.PointerEventData eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current);
+        eventData.position = Input.touchCount > 0 ? Input.touches[0].position : Input.mousePosition;
+
+        var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+        
+        foreach (var result in results)
+        {
+            if (result.gameObject.GetComponentInParent<UnityEngine.UI.Button>() != null)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Handle mouse/touch input for movement
     /// </summary>
     private void HandleInput()
     {
         if (Input.GetMouseButtonDown(0))
         {
-            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            // Block world clicks if we're clicking on a UI element (like the Tutorial panel or Next buttons)
+            if (IsPointerOverUIButton())
+            {
+                return;
+            }
+
+            Camera cam = Camera.main;
+            if (cam == null) return;
+
+            Vector3 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
             mousePos.z = 0;
+            Debug.Log($"[Player] Moving to world pos {mousePos}");
 
             // Check for interactable at click position
             RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero);
@@ -71,12 +102,13 @@ public class PlayerController : MonoBehaviour
                 IInteractable interactable = hit.collider.GetComponent<IInteractable>();
                 if (interactable != null)
                 {
+                    Debug.Log($"[Player] Interacting with {hit.collider.gameObject.name}");
                     MoveToAndInteract(hit.collider.transform.position, interactable);
                     return;
                 }
             }
 
-            // If no interactable, just move to position
+            // Move to clicked world position
             MoveTo(mousePos);
         }
     }
@@ -267,18 +299,48 @@ public class PlayerController : MonoBehaviour
 
     private void ApplyHappyHarvestVisual()
     {
+        // Resolve SpriteRenderer if not set via Inspector
         if (spriteRenderer == null)
         {
-            return;
+            spriteRenderer = GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null)
+            {
+                spriteRenderer = GetComponentInChildren<SpriteRenderer>(true);
+            }
+            if (spriteRenderer == null)
+            {
+                spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+                spriteRenderer.enabled = false;
+                spriteRenderer.sortingOrder = 10;
+            }
         }
 
+        // Resolve visual prefab — serialized field first, then Resources
         GameObject visualPrefab = storyVisualPrefab;
         if (visualPrefab == null)
         {
+            visualPrefab = Resources.Load<GameObject>("Character");
+        }
+
+        if (visualPrefab == null)
+        {
+            Debug.LogWarning("[PlayerController] Could not find Character prefab via Inspector or Resources.");
             return;
         }
 
-        GameObject visualInstance = StoryVisualBinder.AttachVisualPrefab(transform, visualPrefab, spriteRenderer);
+        // Use AttachVisualPrefabAsChild with preserveRigComponents=true so SpriteSkin/U2D
+        // bone deformation components are preserved — required for eyes/face to render correctly.
+        GameObject visualInstance = StoryVisualBinder.AttachVisualPrefabAsChild(
+            transform, visualPrefab, spriteRenderer, "CharacterVisual", true);
+
+        if (visualInstance != null)
+        {
+            foreach (var sr in visualInstance.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                sr.sortingOrder += 100;
+            }
+        }
+
         if (visualInstance == null)
         {
             return;
