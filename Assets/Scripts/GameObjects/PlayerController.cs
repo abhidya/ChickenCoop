@@ -114,6 +114,10 @@ public class PlayerController : MonoBehaviour
             if (hit.collider != null)
             {
                 IInteractable interactable = hit.collider.GetComponent<IInteractable>();
+                if (interactable == null)
+                {
+                    interactable = hit.collider.GetComponentInParent<IInteractable>();
+                }
                 if (interactable != null)
                 {
                     Debug.Log($"[Player] Interacting with {hit.collider.gameObject.name}");
@@ -328,6 +332,13 @@ public class PlayerController : MonoBehaviour
         }
 
         GameObject visualInstance = FindExistingHappyHarvestVisual();
+        if (visualInstance != null)
+        {
+            visualInstance.SetActive(false);
+            visualInstance.name = "StaleCharacterVisual";
+            Destroy(visualInstance);
+            visualInstance = null;
+        }
 
         if (visualInstance == null)
         {

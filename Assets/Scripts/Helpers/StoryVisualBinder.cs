@@ -79,7 +79,6 @@ public static class StoryVisualBinder
     private static GameObject PrepareVisualInstance(GameObject instance, GameObject host, SpriteRenderer placeholderRenderer, bool attachFollower, bool preserveRigComponents)
     {
         NormalizeRootTransform(instance.transform);
-        NormalizeNestedPrefabChildren(instance.transform);
         PruneNonVisualChildren(instance.transform);
         StripGameplayComponents(instance, preserveRigComponents);
         DisableMarkerRenderers(instance.transform);
@@ -220,22 +219,6 @@ public static class StoryVisualBinder
         root.localPosition = Vector3.zero;
         root.localRotation = Quaternion.identity;
         root.localScale = Vector3.one;
-    }
-
-    private static void NormalizeNestedPrefabChildren(Transform root)
-    {
-        for (int i = 0; i < root.childCount; i++)
-        {
-            Transform child = root.GetChild(i);
-            if (!child.name.StartsWith("Prefab_"))
-            {
-                continue;
-            }
-
-            child.localPosition = Vector3.zero;
-            child.localRotation = Quaternion.identity;
-            child.localScale = Vector3.one;
-        }
     }
 
     public static void SetFacing(Transform visualRoot, bool faceLeft)

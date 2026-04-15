@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections;
 
@@ -426,6 +427,23 @@ public class TutorialManager : MonoBehaviour
             return;
         }
 
+        if (canvas.GetComponent<GraphicRaycaster>() == null)
+        {
+            canvas.gameObject.AddComponent<GraphicRaycaster>();
+        }
+
+        EventSystem eventSystem = FindAnyObjectByType<EventSystem>();
+        if (eventSystem == null)
+        {
+            GameObject eventSystemObject = new GameObject("EventSystem");
+            eventSystem = eventSystemObject.AddComponent<EventSystem>();
+        }
+
+        if (eventSystem.GetComponent<StandaloneInputModule>() == null)
+        {
+            eventSystem.gameObject.AddComponent<StandaloneInputModule>();
+        }
+
         if (tutorialPanel == null)
         {
             tutorialPanel = new GameObject("TutorialPanel", typeof(RectTransform), typeof(Image));
@@ -440,6 +458,7 @@ public class TutorialManager : MonoBehaviour
 
             Image panelImage = tutorialPanel.GetComponent<Image>();
             panelImage.color = new Color(1f, 0.98f, 0.77f, 0.92f);
+            panelImage.raycastTarget = false;
         }
 
         if (instructionText == null)
@@ -459,6 +478,7 @@ public class TutorialManager : MonoBehaviour
             instructionText.fontSize = 24f;
             instructionText.color = StoryColorPalette.TextDark;
             instructionText.textWrappingMode = TextWrappingModes.Normal;
+            instructionText.raycastTarget = false;
         }
 
         if (skipButton == null)
@@ -535,6 +555,7 @@ public class TutorialManager : MonoBehaviour
 
         Image image = buttonObject.GetComponent<Image>();
         image.color = StoryColorPalette.ButtonBlue;
+        image.raycastTarget = true;
 
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
@@ -553,6 +574,7 @@ public class TutorialManager : MonoBehaviour
         text.fontSize = 20f;
         text.alignment = TextAlignmentOptions.Center;
         text.color = StoryColorPalette.TextDark;
+        text.raycastTarget = false;
 
         return button;
     }

@@ -8,6 +8,9 @@ using System.Collections;
 /// </summary>
 public class Chicken : MonoBehaviour, IInteractable
 {
+    private const string RuntimeChickenVisualResourcePath = "HappyHarvestChicken";
+    private static Sprite runtimeEggSprite;
+
     [Header("Production Settings")]
     [SerializeField] private int cornRequired = 1;
 
@@ -50,9 +53,27 @@ public class Chicken : MonoBehaviour, IInteractable
             bodySprite = GetComponent<SpriteRenderer>();
         }
 
-        if (storyVisualPrefab != null)
+        CircleCollider2D hitbox = GetComponent<CircleCollider2D>();
+        if (hitbox == null)
         {
-            StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, bodySprite);
+            hitbox = gameObject.AddComponent<CircleCollider2D>();
+        }
+
+        hitbox.isTrigger = true;
+        if (hitbox.radius < 0.9f)
+        {
+            hitbox.radius = 0.9f;
+        }
+
+        GameObject resolvedPrefab = storyVisualPrefab;
+        if (resolvedPrefab == null)
+        {
+            resolvedPrefab = Resources.Load<GameObject>(RuntimeChickenVisualResourcePath);
+        }
+
+        if (resolvedPrefab != null)
+        {
+            StoryVisualBinder.AttachVisualPrefab(transform, resolvedPrefab, bodySprite);
         }
 
         // Randomize initial blink timer
@@ -290,9 +311,10 @@ public class Chicken : MonoBehaviour, IInteractable
         egg.transform.position = position;
 
         SpriteRenderer sr = egg.AddComponent<SpriteRenderer>();
+        sr.sprite = GetRuntimeEggSprite();
         sr.color = new Color(1f, 0.98f, 0.9f); // Off-white egg color
         sr.sortingLayerName = "Characters";
-        sr.sortingOrder = 1;
+        sr.sortingOrder = 25;
 
         // Add collider for collection
         CircleCollider2D col = egg.AddComponent<CircleCollider2D>();
@@ -303,6 +325,41 @@ public class Chicken : MonoBehaviour, IInteractable
         egg.AddComponent<CollectibleEgg>();
 
         StartCoroutine(EggBounceAnimation(egg.transform, position));
+    }
+
+    private static Sprite GetRuntimeEggSprite()
+    {
+        if (runtimeEggSprite != null)
+        {
+            return runtimeEggSprite;
+        }
+
+        Texture2D texture = new Texture2D(32, 40, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Bilinear;
+
+        Vector2 center = new Vector2(15.5f, 19f);
+        float radiusX = 12f;
+        float radiusY = 16f;
+
+        for (int y = 0; y < texture.height; y++)
+        {
+            for (int x = 0; x < texture.width; x++)
+            {
+                float normalizedX = (x - center.x) / radiusX;
+                float normalizedY = (y - center.y) / radiusY;
+                float shape = normalizedX * normalizedX + normalizedY * normalizedY;
+                texture.SetPixel(x, y, shape <= 1f ? Color.white : Color.clear);
+            }
+        }
+
+        texture.Apply();
+        runtimeEggSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            32f);
+        runtimeEggSprite.name = "RuntimeEggSprite";
+        return runtimeEggSprite;
     }
 
     /// <summary>

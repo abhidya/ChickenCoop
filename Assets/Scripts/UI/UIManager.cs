@@ -603,11 +603,16 @@ public class UIManager : MonoBehaviour
         Chicken chicken = FindAnyObjectByType<Chicken>();
         if (chicken != null)
         {
-            PlayerController player = GetPlayer();
-            if (player != null)
-                player.MoveToAndInteract(chicken.transform.position, chicken);
-            else if (chicken.CanInteract())
+            if (chicken.CanInteract())
+            {
                 chicken.Feed();
+            }
+            else
+            {
+                PlayerController player = GetPlayer();
+                if (player != null)
+                    player.MoveTo(chicken.transform.position);
+            }
         }
     }
 

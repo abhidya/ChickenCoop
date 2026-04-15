@@ -8,6 +8,8 @@ using System.Collections;
 /// </summary>
 public class StoreCounter : MonoBehaviour, IInteractable
 {
+    private const string RuntimeStoreVisualResourcePath = "HappyHarvestMarket";
+
     [Header("Store Settings")]
     [SerializeField] private float sellCooldown = 0.5f;
 
@@ -37,9 +39,15 @@ public class StoreCounter : MonoBehaviour, IInteractable
             spriteRenderer = GetComponent<SpriteRenderer>();
         }
 
-        if (storyVisualPrefab != null)
+        GameObject resolvedPrefab = storyVisualPrefab;
+        if (resolvedPrefab == null)
         {
-            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, storyVisualPrefab, spriteRenderer, true);
+            resolvedPrefab = Resources.Load<GameObject>(RuntimeStoreVisualResourcePath);
+        }
+
+        if (resolvedPrefab != null)
+        {
+            GameObject visual = StoryVisualBinder.AttachVisualPrefab(transform, resolvedPrefab, spriteRenderer, true);
             if (visual != null)
             {
                 storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
