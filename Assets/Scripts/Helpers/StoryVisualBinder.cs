@@ -17,15 +17,17 @@ public static class StoryVisualBinder
             return null;
         }
 
-        int hostId = host.GetInstanceID();
-        if (AttachedVisualRoots.TryGetValue(hostId, out Transform existing) && existing != null)
+        Transform existingRoot = FindExistingVisualRoot(host);
+        if (existingRoot != null)
         {
-            AlignSortingAndLayers(host.gameObject, existing.gameObject, placeholderRenderer);
+            AlignSortingAndLayers(host.gameObject, existingRoot.gameObject, placeholderRenderer);
             if (placeholderRenderer != null)
             {
                 placeholderRenderer.enabled = false;
             }
-            return existing.gameObject;
+
+            AttachedVisualRoots[host.GetInstanceID()] = existingRoot;
+            return existingRoot.gameObject;
         }
 
         GameObject instance = Object.Instantiate(visualPrefab);
@@ -34,19 +36,67 @@ public static class StoryVisualBinder
         instance.transform.rotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one;
 
+        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: true);
+        AttachedVisualRoots[host.GetInstanceID()] = instance.transform;
+        return instance;
+    }
+
+    public static GameObject AttachVisualPrefabAsChild(Transform host, GameObject visualPrefab, SpriteRenderer placeholderRenderer = null, string childName = "Visual")
+    {
+        if (host == null || visualPrefab == null)
+        {
+            return null;
+        }
+
+        int hostId = host.GetInstanceID();
+        Transform existingRoot = FindExistingVisualRoot(host);
+        if (existingRoot != null)
+        {
+            if (existingRoot.parent == host)
+            {
+                DestroyObject(existingRoot.gameObject);
+            }
+            AttachedVisualRoots.Remove(hostId);
+        }
+
+        GameObject instance = Object.Instantiate(visualPrefab, host);
+        instance.name = string.IsNullOrWhiteSpace(childName) ? "Visual" : childName;
+        instance.transform.localPosition = Vector3.zero;
+        instance.transform.localRotation = Quaternion.identity;
+        instance.transform.localScale = Vector3.one;
+
+        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: false);
+        AttachedVisualRoots[hostId] = instance.transform;
+        return instance;
+    }
+
+    private static GameObject PrepareVisualInstance(GameObject instance, GameObject host, SpriteRenderer placeholderRenderer, bool attachFollower)
+    {
+        NormalizeRootTransform(instance.transform);
         NormalizeNestedPrefabChildren(instance.transform);
         PruneNonVisualChildren(instance.transform);
         StripGameplayComponents(instance);
         DisableMarkerRenderers(instance.transform);
         NormalizeSpriteRenderers(instance.transform);
-        AlignSortingAndLayers(host.gameObject, instance, placeholderRenderer);
-        StoryVisualFollower follower = instance.GetComponent<StoryVisualFollower>();
-        if (follower == null)
+        AlignSortingAndLayers(host, instance, placeholderRenderer);
+
+        if (attachFollower)
         {
-            follower = instance.AddComponent<StoryVisualFollower>();
+            StoryVisualFollower follower = instance.GetComponent<StoryVisualFollower>();
+            if (follower == null)
+            {
+                follower = instance.AddComponent<StoryVisualFollower>();
+            }
+            follower.Bind(host.transform);
         }
-        follower.Bind(host);
-        AttachedVisualRoots[hostId] = instance.transform;
+        else
+        {
+            StoryVisualFollower follower = instance.GetComponent<StoryVisualFollower>();
+            if (follower != null)
+            {
+                DestroyObject(follower);
+            }
+        }
 
         if (placeholderRenderer != null)
         {
@@ -76,7 +126,7 @@ public static class StoryVisualBinder
                 continue;
             }
 
-            Object.Destroy(component);
+            DestroyObject(component);
         }
     }
 
@@ -93,7 +143,7 @@ public static class StoryVisualBinder
             string lowered = child.name.ToLowerInvariant();
             if (lowered.Contains("ui target") || lowered == "logic" || lowered.Contains("collider") || lowered.Contains("pathfind"))
             {
-                Object.Destroy(child.gameObject);
+                DestroyObject(child.gameObject);
             }
         }
     }
@@ -169,6 +219,18 @@ public static class StoryVisualBinder
                 type.GetProperty("sortingOrder")?.SetValue(component, sortingOrder);
             }
         }
+    }
+
+    private static void NormalizeRootTransform(Transform root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        root.localPosition = Vector3.zero;
+        root.localRotation = Quaternion.identity;
+        root.localScale = Vector3.one;
     }
 
     private static void NormalizeNestedPrefabChildren(Transform root)
@@ -252,6 +314,32 @@ public static class StoryVisualBinder
         }
     }
 
+    private static Transform FindExistingVisualRoot(Transform host)
+    {
+        if (host == null)
+        {
+            return null;
+        }
+
+        Transform attached = FindAttachedVisualRoot(host);
+        if (attached != null)
+        {
+            return attached;
+        }
+
+        for (int i = 0; i < host.childCount; i++)
+        {
+            Transform child = host.GetChild(i);
+            string lowered = child.name.ToLowerInvariant();
+            if (lowered == "visual" || lowered.EndsWith("_visual") || lowered.Contains("visual"))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
     private static Transform FindPreferredVisualRoot(Transform root)
     {
         Transform[] children = root.GetComponentsInChildren<Transform>(true);
@@ -287,6 +375,23 @@ public static class StoryVisualBinder
         }
 
         return false;
+    }
+
+    private static void DestroyObject(Object target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        if (Application.isPlaying)
+        {
+            Object.Destroy(target);
+        }
+        else
+        {
+            Object.DestroyImmediate(target);
+        }
     }
 
     private static string BuildPath(Transform current)

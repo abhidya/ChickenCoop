@@ -29,6 +29,11 @@ public static class StoryUpgradeBatchRunner
         });
     }
 
+    public static void ApplyHappyHarvestVisuals()
+    {
+        RunWithReport(() => StorySceneVisualSetup.ApplyHappyHarvestVisuals());
+    }
+
     private static void RunWithReport(Func<string> action)
     {
         try

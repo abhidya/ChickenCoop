@@ -267,7 +267,7 @@ public class PlayerController : MonoBehaviour
 
     private void ApplyHappyHarvestVisual()
     {
-        if (spriteRenderer == null || !spriteRenderer.enabled)
+        if (spriteRenderer == null)
         {
             return;
         }
