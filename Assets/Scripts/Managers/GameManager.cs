@@ -90,6 +90,7 @@ public class GameManager : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject);
             InitializeGame();
+            ResolveSceneReferences();
         }
         else
         {
@@ -415,8 +416,49 @@ public class GameManager : MonoBehaviour
         EnsureRuntimeStorySupport();
     }
 
+    private void ResolveSceneReferences()
+    {
+        if (cornFieldPosition == null)
+        {
+            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            if (field != null)
+            {
+                cornFieldPosition = field.transform;
+            }
+        }
+
+        if (chickenPosition == null)
+        {
+            Chicken chicken = FindAnyObjectByType<Chicken>();
+            if (chicken != null)
+            {
+                chickenPosition = chicken.transform;
+            }
+        }
+
+        if (storePosition == null)
+        {
+            StoreCounter storeCounter = FindAnyObjectByType<StoreCounter>();
+            if (storeCounter != null)
+            {
+                storePosition = storeCounter.transform;
+            }
+        }
+
+        if (helperSpawnPoint == null)
+        {
+            PlayerController player = FindAnyObjectByType<PlayerController>();
+            if (player != null)
+            {
+                helperSpawnPoint = player.transform;
+            }
+        }
+    }
+
     private void EnsureRuntimeStorySupport()
     {
+        ResolveSceneReferences();
+
         if (FindAnyObjectByType<FloatingTextManager>() == null)
         {
             new GameObject("FloatingTextManager").AddComponent<FloatingTextManager>();
