@@ -59,6 +59,11 @@ public class GameManager : MonoBehaviour
 
     private static Sprite runtimeHelperSprite;
 
+    private const string RuntimeChickenVisualResourcePath = "HappyHarvestChicken";
+    private const string RuntimeCornVisualResourcePath = "HappyHarvestCorn";
+    private const string RuntimeStoreVisualResourcePath = "HappyHarvestMarket";
+
+
     // Properties for accessing resources
     public int Corn => corn;
     public int Eggs => eggs;
@@ -458,6 +463,8 @@ public class GameManager : MonoBehaviour
     private void EnsureRuntimeStorySupport()
     {
         ResolveSceneReferences();
+        EnsureCoreGameplayObjects();
+        ResolveSceneReferences();
 
         if (FindAnyObjectByType<FloatingTextManager>() == null)
         {
@@ -487,6 +494,96 @@ public class GameManager : MonoBehaviour
             Canvas canvas = FindAnyObjectByType<Canvas>();
             GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
             tutorialHost.AddComponent<TutorialManager>();
+        }
+    }
+
+    private void EnsureCoreGameplayObjects()
+    {
+        EnsureChickenObject();
+        EnsureCornFieldObject();
+        EnsureStoreCounterObject();
+    }
+
+    private void EnsureChickenObject()
+    {
+        if (FindAnyObjectByType<Chicken>() != null)
+        {
+            return;
+        }
+
+        GameObject chicken = new GameObject("Chicken");
+        chicken.tag = "Chicken";
+        chicken.transform.position = new Vector3(2f, 0f, 0f);
+
+        SpriteRenderer renderer = chicken.AddComponent<SpriteRenderer>();
+        renderer.enabled = false;
+        renderer.sortingOrder = 10;
+
+        CircleCollider2D collider = chicken.AddComponent<CircleCollider2D>();
+        collider.isTrigger = true;
+        collider.radius = 0.5f;
+
+        chicken.AddComponent<Chicken>();
+
+        GameObject visualPrefab = Resources.Load<GameObject>(RuntimeChickenVisualResourcePath);
+        if (visualPrefab != null)
+        {
+            StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
+        }
+    }
+
+    private void EnsureCornFieldObject()
+    {
+        if (FindAnyObjectByType<HarvestableField>() != null)
+        {
+            return;
+        }
+
+        GameObject cornField = new GameObject("CornField");
+        cornField.transform.position = new Vector3(-4f, 0f, 0f);
+
+        SpriteRenderer renderer = cornField.AddComponent<SpriteRenderer>();
+        renderer.enabled = false;
+        renderer.sortingOrder = 5;
+
+        BoxCollider2D collider = cornField.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        collider.size = new Vector2(1.5f, 1.5f);
+
+        cornField.AddComponent<HarvestableField>();
+
+        GameObject visualPrefab = Resources.Load<GameObject>(RuntimeCornVisualResourcePath);
+        if (visualPrefab != null)
+        {
+            StoryVisualBinder.AttachVisualPrefab(cornField.transform, visualPrefab, renderer);
+        }
+    }
+
+    private void EnsureStoreCounterObject()
+    {
+        if (FindAnyObjectByType<StoreCounter>() != null)
+        {
+            return;
+        }
+
+        GameObject store = new GameObject("StoreCounter");
+        store.tag = "Store";
+        store.transform.position = new Vector3(4f, 0f, 0f);
+
+        SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
+        renderer.enabled = false;
+        renderer.sortingOrder = 5;
+
+        BoxCollider2D collider = store.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        collider.size = new Vector2(1.5f, 1.5f);
+
+        store.AddComponent<StoreCounter>();
+
+        GameObject visualPrefab = Resources.Load<GameObject>(RuntimeStoreVisualResourcePath);
+        if (visualPrefab != null)
+        {
+            StoryVisualBinder.AttachVisualPrefab(store.transform, visualPrefab, renderer);
         }
     }
 
@@ -562,7 +659,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        GameObject happyHarvestCharacter = Resources.Load<GameObject>("HappyHarvestCharacterBase");
+        GameObject happyHarvestCharacter = Resources.Load<GameObject>("Character");
         if (happyHarvestCharacter != null)
         {
             GameObject visualInstance = StoryVisualBinder.AttachVisualPrefab(helper.transform, happyHarvestCharacter, helperRenderer);

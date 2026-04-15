@@ -36,12 +36,12 @@ public static class StoryVisualBinder
         instance.transform.rotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one;
 
-        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: true);
+        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: true, preserveRigComponents: false);
         AttachedVisualRoots[host.GetInstanceID()] = instance.transform;
         return instance;
     }
 
-    public static GameObject AttachVisualPrefabAsChild(Transform host, GameObject visualPrefab, SpriteRenderer placeholderRenderer = null, string childName = "Visual")
+    public static GameObject AttachVisualPrefabAsChild(Transform host, GameObject visualPrefab, SpriteRenderer placeholderRenderer = null, string childName = "Visual", bool preserveRigComponents = false)
     {
         if (host == null || visualPrefab == null)
         {
@@ -65,17 +65,17 @@ public static class StoryVisualBinder
         instance.transform.localRotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one;
 
-        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: false);
+        PrepareVisualInstance(instance, host.gameObject, placeholderRenderer, attachFollower: false, preserveRigComponents: preserveRigComponents);
         AttachedVisualRoots[hostId] = instance.transform;
         return instance;
     }
 
-    private static GameObject PrepareVisualInstance(GameObject instance, GameObject host, SpriteRenderer placeholderRenderer, bool attachFollower)
+    private static GameObject PrepareVisualInstance(GameObject instance, GameObject host, SpriteRenderer placeholderRenderer, bool attachFollower, bool preserveRigComponents)
     {
         NormalizeRootTransform(instance.transform);
         NormalizeNestedPrefabChildren(instance.transform);
         PruneNonVisualChildren(instance.transform);
-        StripGameplayComponents(instance);
+        StripGameplayComponents(instance, preserveRigComponents);
         DisableMarkerRenderers(instance.transform);
         NormalizeSpriteRenderers(instance.transform);
         AlignSortingAndLayers(host, instance, placeholderRenderer);
@@ -106,7 +106,7 @@ public static class StoryVisualBinder
         return instance;
     }
 
-    private static void StripGameplayComponents(GameObject root)
+    private static void StripGameplayComponents(GameObject root, bool preserveRigComponents)
     {
         Component[] components = root.GetComponentsInChildren<Component>(true);
         foreach (Component component in components)
@@ -116,7 +116,7 @@ public static class StoryVisualBinder
                 continue;
             }
 
-            if (component is Transform || component is SpriteRenderer || component is Animator || ShouldKeepVisualComponent(component))
+            if (component is Transform || component is SpriteRenderer || component is Animator || ShouldKeepVisualComponent(component, preserveRigComponents))
             {
                 continue;
             }
@@ -176,7 +176,6 @@ public static class StoryVisualBinder
                 continue;
             }
 
-            renderer.sharedMaterial = null;
             renderer.color = Color.white;
             renderer.maskInteraction = SpriteMaskInteraction.None;
         }
@@ -355,7 +354,7 @@ public static class StoryVisualBinder
         return null;
     }
 
-    private static bool ShouldKeepVisualComponent(Component component)
+    private static bool ShouldKeepVisualComponent(Component component, bool preserveRigComponents)
     {
         string typeName = component.GetType().Name;
         switch (typeName)
@@ -363,13 +362,19 @@ public static class StoryVisualBinder
             case "SortingGroup":
             case "SpriteResolver":
             case "SpriteLibrary":
-            case "SpriteSkin":
             case "Light2D":
                 return true;
+            case "SpriteSkin":
+                return preserveRigComponents;
         }
 
         string namespaceName = component.GetType().Namespace ?? string.Empty;
-        if (namespaceName.StartsWith("UnityEngine.U2D") || namespaceName.StartsWith("UnityEngine.Rendering"))
+        if (namespaceName.StartsWith("UnityEngine.Rendering"))
+        {
+            return true;
+        }
+
+        if (preserveRigComponents && (namespaceName.StartsWith("UnityEngine.U2D") || namespaceName.StartsWith("UnityEngine.U2D.Animation")))
         {
             return true;
         }
