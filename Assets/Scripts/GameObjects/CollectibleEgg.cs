@@ -7,7 +7,7 @@ using System.Collections;
 public class CollectibleEgg : MonoBehaviour, IInteractable
 {
     private bool isCollected = false;
-    private const float CollectionDistance = 1.5f;
+    private const float CollectionDistance = 2.0f; // increased for easier pickup
 
     private void Update()
     {

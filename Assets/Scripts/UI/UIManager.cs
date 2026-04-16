@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// UIManager - Manages all UI elements including resource displays, upgrade buttons,
@@ -30,6 +31,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI helperCountText;
     [SerializeField] private TextMeshProUGUI incomeRateText;
     [SerializeField] private TextMeshProUGUI timeText;
+    [SerializeField] private TextMeshProUGUI storyLevelText;
 
     [Header("Resource Icons")]
     [SerializeField] private RectTransform cornIcon;
@@ -42,6 +44,9 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button collectButton;
     [SerializeField] private Button sellButton;
     [SerializeField] private Button hireHelperButton;
+    [SerializeField] private Button incubateButton;
+    [SerializeField] private Button plantButton;
+    [SerializeField] private TextMeshProUGUI levelText;
 
     [Header("Upgrade System")]
     [SerializeField] private GameObject upgradePanel;
@@ -137,6 +142,7 @@ public class UIManager : MonoBehaviour
 
         // Setup button listeners
         SetupButtons();
+        SetupExpansionButtons();
 
         // Initialize displays
         UpdateAllDisplays();
@@ -303,7 +309,7 @@ public class UIManager : MonoBehaviour
     {
         if (timeText != null)
         {
-            DayNightCycle cycle = FindAnyObjectByType<DayNightCycle>();
+            DayNightCycle cycle = FindObjectOfType<DayNightCycle>();
             if (cycle != null)
             {
                 timeText.text = cycle.GetTimeString();
@@ -316,7 +322,7 @@ public class UIManager : MonoBehaviour
         // Update Corn Progress
         if (cornProgressBar != null)
         {
-            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            HarvestableField field = FindObjectOfType<HarvestableField>();
             if (field != null)
             {
                 float progress = field.GetGrowthProgress();
@@ -329,7 +335,7 @@ public class UIManager : MonoBehaviour
         // Update Egg Progress
         if (eggProgressBar != null)
         {
-            Chicken chicken = FindAnyObjectByType<Chicken>();
+            Chicken chicken = FindObjectOfType<Chicken>();
             if (chicken != null)
             {
                 float progress = chicken.GetProductionProgress();
@@ -459,7 +465,7 @@ public class UIManager : MonoBehaviour
         // Feed button - needs corn
         if (harvestButton != null)
         {
-            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            HarvestableField field = FindObjectOfType<HarvestableField>();
             bool canHarvest = field == null || field.CanInteract();
             harvestButton.interactable = canHarvest;
             UpdateButtonVisual(harvestButton, canHarvest);
@@ -474,7 +480,7 @@ public class UIManager : MonoBehaviour
 
         if (collectButton != null)
         {
-            bool canCollect = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None).Length > 0;
+            bool canCollect = FindObjectsOfType<CollectibleEgg>().Length > 0;
             collectButton.interactable = canCollect;
             UpdateButtonVisual(collectButton, canCollect);
         }
@@ -591,6 +597,49 @@ public class UIManager : MonoBehaviour
             if (eggsCountText != null) eggsCountText.text = targetEggs.ToString();
             if (coinsCountText != null) coinsCountText.text = targetCoins.ToString();
             if (helperCountText != null) helperCountText.text = GameManager.Instance.HelperCount.ToString();
+            
+            UpdateLevelDisplay();
+            UpdateExpansionButtons();
+        }
+    }
+
+    private void UpdateLevelDisplay()
+    {
+        if (levelText != null && GameManager.Instance != null)
+        {
+            levelText.text = $"Stage {GameManager.Instance.CurrentLevel}/3";
+        }
+    }
+
+    private void UpdateExpansionButtons()
+    {
+        if (GameManager.Instance == null) return;
+        
+        bool canIncubate = GameManager.Instance.ChickenPositions.Count < 6;
+        bool canPlant = GameManager.Instance.CornFieldPositions.Count < 6;
+
+        if (incubateButton != null) incubateButton.gameObject.SetActive(canIncubate);
+        if (plantButton != null) plantButton.gameObject.SetActive(canPlant);
+    }
+
+    private void SetupExpansionButtons()
+    {
+        if (incubateButton != null)
+        {
+            incubateButton.onClick.RemoveAllListeners();
+            incubateButton.onClick.AddListener(() => {
+                 GameManager.Instance.AddChicken();
+                 UpdateExpansionButtons();
+            });
+        }
+        
+        if (plantButton != null)
+        {
+            plantButton.onClick.RemoveAllListeners();
+            plantButton.onClick.AddListener(() => {
+                GameManager.Instance.AddCornField();
+                UpdateExpansionButtons();
+            });
         }
     }
 
@@ -647,13 +696,13 @@ public class UIManager : MonoBehaviour
 
     private PlayerController GetPlayer()
     {
-        return FindAnyObjectByType<PlayerController>();
+        return FindObjectOfType<PlayerController>();
     }
 
     private void OnHarvestClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        HarvestableField field = FindAnyObjectByType<HarvestableField>();
+        HarvestableField field = FindObjectOfType<HarvestableField>();
         if (field != null)
         {
             PlayerController player = GetPlayer();
@@ -671,7 +720,7 @@ public class UIManager : MonoBehaviour
     private void OnFeedClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        Chicken chicken = FindAnyObjectByType<Chicken>();
+        Chicken chicken = FindObjectOfType<Chicken>();
         if (chicken != null)
         {
             if (chicken.CanInteract())
@@ -690,7 +739,7 @@ public class UIManager : MonoBehaviour
     private void OnCollectClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
+        CollectibleEgg[] eggs = FindObjectsOfType<CollectibleEgg>();
         foreach (var egg in eggs)
         {
             PlayerController player = GetPlayer();
@@ -705,7 +754,7 @@ public class UIManager : MonoBehaviour
     private void OnSellClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        StoreCounter store = FindAnyObjectByType<StoreCounter>();
+        StoreCounter store = FindObjectOfType<StoreCounter>();
         if (store != null)
         {
             PlayerController player = GetPlayer();
@@ -770,7 +819,7 @@ public class UIManager : MonoBehaviour
                 ShowUpgradeNotification($"{upgrade.upgradeName} upgraded!");
                 UpdateNextGoal();
                 UpdateIncomeRate();
-                TitleCardManager titleCardManager = FindAnyObjectByType<TitleCardManager>();
+                TitleCardManager titleCardManager = FindObjectOfType<TitleCardManager>();
                 if (titleCardManager != null)
                 {
                     titleCardManager.EvaluateStoryProgress();
@@ -815,7 +864,7 @@ public class UIManager : MonoBehaviour
                 ShowUpgradeNotification($"Upgrade purchased!");
                 UpdateNextGoal();
                 UpdateIncomeRate();
-                TitleCardManager titleCardManager = FindAnyObjectByType<TitleCardManager>();
+                TitleCardManager titleCardManager = FindObjectOfType<TitleCardManager>();
                 if (titleCardManager != null)
                 {
                     titleCardManager.EvaluateStoryProgress();
@@ -1085,7 +1134,7 @@ public class UIManager : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        EventSystem eventSystem = FindAnyObjectByType<EventSystem>();
+        EventSystem eventSystem = FindObjectOfType<EventSystem>();
         if (eventSystem == null)
         {
             GameObject eventSystemObject = new GameObject("EventSystem");

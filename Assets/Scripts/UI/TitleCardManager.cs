@@ -59,6 +59,7 @@ public class TitleCardManager : MonoBehaviour
         // Show Act 1 on start if enabled
         if (showOnStart)
         {
+            Debug.Log("[TitleCardManager] Initializing with Act 1 (Dawn on the Farm)");
             StartCoroutine(ShowTitleCardDelayed(0, 0.5f));
         }
 
@@ -283,11 +284,21 @@ public class TitleCardManager : MonoBehaviour
 
     private void EnsureRuntimeReferences()
     {
-        Canvas canvas = FindAnyObjectByType<Canvas>();
+        Canvas canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
         {
+            // Try searching by name if standard lookup fails
+            GameObject canvasObj = GameObject.Find("Canvas") ?? GameObject.Find("UIManagerCanvas") ?? GameObject.Find("HUD");
+            if (canvasObj != null) canvas = canvasObj.GetComponent<Canvas>();
+        }
+
+        if (canvas == null)
+        {
+            Debug.LogWarning("[TitleCardManager] CRITICAL: No Canvas found in scene. Title cards cannot be displayed.");
             return;
         }
+
+        Debug.Log("[TitleCardManager] Found target Canvas: " + canvas.name);
 
         if (titleCardPanel == null)
         {
@@ -305,6 +316,7 @@ public class TitleCardManager : MonoBehaviour
 
             titleCardPanel = panelObject;
             titleCanvasGroup = panelObject.GetComponent<CanvasGroup>();
+            Debug.Log("[TitleCardManager] Created missing TitleCardPanel dynamically.");
         }
 
         if (titleCanvasGroup == null)
@@ -320,6 +332,7 @@ public class TitleCardManager : MonoBehaviour
         {
             GameObject textObject = new GameObject("TitleText", typeof(RectTransform));
             textObject.transform.SetParent(titleCardPanel.transform, false);
+            Debug.Log("[TitleCardManager] Created missing TitleText dynamically.");
 
             RectTransform textRect = textObject.GetComponent<RectTransform>();
             textRect.anchorMin = new Vector2(0.15f, 0.4f);

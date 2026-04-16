@@ -143,7 +143,7 @@ public class TutorialManager : MonoBehaviour
 
         if (tutorialActive && currentStep == TutorialStep.FeedChicken)
         {
-            CollectibleEgg egg = FindAnyObjectByType<CollectibleEgg>();
+            CollectibleEgg egg = FindObjectOfType<CollectibleEgg>();
             if (egg != null)
             {
                 AdvanceToStep(TutorialStep.CollectEgg);
@@ -457,7 +457,7 @@ public class TutorialManager : MonoBehaviour
 
     private void EnsureRuntimeReferences()
     {
-        Canvas canvas = FindAnyObjectByType<Canvas>();
+        Canvas canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
         {
             return;
@@ -468,7 +468,7 @@ public class TutorialManager : MonoBehaviour
             canvas.gameObject.AddComponent<GraphicRaycaster>();
         }
 
-        EventSystem eventSystem = FindAnyObjectByType<EventSystem>();
+        EventSystem eventSystem = FindObjectOfType<EventSystem>();
         if (eventSystem == null)
         {
             GameObject eventSystemObject = new GameObject("EventSystem");
@@ -546,7 +546,7 @@ public class TutorialManager : MonoBehaviour
     {
         if (cornFieldTarget == null)
         {
-            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            HarvestableField field = FindObjectOfType<HarvestableField>();
             if (field != null)
             {
                 cornFieldTarget = field.transform;
@@ -555,7 +555,7 @@ public class TutorialManager : MonoBehaviour
 
         if (chickenTarget == null)
         {
-            Chicken chicken = FindAnyObjectByType<Chicken>();
+            Chicken chicken = FindObjectOfType<Chicken>();
             if (chicken != null)
             {
                 chickenTarget = chicken.transform;
@@ -564,7 +564,7 @@ public class TutorialManager : MonoBehaviour
 
         if (storeTarget == null)
         {
-            StoreCounter store = FindAnyObjectByType<StoreCounter>();
+            StoreCounter store = FindObjectOfType<StoreCounter>();
             if (store != null)
             {
                 storeTarget = store.transform;

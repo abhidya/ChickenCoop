@@ -219,8 +219,8 @@ public class EnvironmentAnimator : MonoBehaviour
         {
             swayingObjects = new Transform[]
             {
-                FindAnyObjectByType<HarvestableField>()?.transform,
-                FindAnyObjectByType<Chicken>()?.transform
+                FindObjectOfType<HarvestableField>()?.transform,
+                FindObjectOfType<Chicken>()?.transform
             };
         }
 
@@ -228,8 +228,8 @@ public class EnvironmentAnimator : MonoBehaviour
         {
             bouncingObjects = new Transform[]
             {
-                FindAnyObjectByType<HarvestableField>()?.transform,
-                FindAnyObjectByType<StoreCounter>()?.transform
+                FindObjectOfType<HarvestableField>()?.transform,
+                FindObjectOfType<StoreCounter>()?.transform
             };
         }
     }

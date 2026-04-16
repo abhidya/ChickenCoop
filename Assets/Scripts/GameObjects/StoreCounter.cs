@@ -96,7 +96,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
     {
         if (CanInteract())
         {
-            SellEgg();
+            SellAllEggs();
         }
     }
 
@@ -109,14 +109,47 @@ public class StoreCounter : MonoBehaviour, IInteractable
     }
 
     /// <summary>
-    /// Sell an egg at the store
+    /// Sell all eggs currently held by the player
+    /// </summary>
+    public void SellAllEggs()
+    {
+        if (!canSell || GameManager.Instance.Eggs <= 0) return;
+
+        canSell = false;
+        int count = GameManager.Instance.Eggs;
+        StartCoroutine(SellAllCoroutine(count));
+    }
+
+    private IEnumerator SellAllCoroutine(int totalEggs)
+    {
+        Vector3 salePosition = coinSpawnPoint != null ? coinSpawnPoint.position : transform.position + new Vector3(0, 0.5f, 0);
+        
+        // Sell in a quick burst
+        float burstInterval = 0.05f;
+        for (int i = 0; i < totalEggs; i++)
+        {
+            if (GameManager.Instance.SellEgg(salePosition))
+            {
+                // Rapid-fire effects
+                if (i % 2 == 0) StartCoroutine(SaleAnimation());
+                SpawnCoinBurst();
+                yield return new WaitForSeconds(burstInterval);
+            }
+        }
+
+        // Cooldown after entire burst finishes
+        StartCoroutine(SellCooldown());
+    }
+
+    /// <summary>
+    /// Sell an egg at the store (legacy support)
     /// </summary>
     public void SellEgg()
     {
         if (!canSell || GameManager.Instance.Eggs <= 0) return;
 
         canSell = false;
-
+        
         // Perform sale
         Vector3 salePosition = coinSpawnPoint != null ? coinSpawnPoint.position : transform.position + new Vector3(0, 0.5f, 0);
         if (GameManager.Instance.SellEgg(salePosition))

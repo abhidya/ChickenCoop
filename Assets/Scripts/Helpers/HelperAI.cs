@@ -96,76 +96,112 @@ public class HelperAI : MonoBehaviour
 
         while (true)
         {
-            // Step 1: Go to corn field and harvest
-            yield return StartCoroutine(GoToAndHarvestCorn());
-
-            // Step 2: Go to chicken and feed
-            yield return StartCoroutine(GoToAndFeedChicken());
-
-            // Step 3: Collect the egg (happens at chicken location)
-            yield return StartCoroutine(CollectEgg());
-
-            // Step 4: Go to store and sell
-            yield return StartCoroutine(GoToAndSellEgg());
-
-            // Short wait before next loop
-            yield return new WaitForSeconds(waitTime / GameManager.Instance.SpeedMultiplier);
+            yield return StartCoroutine(PerformNextTask());
+            
+            float wait = waitTime / Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f);
+            yield return new WaitForSeconds(wait);
         }
+    }
+
+    private IEnumerator PerformNextTask()
+    {
+        // Priority 1: Collect eggs on ground
+        CollectibleEgg closestEgg = FindClosestEgg();
+        if (closestEgg != null)
+        {
+            yield return StartCoroutine(CollectEgg());
+            yield break;
+        }
+
+        // Priority 2: Feed hungry chickens
+        Chicken hungryChicken = FindHungryChicken();
+        if (hungryChicken != null && GameManager.Instance.Corn > 0)
+        {
+            yield return StartCoroutine(GoToAndFeedChicken(hungryChicken));
+            yield break;
+        }
+
+        // Priority 3: Harvest ready corn
+        HarvestableField readyField = FindReadyField();
+        if (readyField != null && GameManager.Instance.Corn < 10) // Basic cap for AI corn hoarding
+        {
+            yield return StartCoroutine(GoToAndHarvestCorn(readyField));
+            yield break;
+        }
+
+        // Priority 4: Sell eggs in inventory
+        if (GameManager.Instance.Eggs > 0)
+        {
+            yield return StartCoroutine(GoToAndSellEgg());
+            yield break;
+        }
+
+        // Priority 5: Help harvest more corn even if we have some
+        if (readyField != null)
+        {
+            yield return StartCoroutine(GoToAndHarvestCorn(readyField));
+            yield break;
+        }
+
+        currentState = HelperState.Idle;
+        yield return new WaitForSeconds(1.0f);
     }
 
     /// <summary>
     /// Move to corn field and harvest corn
     /// </summary>
-    private IEnumerator GoToAndHarvestCorn()
+    private IEnumerator GoToAndHarvestCorn(HarvestableField field = null)
     {
         currentState = HelperState.MovingToCorn;
-        HarvestableField field = FindAnyObjectByType<HarvestableField>();
-
-        if (GameManager.Instance.CornFieldPosition != null)
+        if (field == null) field = FindReadyField();
+        
+        if (field != null)
         {
-            yield return StartCoroutine(MoveTo(GameManager.Instance.CornFieldPosition.position));
+            yield return StartCoroutine(MoveTo(field.transform.position));
+            currentState = HelperState.HarvestingCorn;
+
+            if (field.IsReadyToHarvest())
+            {
+                PlaySquashStretch();
+                SpawnDustPuff();
+                yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
+                field.Harvest();
+                yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
+            }
         }
-
-        currentState = HelperState.HarvestingCorn;
-
-        if (field == null || !field.IsReadyToHarvest())
-        {
-            yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
-            yield break;
-        }
-
-        // Play harvest animation
-        PlaySquashStretch();
-        SpawnDustPuff();
-
-        yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-        field.Harvest();
-
-        yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
     }
 
-    /// <summary>
-    /// Move to chicken and feed it
-    /// </summary>
-    private IEnumerator GoToAndFeedChicken()
+    private IEnumerator GoToAndFeedChicken(Chicken chicken = null)
     {
         currentState = HelperState.MovingToChicken;
-        Chicken chicken = FindAnyObjectByType<Chicken>();
+        if (chicken == null) chicken = FindHungryChicken();
 
-        if (GameManager.Instance.ChickenPosition != null)
+        if (chicken != null)
         {
-            yield return StartCoroutine(MoveTo(GameManager.Instance.ChickenPosition.position));
+            yield return StartCoroutine(MoveTo(chicken.transform.position));
+            currentState = HelperState.FeedingChicken;
+
+            if (chicken.FeedWithCorn())
+            {
+                chicken.PlayFeedingEffect();
+                PlaySquashStretch();
+                yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
+            }
         }
+    }
 
-        currentState = HelperState.FeedingChicken;
+    private HarvestableField FindReadyField()
+    {
+        HarvestableField[] fields = FindObjectsOfType<HarvestableField>();
+        foreach (var f in fields) if (f.IsReadyToHarvest()) return f;
+        return null;
+    }
 
-        if (chicken != null && chicken.FeedWithCorn())
-        {
-            PlaySquashStretch();
-            yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-        }
-
-        yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
+    private Chicken FindHungryChicken()
+    {
+        Chicken[] chickens = FindObjectsOfType<Chicken>();
+        foreach (var c in chickens) if (c.CanInteract()) return c;
+        return null;
     }
 
     /// <summary>
@@ -226,7 +262,7 @@ public class HelperAI : MonoBehaviour
         yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
 
         // Sell egg at store
-        StoreCounter store = FindAnyObjectByType<StoreCounter>();
+        StoreCounter store = FindObjectOfType<StoreCounter>();
         if (store != null)
         {
             store.SellEgg();
@@ -284,7 +320,7 @@ public class HelperAI : MonoBehaviour
 
     private CollectibleEgg FindClosestEgg()
     {
-        CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
+        CollectibleEgg[] eggs = FindObjectsOfType<CollectibleEgg>();
         CollectibleEgg closestEgg = null;
         float closestDistance = float.MaxValue;
 

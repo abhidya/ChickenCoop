@@ -199,6 +199,7 @@ public class Chicken : MonoBehaviour, IInteractable
         productionProgress = 0.1f;
 
         // Eating animation - pecking motion
+        PlayFeedingEffect();
         yield return StartCoroutine(EatingAnimation());
         productionProgress = 0.4f;
 
@@ -339,6 +340,47 @@ public class Chicken : MonoBehaviour, IInteractable
         StartCoroutine(EggBounceAnimation(egg.transform, position));
     }
 
+    /// <summary>
+    /// Visual feedback for being fed: corn particles flying towards the chicken
+    /// </summary>
+    public void PlayFeedingEffect()
+    {
+        GameObject particles = new GameObject("FeedingCornParticles");
+        particles.transform.position = transform.position + Vector3.up * 0.8f;
+
+        ParticleSystem ps = particles.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startSize = 0.08f;
+        main.startLifetime = 0.4f;
+        main.startColor = Color.yellow; // Explicitly use bright yellow
+        main.startSpeed = 2f;
+        main.gravityModifier = 1f;
+        main.maxParticles = 10;
+        main.duration = 0.2f;
+        main.loop = false;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 10) });
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = 30f;
+        shape.radius = 0.1f;
+        particles.transform.rotation = Quaternion.Euler(90, 0, 0); // Point downwards
+        
+        // Ensure material is not blue-missing-fallback
+        ParticleSystemRenderer psr = particles.GetComponent<ParticleSystemRenderer>();
+        if (psr != null) {
+            psr.material = new Material(Shader.Find("Sprites/Default"));
+        }
+
+        ps.Play();
+        Destroy(particles, 1f);
+
+        AudioManager.Instance?.PlaySound("eat");
+    }
+
     private static Sprite GetRuntimeEggSprite()
     {
         if (runtimeEggSprite != null)
@@ -383,13 +425,15 @@ public class Chicken : MonoBehaviour, IInteractable
         egg.position = startPos;
         egg.localScale = Vector3.zero;
 
+        float targetScale = 0.65f; // reduced from 1.0f
+
         // Pop in with scale
         float t = 0;
         while (t < 0.15f)
         {
             t += Time.deltaTime;
-            float scale = Mathf.Sin(t / 0.15f * Mathf.PI / 2f) * 1.2f;
-            egg.localScale = Vector3.one * Mathf.Min(scale, 1f);
+            float scale = Mathf.Sin(t / 0.15f * Mathf.PI / 2f) * (targetScale * 1.2f);
+            egg.localScale = Vector3.one * Mathf.Min(scale, targetScale);
             egg.position = Vector3.Lerp(startPos, targetPos, t / 0.15f);
             yield return null;
         }
@@ -411,7 +455,7 @@ public class Chicken : MonoBehaviour, IInteractable
         }
 
         egg.position = targetPos;
-        egg.localScale = Vector3.one;
+        egg.localScale = Vector3.one * targetScale;
     }
 
     /// <summary>

@@ -1,8 +1,10 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// GameManager - Central game controller that manages all game state, resources, and game loop.
@@ -36,10 +38,11 @@ public class GameManager : MonoBehaviour
     public GameConfig Config => config;
 
     [Header("Game References")]
-    [SerializeField] private Transform cornFieldPosition;
-    [SerializeField] private Transform chickenPosition;
+    [SerializeField] private List<Transform> cornFieldPositions = new List<Transform>();
+    [SerializeField] private List<Transform> chickenPositions = new List<Transform>();
     [SerializeField] private Transform storePosition;
     [SerializeField] private Transform helperSpawnPoint;
+    [SerializeField] private Transform incubatorSpawnPoint;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject helperPrefab;
@@ -75,7 +78,11 @@ public class GameManager : MonoBehaviour
     public int HelperCost => GetHelperBaseCost() + (helperCount * GetHelperCostIncrease());
     public float SpeedMultiplier => speedMultiplier;
     public float StoreEfficiencyMultiplier => storeEfficiencyMultiplier;
-    public PlayerController Player => FindAnyObjectByType<PlayerController>();
+    public PlayerController Player => FindObjectOfType<PlayerController>();
+    
+    // Leveling State
+    private int currentLevel = 1;
+    public int CurrentLevel => currentLevel;
 
     // Helper methods for config values with fallbacks
     private int GetEggSellPrice() => config != null ? config.eggSellPrice : eggSellPrice;
@@ -86,9 +93,10 @@ public class GameManager : MonoBehaviour
     private int GetStartingCoins() => config != null ? config.startingCoins : startingCoins;
 
     // Position getters for helpers and other systems
-    public Transform CornFieldPosition => cornFieldPosition;
-    public Transform ChickenPosition => chickenPosition;
+    public List<Transform> CornFieldPositions => cornFieldPositions;
+    public List<Transform> ChickenPositions => chickenPositions;
     public Transform StorePosition => storePosition;
+    public Transform IncubatorSpawnPoint => incubatorSpawnPoint;
 
     private void Awake()
     {
@@ -113,7 +121,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void EnsureEventSystem()
     {
-        if (FindAnyObjectByType<EventSystem>() == null)
+        if (FindObjectOfType<EventSystem>() == null)
         {
             GameObject es = new GameObject("EventSystem");
             es.AddComponent<EventSystem>();
@@ -136,6 +144,7 @@ public class GameManager : MonoBehaviour
         eggs = GetStartingEggs();
         coins = GetStartingCoins();
         helperCount = 0;
+        currentLevel = 1;
 
         // Trigger initial UI updates
         OnCornChanged?.Invoke(corn);
@@ -216,6 +225,47 @@ public class GameManager : MonoBehaviour
     public void AddEgg(int amount)
     {
         AddEgg(amount, null);
+    }
+
+    public bool UseEggs(int amount)
+    {
+        if (eggs >= amount)
+        {
+            eggs -= amount;
+            OnEggsChanged?.Invoke(eggs);
+            return true;
+        }
+        return false;
+    }
+
+    public void AddChicken()
+    {
+        if (chickenPositions.Count < 3)
+        {
+            Vector3 lastPos = chickenPositions[chickenPositions.Count - 1].position;
+            GameObject newPosObj = new GameObject("ChickenPos_" + chickenPositions.Count);
+            newPosObj.transform.position = lastPos + Vector3.left * 1.5f;
+            chickenPositions.Add(newPosObj.transform);
+            
+            SpawnChickenAt(newPosObj.transform.position);
+            
+            // Auto level up based on capacity
+            if (chickenPositions.Count == 2) currentLevel = 2;
+            if (chickenPositions.Count == 3) currentLevel = 3;
+        }
+    }
+
+    public void AddCornField()
+    {
+        if (cornFieldPositions.Count < 3)
+        {
+            Vector3 lastPos = cornFieldPositions[cornFieldPositions.Count - 1].position;
+            GameObject newPosObj = new GameObject("CornPos_" + cornFieldPositions.Count);
+            newPosObj.transform.position = lastPos + Vector3.left * 1.5f;
+            cornFieldPositions.Add(newPosObj.transform);
+            
+            SpawnCornFieldAt(newPosObj.transform.position);
+        }
     }
 
     /// <summary>
@@ -456,27 +506,27 @@ public class GameManager : MonoBehaviour
 
     private void ResolveSceneReferences()
     {
-        if (cornFieldPosition == null)
+        if (cornFieldPositions.Count == 0)
         {
-            HarvestableField field = FindAnyObjectByType<HarvestableField>();
+            HarvestableField field = FindObjectOfType<HarvestableField>();
             if (field != null)
             {
-                cornFieldPosition = field.transform;
+                cornFieldPositions.Add(field.transform);
             }
         }
 
-        if (chickenPosition == null)
+        if (chickenPositions.Count == 0)
         {
-            Chicken chicken = FindAnyObjectByType<Chicken>();
+            Chicken chicken = FindObjectOfType<Chicken>();
             if (chicken != null)
             {
-                chickenPosition = chicken.transform;
+                chickenPositions.Add(chicken.transform);
             }
         }
 
         if (storePosition == null)
         {
-            StoreCounter storeCounter = FindAnyObjectByType<StoreCounter>();
+            StoreCounter storeCounter = FindObjectOfType<StoreCounter>();
             if (storeCounter != null)
             {
                 storePosition = storeCounter.transform;
@@ -485,7 +535,7 @@ public class GameManager : MonoBehaviour
 
         if (helperSpawnPoint == null)
         {
-            PlayerController player = FindAnyObjectByType<PlayerController>();
+            PlayerController player = FindObjectOfType<PlayerController>();
             if (player != null)
             {
                 helperSpawnPoint = player.transform;
@@ -499,23 +549,23 @@ public class GameManager : MonoBehaviour
         EnsureCoreGameplayObjects();
         ResolveSceneReferences();
 
-        if (FindAnyObjectByType<FloatingTextManager>() == null)
+        if (FindObjectOfType<FloatingTextManager>() == null)
         {
             new GameObject("FloatingTextManager").AddComponent<FloatingTextManager>();
         }
 
-        if (FindAnyObjectByType<EnvironmentAnimator>() == null)
+        if (FindObjectOfType<EnvironmentAnimator>() == null)
         {
             EnvironmentAnimator environmentAnimator = new GameObject("EnvironmentAnimator").AddComponent<EnvironmentAnimator>();
             environmentAnimator.CreateAmbientParticles();
         }
 
-        if (FindAnyObjectByType<UIManager>() == null)
+        if (FindObjectOfType<UIManager>() == null)
         {
             new GameObject("UIManager").AddComponent<UIManager>();
         }
 
-        if (FindAnyObjectByType<DayNightCycle>() == null)
+        if (FindObjectOfType<DayNightCycle>() == null)
         {
             GameObject dayNightHost = Camera.main != null ? Camera.main.gameObject : new GameObject("DayNightCycle");
             DayNightCycle cycle = dayNightHost.GetComponent<DayNightCycle>();
@@ -527,15 +577,15 @@ public class GameManager : MonoBehaviour
             cycle.SetTimeOfDay(0.23f);
         }
 
-        if (FindAnyObjectByType<TutorialManager>() == null)
+        if (FindObjectOfType<TutorialManager>() == null)
         {
-            Canvas canvas = FindAnyObjectByType<Canvas>();
+            Canvas canvas = FindObjectOfType<Canvas>();
             GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
             tutorialHost.AddComponent<TutorialManager>();
         }
 
         // Add Global Light 2D if missing for URP 2D
-        if (FindAnyObjectByType<UnityEngine.Rendering.Universal.Light2D>() == null)
+        if (FindObjectOfType<UnityEngine.Rendering.Universal.Light2D>() == null)
         {
             GameObject lightHost = new GameObject("Global Light 2D");
             var light = lightHost.AddComponent<UnityEngine.Rendering.Universal.Light2D>();
@@ -546,27 +596,43 @@ public class GameManager : MonoBehaviour
 
     private void EnsureCoreGameplayObjects()
     {
-        EnsureChickenObject();
-        EnsureCornFieldObject();
+        EnsureChickenObjects();
+        EnsureCornFieldObjects();
         EnsureStoreCounterObject();
+        EnsureIncubatorObject();
+        EnsureTitleCardManager();
     }
 
-    private void EnsureChickenObject()
+    private void EnsureChickenObjects()
     {
-        Chicken existing = FindAnyObjectByType<Chicken>();
-        if (existing != null)
+        // Remove existing if any to refresh from list (or avoid duplicates if we want persistent ones)
+        // For simplicity in this self-healing script, we'll ensure at least one per position
+        for (int i = 0; i < chickenPositions.Count; i++)
         {
-            existing.transform.position = new Vector3(-3f, 2, 0f);
-            return;
+            SpawnChickenAt(chickenPositions[i].position, "Chicken_" + i);
         }
+    }
 
-        GameObject chicken = new GameObject("Chicken");
+    private void EnsureCornFieldObjects()
+    {
+        for (int i = 0; i < cornFieldPositions.Count; i++)
+        {
+            SpawnCornFieldAt(cornFieldPositions[i].position, "CornField_" + i);
+        }
+    }
+
+    private void SpawnChickenAt(Vector3 pos, string name = "Chicken")
+    {
+        // Simple overlap check
+        Collider2D hit = Physics2D.OverlapPoint(pos);
+        if (hit != null && hit.GetComponent<Chicken>() != null) return;
+
+        GameObject chicken = new GameObject(name);
         chicken.tag = "Chicken";
-        chicken.transform.position = new Vector3(-3f, 2f, 0f);
+        chicken.transform.position = pos;
 
         SpriteRenderer renderer = chicken.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
-        renderer.sortingOrder = 10;
 
         CircleCollider2D collider = chicken.AddComponent<CircleCollider2D>();
         collider.isTrigger = true;
@@ -577,49 +643,57 @@ public class GameManager : MonoBehaviour
         GameObject visualPrefab = Resources.Load<GameObject>(RuntimeChickenVisualResourcePath);
         if (visualPrefab != null)
         {
-            GameObject visual = StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
-            if (visual != null)
-            {
-                // Safely guarantee Chicken draws over environment geometry by applying a master SortingGroup.
-                UnityEngine.Rendering.SortingGroup sGroup = chicken.GetComponent<UnityEngine.Rendering.SortingGroup>();
-                if (sGroup == null) sGroup = chicken.AddComponent<UnityEngine.Rendering.SortingGroup>();
-                sGroup.sortingOrder = 5000;
-            }
+            StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
         }
     }
 
-    private void EnsureCornFieldObject()
+    private void SpawnCornFieldAt(Vector3 pos, string name = "CornField")
     {
-        HarvestableField existing = FindAnyObjectByType<HarvestableField>();
-        if (existing != null)
-        {
-            existing.transform.position = new Vector3(-4f, 0f, 0f);
-            return;
-        }
+        Collider2D hit = Physics2D.OverlapPoint(pos);
+        if (hit != null && hit.GetComponent<HarvestableField>() != null) return;
 
-        GameObject cornField = new GameObject("CornField");
-        cornField.transform.position = new Vector3(-4f, 0f, 0f);
+        GameObject corn = new GameObject(name);
+        corn.tag = "CornField";
+        corn.transform.position = pos;
 
-        SpriteRenderer renderer = cornField.AddComponent<SpriteRenderer>();
+        SpriteRenderer renderer = corn.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
-        renderer.sortingOrder = 5;
 
-        BoxCollider2D collider = cornField.AddComponent<BoxCollider2D>();
+        BoxCollider2D collider = corn.AddComponent<BoxCollider2D>();
         collider.isTrigger = true;
-        collider.size = new Vector2(1.5f, 1.5f);
+        collider.size = new Vector2(1f, 1f);
 
-        cornField.AddComponent<HarvestableField>();
+        corn.AddComponent<HarvestableField>();
 
         GameObject visualPrefab = Resources.Load<GameObject>(RuntimeCornVisualResourcePath);
         if (visualPrefab != null)
         {
-            StoryVisualBinder.AttachVisualPrefab(cornField.transform, visualPrefab, renderer, true);
+            StoryVisualBinder.AttachVisualPrefabAsChild(corn.transform, visualPrefab, renderer, "Visual", true);
         }
     }
 
+    private void EnsureIncubatorObject()
+    {
+        if (FindObjectOfType<Incubator>() != null) return;
+        
+        GameObject incubator = new GameObject("Incubator");
+        incubator.transform.position = incubatorSpawnPoint != null ? incubatorSpawnPoint.position : new Vector3(0, 2f, 2f);
+        incubator.AddComponent<Incubator>();
+    }
+
+    private void EnsureTitleCardManager()
+    {
+        if (FindObjectOfType<TitleCardManager>() != null) return;
+
+        GameObject manager = new GameObject("TitleCardManager");
+        manager.AddComponent<TitleCardManager>();
+    }
+
+    // Singular helpers removed in favor of plural EnsureChickenObjects and EnsureCornFieldObjects
+
     private void EnsureStoreCounterObject()
     {
-        StoreCounter existing = FindAnyObjectByType<StoreCounter>();
+        StoreCounter existing = FindObjectOfType<StoreCounter>();
         if (existing != null)
         {
             existing.transform.position = new Vector3(5f, 0f, 0f);
@@ -628,12 +702,16 @@ public class GameManager : MonoBehaviour
 
         GameObject store = new GameObject("StoreCounter");
         store.tag = "Store";
-        store.transform.position = new Vector3(5f, 0f, 0f);
-        store.transform.localScale = new Vector3(.5f, .5f, 0f);
+        store.transform.position = new Vector3(5f, 0f, 10f); // Move way back on Z for background layering
+        store.transform.localScale = new Vector3(.15f, .15f, .15f); // Scale down as requested
 
         SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
-        renderer.sortingOrder = 5;
+        
+        // Add SortingGroup to ensure entire visual is sent to back
+        SortingGroup sortingGroup = store.AddComponent<SortingGroup>();
+        sortingGroup.sortingOrder = -500; // Deep background
+        renderer.sortingOrder = -500; 
 
         BoxCollider2D collider = store.AddComponent<BoxCollider2D>();
         collider.isTrigger = true;
@@ -667,7 +745,7 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        int existingHelperCount = FindObjectsByType<HelperAI>(FindObjectsSortMode.None).Length;
+        int existingHelperCount = FindObjectsOfType<HelperAI>().Length;
         if (existingHelperCount >= helperCount)
         {
             return;
@@ -690,7 +768,7 @@ public class GameManager : MonoBehaviour
             return helperSpawnPoint.position;
         }
 
-        PlayerController player = FindAnyObjectByType<PlayerController>();
+        PlayerController player = FindObjectOfType<PlayerController>();
         if (player != null)
         {
             return player.transform.position + new Vector3(0.8f, -0.4f, 0f);
@@ -710,7 +788,7 @@ public class GameManager : MonoBehaviour
         helperRenderer.color = StoryColorPalette.GetHelperColor(helperCount);
         helperRenderer.sortingOrder = 10;
 
-        PlayerController player = FindAnyObjectByType<PlayerController>();
+        PlayerController player = FindObjectOfType<PlayerController>();
         if (player != null)
         {
             helper.layer = player.gameObject.layer;
@@ -755,16 +833,19 @@ public class GameManager : MonoBehaviour
                 StoryVisualFollower follower = visualInstance.GetComponent<StoryVisualFollower>();
                 if (follower != null) follower.offset = new Vector3(0f, -0.35f, 0f);
 
+                // Add SortingGroup and set high order to stay in front of background
                 UnityEngine.Rendering.SortingGroup sGroup = visualInstance.GetComponent<UnityEngine.Rendering.SortingGroup>();
                 if (sGroup == null) sGroup = visualInstance.AddComponent<UnityEngine.Rendering.SortingGroup>();
                 sGroup.sortingOrder = 5000;
 
+                // Ensure all renderers are enabled and correctly colored
                 SpriteRenderer[] renderers = visualInstance.GetComponentsInChildren<SpriteRenderer>(true);
-                foreach (SpriteRenderer renderer in renderers)
+                foreach (SpriteRenderer r in renderers)
                 {
-                    if (renderer != null)
+                    if (r != null)
                     {
-                        renderer.color = Color.Lerp(renderer.color, StoryColorPalette.GetHelperColor(helperCount), 0.25f);
+                        r.enabled = true;
+                        r.color = Color.Lerp(r.color, StoryColorPalette.GetHelperColor(helperCount), 0.25f);
                     }
                 }
             }
