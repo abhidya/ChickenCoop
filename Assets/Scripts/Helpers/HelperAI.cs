@@ -98,7 +98,7 @@ public class HelperAI : MonoBehaviour
         {
             yield return StartCoroutine(PerformNextTask());
             
-            float wait = waitTime / Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f);
+            float wait = waitTime / Mathf.Max(GameManager.Instance.SpeedMultiplier * GameManager.Instance.StoreEfficiencyMultiplier, 0.01f);
             yield return new WaitForSeconds(wait);
         }
     }
@@ -123,7 +123,7 @@ public class HelperAI : MonoBehaviour
 
         // Priority 3: Harvest ready corn
         HarvestableField readyField = FindReadyField();
-        if (readyField != null && GameManager.Instance.Corn < 10) // Basic cap for AI corn hoarding
+        if (readyField != null) // Removed 10 corn hoarding cap
         {
             yield return StartCoroutine(GoToAndHarvestCorn(readyField));
             yield break;

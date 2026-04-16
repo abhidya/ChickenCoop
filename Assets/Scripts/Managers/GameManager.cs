@@ -62,6 +62,8 @@ public class GameManager : MonoBehaviour
     private float storeEfficiencyMultiplier = 1f;
 
     private static Sprite runtimeHelperSprite;
+    private Camera cachedMainCamera;
+    private float baseOrthoSize = 8f;
 
     private const string RuntimeChickenVisualResourcePath = "HappyHarvestChicken";
     private const string RuntimeCornVisualResourcePath = "HappyHarvestCorn";
@@ -130,7 +132,35 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        cachedMainCamera = Camera.main;
+        if (cachedMainCamera != null) baseOrthoSize = cachedMainCamera.orthographicSize;
         StartCoroutine(BootstrapStorySupport());
+    }
+    private void Update()
+    {
+        UpdateCameraForOrientation();
+    }
+
+    private void UpdateCameraForOrientation()
+    {
+        if (cachedMainCamera == null) cachedMainCamera = Camera.main;
+        if (cachedMainCamera == null) return;
+
+        float aspectRatio = (float)Screen.width / Screen.height;
+        
+        // If aspect ratio < 1 (Portrait), we need to zoom out to fit the farm side-to-side
+        if (aspectRatio < 1.1f)
+        {
+            // Simple heuristic to keep about 16 units of horizontal view
+            // horizontal_units = ortho_size * aspect_ratio * 2
+            // ortho_size = horizontal_units / (aspect_ratio * 2)
+            float targetOrthoHeight = 12f / aspectRatio;
+            cachedMainCamera.orthographicSize = Mathf.Lerp(cachedMainCamera.orthographicSize, Mathf.Max(baseOrthoSize, targetOrthoHeight / 2f), Time.deltaTime * 5f);
+        }
+        else
+        {
+            cachedMainCamera.orthographicSize = Mathf.Lerp(cachedMainCamera.orthographicSize, baseOrthoSize, Time.deltaTime * 5f);
+        }
     }
 
     /// <summary>
@@ -408,8 +438,44 @@ public class GameManager : MonoBehaviour
         {
             Instantiate(sparkleParticlePrefab, Vector3.zero, Quaternion.identity);
         }
+        else
+        {
+            SpawnGlobalSparkle();
+        }
 
         AudioManager.Instance?.PlaySound("upgrade");
+    }
+
+    /// <summary>
+    /// Creates a programmatic sparkle effect when no prefab is available.
+    /// Ensures upgrades always feel satisfying and premium.
+    /// </summary>
+    private void SpawnGlobalSparkle()
+    {
+        GameObject sparkle = new GameObject("UpgradeSparkle");
+        sparkle.transform.position = Vector3.zero;
+
+        ParticleSystem ps = sparkle.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startSize = 0.3f;
+        main.startLifetime = 1.0f;
+        main.startColor = StoryColorPalette.CoinGold;
+        main.startSpeed = 3f;
+        main.gravityModifier = 0.2f;
+        main.maxParticles = 50;
+        main.duration = 0.2f;
+        main.loop = false;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 40) });
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 2.0f;
+
+        ps.Play();
+        Destroy(sparkle, 1.5f);
     }
 
     /// <summary>

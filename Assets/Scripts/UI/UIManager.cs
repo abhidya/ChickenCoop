@@ -150,6 +150,16 @@ public class UIManager : MonoBehaviour
         UpdateIncomeRate();
     }
 
+    private float lastAspectRatio = 0f;
+    private void UpdateAdaptiveLayout()
+    {
+        float ratio = (float)Screen.width / Screen.height;
+        if (Mathf.Abs(ratio - lastAspectRatio) < 0.01f) return;
+        lastAspectRatio = ratio;
+        
+        EnsureRuntimeBindings(); // Re-apply anchors/pivots based on ratio
+    }
+
     private void EnsureSerializedArrays()
     {
         if (upgradeButtons == null)
@@ -189,13 +199,22 @@ public class UIManager : MonoBehaviour
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 999; // Ensure it's on top of everything
 
+        float aspectRatio = (float)Screen.width / Screen.height;
+        bool isPortrait = aspectRatio < 1.1f;
+
         if (GetComponent<CanvasScaler>() == null)
         {
             CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.referenceResolution = isPortrait ? new Vector2(1080f, 1920f) : new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = isPortrait ? 0f : 0.5f; // Match width in portrait to ensure content fits
+        }
+        else
+        {
+            CanvasScaler scaler = GetComponent<CanvasScaler>();
+            scaler.referenceResolution = isPortrait ? new Vector2(1080f, 1920f) : new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = isPortrait ? 0f : 0.5f;
         }
 
         if (GetComponent<GraphicRaycaster>() == null)
@@ -206,10 +225,27 @@ public class UIManager : MonoBehaviour
         EnsureEventSystem();
 
         RectTransform canvasRect = transform as RectTransform;
-        RectTransform resourcePanel = EnsurePanel("ResourcePanel", canvasRect, new Vector2(20f, -20f), new Vector2(380f, 175f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        RectTransform buttonPanel = EnsurePanel("ButtonPanel", canvasRect, new Vector2(0f, 85f), new Vector2(940f, 120f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-        RectTransform upgradesRect = EnsurePanel("UpgradePanel", canvasRect, new Vector2(-20f, 0f), new Vector2(320f, 420f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
-        RectTransform expansionPanel = EnsurePanel("ExpansionPanel", canvasRect, new Vector2(0f, 240f), new Vector2(420f, 100f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+        
+        // Adaptive Anchors
+        Vector2 resourcePos = isPortrait ? new Vector2(0f, -40f) : new Vector2(20f, -20f);
+        Vector2 resourceAnchor = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
+        Vector2 resourcePivot = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
+        RectTransform resourcePanel = EnsurePanel("ResourcePanel", canvasRect, resourcePos, new Vector2(380f, 175f), resourceAnchor, resourcePivot);
+
+        Vector2 buttonPanelPos = isPortrait ? new Vector2(0f, 200f) : new Vector2(0f, 85f);
+        Vector2 buttonPanelSize = isPortrait ? new Vector2(500f, 350f) : new Vector2(940f, 120f);
+        RectTransform buttonPanel = EnsurePanel("ButtonPanel", canvasRect, buttonPanelPos, buttonPanelSize, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+
+        Vector2 upgradePos = isPortrait ? new Vector2(0f, -220f) : new Vector2(-20f, 0f);
+        Vector2 upgradeAnchor = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(1f, 0.5f);
+        Vector2 upgradePivot = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(1f, 0.5f);
+        RectTransform upgradesRect = EnsurePanel("UpgradePanel", canvasRect, upgradePos, new Vector2(320f, 420f), upgradeAnchor, upgradePivot);
+
+        Vector2 expansionPos = isPortrait ? new Vector2(0f, 500f) : new Vector2(0f, 240f);
+        RectTransform expansionPanel = EnsurePanel("ExpansionPanel", canvasRect, expansionPos, new Vector2(420f, 100f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+
+        // Re-anchor sub-elements in portrait
+        float textX = isPortrait ? 12f : 12f; // keeps relative
 
         cornCountText = EnsureText(resourcePanel, "CornCountText", "Corn: 0", new Vector2(12f, -12f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
         cornProgressBar = EnsureProgressBar(resourcePanel, "CornProgressBar", new Vector2(12f, -44f), new Vector2(150f, 6f));
@@ -227,14 +263,29 @@ public class UIManager : MonoBehaviour
         eggsIcon = eggsCountText != null ? eggsCountText.rectTransform : eggsIcon;
         coinsIcon = coinsCountText != null ? coinsCountText.rectTransform : coinsIcon;
 
-        harvestButton = EnsureButton(buttonPanel, "HarvestButton", "Harvest", new Vector2(-360f, 0f), new Vector2(150f, 56f));
-        feedButton = EnsureButton(buttonPanel, "FeedButton", "Feed", new Vector2(-180f, 0f), new Vector2(150f, 56f));
-        collectButton = EnsureButton(buttonPanel, "CollectButton", "Collect", new Vector2(0f, 0f), new Vector2(150f, 56f));
-        sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(180f, 0f), new Vector2(150f, 56f));
-        hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(360f, 0f), new Vector2(170f, 56f));
-        
-        incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate Egg", new Vector2(-105f, 0f), new Vector2(180f, 64f));
-        plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant Corn", new Vector2(105f, 0f), new Vector2(180f, 64f));
+        if (isPortrait)
+        {
+            // 2 column grid for portrait
+            harvestButton = EnsureButton(buttonPanel, "HarvestButton", "Harvest", new Vector2(-120f, 80f), new Vector2(220f, 70f));
+            feedButton = EnsureButton(buttonPanel, "FeedButton", "Feed", new Vector2(120f, 80f), new Vector2(220f, 70f));
+            collectButton = EnsureButton(buttonPanel, "CollectButton", "Collect", new Vector2(-120f, 0f), new Vector2(220f, 70f));
+            sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(120f, 0f), new Vector2(220f, 70f));
+            hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(0f, -80f), new Vector2(300f, 70f));
+            
+            incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate", new Vector2(-105f, 0f), new Vector2(180f, 80f));
+            plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant", new Vector2(105f, 0f), new Vector2(180f, 80f));
+        }
+        else
+        {
+            harvestButton = EnsureButton(buttonPanel, "HarvestButton", "Harvest", new Vector2(-360f, 0f), new Vector2(150f, 56f));
+            feedButton = EnsureButton(buttonPanel, "FeedButton", "Feed", new Vector2(-180f, 0f), new Vector2(150f, 56f));
+            collectButton = EnsureButton(buttonPanel, "CollectButton", "Collect", new Vector2(0f, 0f), new Vector2(150f, 56f));
+            sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(180f, 0f), new Vector2(150f, 56f));
+            hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(360f, 0f), new Vector2(170f, 56f));
+            
+            incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate Egg", new Vector2(-105f, 0f), new Vector2(180f, 64f));
+            plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant Corn", new Vector2(105f, 0f), new Vector2(180f, 64f));
+        }
 
         upgradePanel = upgradesRect != null ? upgradesRect.gameObject : upgradePanel;
         EnsureSerializedArrays();
@@ -296,6 +347,8 @@ public class UIManager : MonoBehaviour
 
     private void Update()
     {
+        UpdateAdaptiveLayout();
+
         // Smooth number tweening
         UpdateNumberTweens();
 
@@ -619,11 +672,27 @@ public class UIManager : MonoBehaviour
     {
         if (GameManager.Instance == null) return;
         
-        bool canIncubate = GameManager.Instance.ChickenPositions.Count < 6 && GameManager.Instance.Eggs >= 10;
-        bool canPlant = GameManager.Instance.CornFieldPositions.Count < 6 && GameManager.Instance.Corn >= 10;
+        int chickenCount = GameManager.Instance.ChickenPositions.Count;
+        int cornCount = GameManager.Instance.CornFieldPositions.Count;
 
-        if (incubateButton != null) incubateButton.interactable = canIncubate;
-        if (plantButton != null) plantButton.interactable = canPlant;
+        bool canIncubate = chickenCount < 6 && GameManager.Instance.Eggs >= 1;
+        bool canPlant = cornCount < 6 && GameManager.Instance.Corn >= 1;
+
+        if (incubateButton != null) 
+        {
+            incubateButton.interactable = canIncubate;
+            TextMeshProUGUI label = incubateButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.text = chickenCount >= 6 ? "MAX" : "Incubate";
+            UpdateButtonVisual(incubateButton, canIncubate);
+        }
+
+        if (plantButton != null) 
+        {
+            plantButton.interactable = canPlant;
+            TextMeshProUGUI label = plantButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.text = cornCount >= 6 ? "MAX" : "Plant";
+            UpdateButtonVisual(plantButton, canPlant);
+        }
     }
 
     private void SetupExpansionButtons()

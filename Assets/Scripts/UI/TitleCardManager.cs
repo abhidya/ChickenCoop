@@ -343,16 +343,19 @@ public class TitleCardManager : MonoBehaviour
             Debug.Log("[TitleCardManager] Created missing TitleText dynamically.");
 
             RectTransform textRect = textObject.GetComponent<RectTransform>();
-            textRect.anchorMin = new Vector2(0.15f, 0.4f);
-            textRect.anchorMax = new Vector2(0.85f, 0.6f);
+            textRect.anchorMin = new Vector2(0.05f, 0.3f);
+            textRect.anchorMax = new Vector2(0.95f, 0.7f);
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
 
             titleText = textObject.AddComponent<TextMeshProUGUI>();
             titleText.alignment = TextAlignmentOptions.Center;
-            titleText.fontSize = 40f;
+            titleText.fontSize = 36f;
             titleText.color = Color.white;
             titleText.textWrappingMode = TextWrappingModes.Normal;
+            titleText.enableAutoSizing = true;
+            titleText.fontSizeMin = 20f;
+            titleText.fontSizeMax = 48f;
         }
 
         titleCardPanel.transform.SetAsLastSibling();
