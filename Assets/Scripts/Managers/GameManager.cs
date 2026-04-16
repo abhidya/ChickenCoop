@@ -42,7 +42,6 @@ public class GameManager : MonoBehaviour
     [SerializeField] private List<Transform> chickenPositions = new List<Transform>();
     [SerializeField] private Transform storePosition;
     [SerializeField] private Transform helperSpawnPoint;
-    [SerializeField] private Transform incubatorSpawnPoint;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject helperPrefab;
@@ -96,7 +95,6 @@ public class GameManager : MonoBehaviour
     public List<Transform> CornFieldPositions => cornFieldPositions;
     public List<Transform> ChickenPositions => chickenPositions;
     public Transform StorePosition => storePosition;
-    public Transform IncubatorSpawnPoint => incubatorSpawnPoint;
 
     private void Awake()
     {
@@ -163,7 +161,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void AddCorn(int amount, Vector3? worldPosition = null)
     {
-        int actualAmount = Mathf.RoundToInt(amount * cornMultiplier);
+        int actualAmount = Mathf.CeilToInt(amount * cornMultiplier);
         corn += actualAmount;
         OnCornChanged?.Invoke(corn);
 
@@ -205,7 +203,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void AddEgg(int amount, Vector3? worldPosition = null)
     {
-        int actualAmount = Mathf.RoundToInt(amount * eggMultiplier);
+        int actualAmount = Mathf.CeilToInt(amount * eggMultiplier);
         eggs += actualAmount;
         OnEggsChanged?.Invoke(eggs);
 
@@ -240,34 +238,49 @@ public class GameManager : MonoBehaviour
 
     public void AddChicken()
     {
-        if (chickenPositions.Count < 6)
+        if (chickenPositions.Count < 6 && eggs >= 10)
         {
-            Vector3 lastPos = chickenPositions[chickenPositions.Count - 1].position;
-            GameObject newPosObj = new GameObject("ChickenPos_" + chickenPositions.Count);
-            // Move chickens in a row (if more than 3, maybe start another row?)
-            // For now, keep moving left
-            newPosObj.transform.position = lastPos + Vector3.left * 1.5f;
-            chickenPositions.Add(newPosObj.transform);
-            
-            SpawnChickenAt(newPosObj.transform.position);
-            
-            // Auto level up based on capacity
-            if (chickenPositions.Count == 2) currentLevel = 2;
-            if (chickenPositions.Count >= 3) currentLevel = 3;
+            if (UseEggs(10))
+            {
+                Vector3 origin = chickenPositions[0].position;
+                Vector3 nextGridPos = GetNextGridPosition(chickenPositions.Count, origin, 1.8f, 1.4f);
+                
+                GameObject newPosObj = new GameObject("ChickenPos_" + chickenPositions.Count);
+                newPosObj.transform.position = nextGridPos;
+                chickenPositions.Add(newPosObj.transform);
+                
+                SpawnChickenAt(newPosObj.transform.position, "Chicken_" + (chickenPositions.Count - 1));
+                
+                if (chickenPositions.Count == 2) currentLevel = 2;
+                if (chickenPositions.Count >= 3) currentLevel = 3;
+            }
         }
     }
 
     public void AddCornField()
     {
-        if (cornFieldPositions.Count < 6)
+        if (cornFieldPositions.Count < 6 && corn >= 10)
         {
-            Vector3 lastPos = cornFieldPositions[cornFieldPositions.Count - 1].position;
-            GameObject newPosObj = new GameObject("CornPos_" + cornFieldPositions.Count);
-            newPosObj.transform.position = lastPos + Vector3.left * 1.5f;
-            cornFieldPositions.Add(newPosObj.transform);
-            
-            SpawnCornFieldAt(newPosObj.transform.position);
+            if (UseCorn(10))
+            {
+                Vector3 origin = cornFieldPositions[0].position;
+                Vector3 nextGridPos = GetNextGridPosition(cornFieldPositions.Count, origin, 1.8f, 1.4f);
+                
+                GameObject newPosObj = new GameObject("CornPos_" + cornFieldPositions.Count);
+                newPosObj.transform.position = nextGridPos;
+                cornFieldPositions.Add(newPosObj.transform);
+                
+                SpawnCornFieldAt(newPosObj.transform.position, "CornField_" + (cornFieldPositions.Count - 1));
+            }
         }
+    }
+
+    private Vector3 GetNextGridPosition(int index, Vector3 origin, float spacingX, float spacingY)
+    {
+        int col = index % 3;
+        int row = index / 3;
+        // Expand left (-X) and up (+Y) into the background
+        return origin + new Vector3(-col * spacingX, row * spacingY, 0);
     }
 
     /// <summary>
@@ -377,10 +390,10 @@ public class GameManager : MonoBehaviour
                 cornMultiplier *= multiplier;
                 break;
             case UpgradeType.ChickenProduction:
-                eggMultiplier *= multiplier;
+                eggMultiplier *= 1.5f; // Buffed from 1.2f
                 break;
             case UpgradeType.EggPrice:
-                priceMultiplier *= multiplier;
+                priceMultiplier *= 1.5f; // Buffed from 1.2f
                 break;
             case UpgradeType.Speed:
                 speedMultiplier *= multiplier;
@@ -585,6 +598,13 @@ public class GameManager : MonoBehaviour
             GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
             tutorialHost.AddComponent<TutorialManager>();
         }
+        
+        if (FindObjectOfType<TitleCardManager>() == null)
+        {
+            new GameObject("TitleCardManager").AddComponent<TitleCardManager>();
+        }
+
+        EnsureEnvironmentDecoration();
 
         // Add Global Light 2D if missing for URP 2D
         if (FindObjectOfType<UnityEngine.Rendering.Universal.Light2D>() == null)
@@ -679,7 +699,7 @@ public class GameManager : MonoBehaviour
         if (FindObjectOfType<Incubator>() != null) return;
         
         GameObject incubator = new GameObject("Incubator");
-        incubator.transform.position = incubatorSpawnPoint != null ? incubatorSpawnPoint.position : new Vector3(0, 2f, 2f);
+        incubator.transform.position = new Vector3(8f, 2f, 10f); // Positioned in background near market
         incubator.AddComponent<Incubator>();
     }
 
@@ -695,29 +715,24 @@ public class GameManager : MonoBehaviour
 
     private void EnsureStoreCounterObject()
     {
-        StoreCounter existing = FindObjectOfType<StoreCounter>();
+        StoreCounter existing = FindFirstObjectByType<StoreCounter>();
         if (existing != null)
         {
-            existing.transform.position = new Vector3(5f, 0f, 0f);
+            existing.transform.position = new Vector3(-12f, 5f, 18f);
+            existing.transform.localScale = new Vector3(0.04f, 0.04f, 1f);
             return;
         }
 
         GameObject store = new GameObject("StoreCounter");
         store.tag = "Store";
-        store.transform.position = new Vector3(5f, 0f, 10f); // Move way back on Z for background layering
-        store.transform.localScale = new Vector3(.15f, .15f, .15f); // Scale down as requested
+        store.transform.position = new Vector3(-12f, 5f, 18f); // Deep background corner
+        store.transform.localScale = new Vector3(0.04f, 0.04f, 1f);
 
         SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
         
-        // Add SortingGroup to ensure entire visual is sent to back
         SortingGroup sortingGroup = store.AddComponent<SortingGroup>();
-        sortingGroup.sortingOrder = -500; // Deep background
-        renderer.sortingOrder = -500; 
-
-        BoxCollider2D collider = store.AddComponent<BoxCollider2D>();
-        collider.isTrigger = true;
-        collider.size = new Vector2(1.5f, 1.5f);
+        sortingGroup.sortingOrder = -500; 
 
         store.AddComponent<StoreCounter>();
 
@@ -725,6 +740,67 @@ public class GameManager : MonoBehaviour
         if (visualPrefab != null)
         {
             StoryVisualBinder.AttachVisualPrefab(store.transform, visualPrefab, renderer, true);
+        }
+    }
+
+    private void EnsureEnvironmentDecoration()
+    {
+        if (GameObject.Find("Environment_Decor") != null) return;
+        
+        GameObject decorRoot = new GameObject("Environment_Decor");
+        decorRoot.transform.position = Vector3.zero;
+
+        // Background Lushness
+        string[] treePrefabs = { "Env_Tree_01", "Env_Tree_02", "Env_Tree_03", "Env_Tree_05" };
+        for (int i = 0; i < 15; i++)
+        {
+            string prefabName = treePrefabs[UnityEngine.Random.Range(0, treePrefabs.Length)];
+            GameObject treePrefab = Resources.Load<GameObject>(prefabName);
+            if (treePrefab == null) continue;
+
+            Vector3 pos = new Vector3(
+                UnityEngine.Random.Range(-25f, 25f),
+                UnityEngine.Random.Range(10f, 20f),
+                UnityEngine.Random.Range(15f, 25f)
+            );
+            
+            GameObject tree = Instantiate(treePrefab, pos, Quaternion.identity, decorRoot.transform);
+            tree.transform.localScale = Vector3.one * 0.18f;
+            
+            foreach (var r in tree.GetComponentsInChildren<SpriteRenderer>()) 
+            {
+                r.sortingOrder = -1000;
+            }
+        }
+
+        // Perimeter Fencing
+        GameObject fencePrefab = Resources.Load<GameObject>("Env_WoodFence_01");
+        if (fencePrefab != null)
+        {
+            for (int x = -18; x < 18; x += 3)
+            {
+                Vector3 pos = new Vector3(x, 6f, 12f);
+                GameObject fence = Instantiate(fencePrefab, pos, Quaternion.identity, decorRoot.transform);
+                fence.transform.localScale = Vector3.one * 0.15f;
+                foreach (var r in fence.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -800;
+            }
+        }
+
+        // Foreground Details
+        GameObject grassPrefab = Resources.Load<GameObject>("Env_GrassPlant_04");
+        if (grassPrefab != null)
+        {
+            for (int i = 0; i < 30; i++)
+            {
+                Vector3 pos = new Vector3(
+                    UnityEngine.Random.Range(-15f, 15f),
+                    UnityEngine.Random.Range(-8f, 8f),
+                    10f
+                );
+                GameObject grass = Instantiate(grassPrefab, pos, Quaternion.identity, decorRoot.transform);
+                grass.transform.localScale = Vector3.one * 0.1f;
+                foreach (var r in grass.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -500;
+            }
         }
     }
 
@@ -782,13 +858,13 @@ public class GameManager : MonoBehaviour
     private GameObject CreateFallbackHelper(Vector3 spawnPosition)
     {
         GameObject helper = new GameObject($"Helper_{helperCount}");
-        helper.transform.position = spawnPosition;
+        helper.transform.position = new Vector3(spawnPosition.x, spawnPosition.y, 0f);
         helper.transform.localScale = Vector3.one * 0.9f;
 
         SpriteRenderer helperRenderer = helper.AddComponent<SpriteRenderer>();
         helperRenderer.sprite = GetHelperSprite();
         helperRenderer.color = StoryColorPalette.GetHelperColor(helperCount);
-        helperRenderer.sortingOrder = 10;
+        helperRenderer.sortingOrder = 5000;
 
         PlayerController player = FindObjectOfType<PlayerController>();
         if (player != null)
@@ -815,7 +891,8 @@ public class GameManager : MonoBehaviour
             if (playerRenderer != null)
             {
                 helperRenderer.sortingLayerID = playerRenderer.sortingLayerID;
-                helperRenderer.sortingOrder = playerRenderer.sortingOrder;
+                // Force helpers to stay in front (5000) regardless of player's relative order
+                helperRenderer.sortingOrder = 5000; 
                 if (playerRenderer.sprite != null)
                 {
                     helperRenderer.sprite = playerRenderer.sprite;

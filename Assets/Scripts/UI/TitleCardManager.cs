@@ -56,11 +56,11 @@ public class TitleCardManager : MonoBehaviour
             titleCanvasGroup.alpha = 0f;
         }
 
-        // Show Act 1 on start if enabled
+        // Show Act 1 on start if enabled with a slight delay to ensure UI handles exist
         if (showOnStart)
         {
             Debug.Log("[TitleCardManager] Initializing with Act 1 (Dawn on the Farm)");
-            StartCoroutine(ShowTitleCardDelayed(0, 0.5f));
+            StartCoroutine(ShowTitleCardDelayed(0, 1.0f));
         }
 
         // Subscribe to game events for automatic act triggers
@@ -192,6 +192,13 @@ public class TitleCardManager : MonoBehaviour
     private IEnumerator ShowTitleCardCoroutine(int actIndex)
     {
         if (isShowing) yield break;
+        
+        // Double check references - Self-Healing
+        if (!HasRequiredReferences())
+        {
+            EnsureRuntimeReferences();
+        }
+
         isShowing = true;
         currentAct = actIndex;
 
@@ -294,11 +301,12 @@ public class TitleCardManager : MonoBehaviour
 
         if (canvas == null)
         {
-            Debug.LogWarning("[TitleCardManager] CRITICAL: No Canvas found in scene. Title cards cannot be displayed.");
+            Debug.LogWarning("[TitleCardManager] CRITICAL: No Canvas found in scene. Retrying in 0.5s...");
+            // We can't yield in a non-coroutine, so we just log and wait for next frame call if it's from a coroutine.
             return;
         }
 
-        Debug.Log("[TitleCardManager] Found target Canvas: " + canvas.name);
+        Debug.Log("[TitleCardManager] Standardizing on Canvas: " + canvas.name);
 
         if (titleCardPanel == null)
         {

@@ -21,7 +21,7 @@ public static class StoryVisualBinder
         if (existingRoot != null)
         {
             AlignSortingAndLayers(host.gameObject, existingRoot.gameObject, placeholderRenderer);
-            if (placeholderRenderer != null)
+            if (existingRoot != null && placeholderRenderer != null)
             {
                 placeholderRenderer.enabled = false;
             }

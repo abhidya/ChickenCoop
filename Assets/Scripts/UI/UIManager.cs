@@ -209,7 +209,7 @@ public class UIManager : MonoBehaviour
         RectTransform resourcePanel = EnsurePanel("ResourcePanel", canvasRect, new Vector2(20f, -20f), new Vector2(380f, 175f), new Vector2(0f, 1f), new Vector2(0f, 1f));
         RectTransform buttonPanel = EnsurePanel("ButtonPanel", canvasRect, new Vector2(0f, 85f), new Vector2(940f, 120f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
         RectTransform upgradesRect = EnsurePanel("UpgradePanel", canvasRect, new Vector2(-20f, 0f), new Vector2(320f, 420f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
-        RectTransform expansionPanel = EnsurePanel("ExpansionPanel", canvasRect, new Vector2(-20f, 120f), new Vector2(250f, 200f), new Vector2(1f, 1f), new Vector2(1f, 1f));
+        RectTransform expansionPanel = EnsurePanel("ExpansionPanel", canvasRect, new Vector2(0f, 240f), new Vector2(420f, 100f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
 
         cornCountText = EnsureText(resourcePanel, "CornCountText", "Corn: 0", new Vector2(12f, -12f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
         cornProgressBar = EnsureProgressBar(resourcePanel, "CornProgressBar", new Vector2(12f, -44f), new Vector2(150f, 6f));
@@ -233,8 +233,8 @@ public class UIManager : MonoBehaviour
         sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(180f, 0f), new Vector2(150f, 56f));
         hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(360f, 0f), new Vector2(170f, 56f));
         
-        incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate Egg", new Vector2(12f, -12f), new Vector2(200f, 50f));
-        plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant Corn", new Vector2(12f, -72f), new Vector2(200f, 50f));
+        incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate Egg", new Vector2(-105f, 0f), new Vector2(180f, 64f));
+        plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant Corn", new Vector2(105f, 0f), new Vector2(180f, 64f));
 
         upgradePanel = upgradesRect != null ? upgradesRect.gameObject : upgradePanel;
         EnsureSerializedArrays();
@@ -619,11 +619,11 @@ public class UIManager : MonoBehaviour
     {
         if (GameManager.Instance == null) return;
         
-        bool canIncubate = GameManager.Instance.ChickenPositions.Count < 6;
-        bool canPlant = GameManager.Instance.CornFieldPositions.Count < 6;
+        bool canIncubate = GameManager.Instance.ChickenPositions.Count < 6 && GameManager.Instance.Eggs >= 10;
+        bool canPlant = GameManager.Instance.CornFieldPositions.Count < 6 && GameManager.Instance.Corn >= 10;
 
-        if (incubateButton != null) incubateButton.gameObject.SetActive(canIncubate);
-        if (plantButton != null) plantButton.gameObject.SetActive(canPlant);
+        if (incubateButton != null) incubateButton.interactable = canIncubate;
+        if (plantButton != null) plantButton.interactable = canPlant;
     }
 
     private void SetupExpansionButtons()
@@ -657,6 +657,8 @@ public class UIManager : MonoBehaviour
         {
             PunchScale(cornIcon);
         }
+
+        UpdateExpansionButtons();
     }
 
     private void OnEggsChanged(int newValue)
@@ -668,6 +670,8 @@ public class UIManager : MonoBehaviour
         {
             PunchScale(eggsIcon);
         }
+
+        UpdateExpansionButtons();
     }
 
     private void OnCoinsChanged(int newValue)
