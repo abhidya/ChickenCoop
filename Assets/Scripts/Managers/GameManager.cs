@@ -240,10 +240,12 @@ public class GameManager : MonoBehaviour
 
     public void AddChicken()
     {
-        if (chickenPositions.Count < 3)
+        if (chickenPositions.Count < 6)
         {
             Vector3 lastPos = chickenPositions[chickenPositions.Count - 1].position;
             GameObject newPosObj = new GameObject("ChickenPos_" + chickenPositions.Count);
+            // Move chickens in a row (if more than 3, maybe start another row?)
+            // For now, keep moving left
             newPosObj.transform.position = lastPos + Vector3.left * 1.5f;
             chickenPositions.Add(newPosObj.transform);
             
@@ -251,13 +253,13 @@ public class GameManager : MonoBehaviour
             
             // Auto level up based on capacity
             if (chickenPositions.Count == 2) currentLevel = 2;
-            if (chickenPositions.Count == 3) currentLevel = 3;
+            if (chickenPositions.Count >= 3) currentLevel = 3;
         }
     }
 
     public void AddCornField()
     {
-        if (cornFieldPositions.Count < 3)
+        if (cornFieldPositions.Count < 6)
         {
             Vector3 lastPos = cornFieldPositions[cornFieldPositions.Count - 1].position;
             GameObject newPosObj = new GameObject("CornPos_" + cornFieldPositions.Count);
