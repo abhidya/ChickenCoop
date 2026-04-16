@@ -238,9 +238,9 @@ public class GameManager : MonoBehaviour
 
     public void AddChicken()
     {
-        if (chickenPositions.Count < 6 && eggs >= 10)
+        if (chickenPositions.Count < 6 && eggs >= 1)
         {
-            if (UseEggs(10))
+            if (UseEggs(1))
             {
                 Vector3 origin = chickenPositions[0].position;
                 Vector3 nextGridPos = GetNextGridPosition(chickenPositions.Count, origin, 1.8f, 1.4f);
@@ -259,9 +259,9 @@ public class GameManager : MonoBehaviour
 
     public void AddCornField()
     {
-        if (cornFieldPositions.Count < 6 && corn >= 10)
+        if (cornFieldPositions.Count < 6 && corn >= 1)
         {
-            if (UseCorn(10))
+            if (UseCorn(1))
             {
                 Vector3 origin = cornFieldPositions[0].position;
                 Vector3 nextGridPos = GetNextGridPosition(cornFieldPositions.Count, origin, 1.8f, 1.4f);
@@ -718,15 +718,15 @@ public class GameManager : MonoBehaviour
         StoreCounter existing = FindFirstObjectByType<StoreCounter>();
         if (existing != null)
         {
-            existing.transform.position = new Vector3(-12f, 5f, 18f);
-            existing.transform.localScale = new Vector3(0.04f, 0.04f, 1f);
+            existing.transform.position = new Vector3(-10f, 4f, 15f);
+            existing.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
             return;
         }
 
         GameObject store = new GameObject("StoreCounter");
         store.tag = "Store";
-        store.transform.position = new Vector3(-12f, 5f, 18f); // Deep background corner
-        store.transform.localScale = new Vector3(0.04f, 0.04f, 1f);
+        store.transform.position = new Vector3(-10f, 4f, 15f); // Background
+        store.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
 
         SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
@@ -750,56 +750,58 @@ public class GameManager : MonoBehaviour
         GameObject decorRoot = new GameObject("Environment_Decor");
         decorRoot.transform.position = Vector3.zero;
 
-        // Background Lushness
+        // 1. Distant Backdrops (Trees)
         string[] treePrefabs = { "Env_Tree_01", "Env_Tree_02", "Env_Tree_03", "Env_Tree_05" };
-        for (int i = 0; i < 15; i++)
+        for (int i = 0; i < 20; i++)
         {
             string prefabName = treePrefabs[UnityEngine.Random.Range(0, treePrefabs.Length)];
             GameObject treePrefab = Resources.Load<GameObject>(prefabName);
             if (treePrefab == null) continue;
 
             Vector3 pos = new Vector3(
-                UnityEngine.Random.Range(-25f, 25f),
-                UnityEngine.Random.Range(10f, 20f),
-                UnityEngine.Random.Range(15f, 25f)
+                UnityEngine.Random.Range(-30f, 30f),
+                UnityEngine.Random.Range(10f, 22f),
+                UnityEngine.Random.Range(20f, 30f)
             );
             
             GameObject tree = Instantiate(treePrefab, pos, Quaternion.identity, decorRoot.transform);
-            tree.transform.localScale = Vector3.one * 0.18f;
-            
-            foreach (var r in tree.GetComponentsInChildren<SpriteRenderer>()) 
-            {
-                r.sortingOrder = -1000;
-            }
+            tree.transform.localScale = Vector3.one * UnityEngine.Random.Range(0.15f, 0.25f);
+            foreach (var r in tree.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -1500;
         }
 
-        // Perimeter Fencing
-        GameObject fencePrefab = Resources.Load<GameObject>("Env_WoodFence_01");
-        if (fencePrefab != null)
+        // 2. Mid-ground Accents (Flowers and Bushes)
+        string[] accentPrefabs = { "Env_Flower_01", "Env_Flower_02", "Env_GrassPlant_02", "Env_Rock_02" };
+        for (int i = 0; i < 40; i++)
         {
-            for (int x = -18; x < 18; x += 3)
-            {
-                Vector3 pos = new Vector3(x, 6f, 12f);
-                GameObject fence = Instantiate(fencePrefab, pos, Quaternion.identity, decorRoot.transform);
-                fence.transform.localScale = Vector3.one * 0.15f;
-                foreach (var r in fence.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -800;
-            }
+            string prefabName = accentPrefabs[UnityEngine.Random.Range(0, accentPrefabs.Length)];
+            GameObject accentPrefab = Resources.Load<GameObject>(prefabName);
+            if (accentPrefab == null) continue;
+
+            Vector3 pos = new Vector3(
+                UnityEngine.Random.Range(-20f, 20f),
+                UnityEngine.Random.Range(-10f, 15f),
+                12f
+            );
+            
+            GameObject accent = Instantiate(accentPrefab, pos, Quaternion.identity, decorRoot.transform);
+            accent.transform.localScale = Vector3.one * UnityEngine.Random.Range(0.08f, 0.12f);
+            foreach (var r in accent.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -900;
         }
 
-        // Foreground Details
-        GameObject grassPrefab = Resources.Load<GameObject>("Env_GrassPlant_04");
+        // 3. Ground Texture (Grass Clumps)
+        GameObject grassPrefab = Resources.Load<GameObject>("Env_GrassPlant_05");
         if (grassPrefab != null)
         {
-            for (int i = 0; i < 30; i++)
+            for (int i = 0; i < 50; i++)
             {
                 Vector3 pos = new Vector3(
-                    UnityEngine.Random.Range(-15f, 15f),
-                    UnityEngine.Random.Range(-8f, 8f),
+                    UnityEngine.Random.Range(-18f, 18f),
+                    UnityEngine.Random.Range(-12f, 12f),
                     10f
                 );
                 GameObject grass = Instantiate(grassPrefab, pos, Quaternion.identity, decorRoot.transform);
-                grass.transform.localScale = Vector3.one * 0.1f;
-                foreach (var r in grass.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -500;
+                grass.transform.localScale = Vector3.one * 0.08f;
+                foreach (var r in grass.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -950;
             }
         }
     }
@@ -858,7 +860,8 @@ public class GameManager : MonoBehaviour
     private GameObject CreateFallbackHelper(Vector3 spawnPosition)
     {
         GameObject helper = new GameObject($"Helper_{helperCount}");
-        helper.transform.position = new Vector3(spawnPosition.x, spawnPosition.y, 0f);
+        // Push slightly in front to avoid background clipping (Z = -1)
+        helper.transform.position = new Vector3(spawnPosition.x, spawnPosition.y, -1f);
         helper.transform.localScale = Vector3.one * 0.9f;
 
         SpriteRenderer helperRenderer = helper.AddComponent<SpriteRenderer>();

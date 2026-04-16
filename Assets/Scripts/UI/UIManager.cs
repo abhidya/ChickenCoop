@@ -1231,6 +1231,17 @@ public class UIManager : MonoBehaviour
 
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+
+        // Implementation of premium highlighting
+        ColorBlock colors = button.colors;
+        colors.normalColor = image.color;
+        colors.highlightedColor = StoryColorPalette.AccentGold;
+        colors.pressedColor = Color.Lerp(image.color, Color.black, 0.2f);
+        colors.selectedColor = StoryColorPalette.AccentGold;
+        colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+        colors.fadeDuration = 0.1f;
+        button.colors = colors;
 
         TextMeshProUGUI text = EnsureButtonText(buttonObject.transform, "Label", label);
         text.alignment = TextAlignmentOptions.Center;

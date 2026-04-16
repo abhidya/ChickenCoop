@@ -65,6 +65,12 @@ public static class StoryColorPalette
     
     /// <summary>Upgrade/Special - golden</summary>
     public static readonly Color Special = new Color(1.0f, 0.90f, 0.3f);
+
+    // ========== NEW PREMIUM ALIASES ==========
+    public static readonly Color PanelBg = new Color(0.12f, 0.14f, 0.16f, 0.95f);
+    public static readonly Color TextLight = new Color(0.95f, 0.96f, 0.98f, 1f);
+    public static readonly Color AccentGold = new Color(1f, 0.85f, 0.3f, 1f);
+    public static readonly Color ButtonGold = new Color(0.85f, 0.65f, 0.15f, 1f);
     
     // ========== HELPER METHODS ==========
     
