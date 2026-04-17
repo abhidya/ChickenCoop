@@ -12,14 +12,28 @@ using ChickenCoop.Managers;
 /// </summary>
 public class UIManager : MonoBehaviour
 {
-    public const int StoryUpgradeCount = 5;
-    public static readonly int[] StoryUpgradeCosts = { 100, 200, 300, 500, 750 };
-    public static readonly string[] StoryUpgradeNames =
-    {
-        "Better Seeds",
-        "Healthier Chickens",
-        "Premium Eggs",
-        "Faster Operations",
+    public const int StoryUpgradeCount = 10;
+    public static readonly int[] StoryUpgradeCosts = {
+        100, 150, 200, 175, 225, 300, 200, 400, 350, 500
+    };
+    public static readonly string[] StoryUpgradeNames = {
+        "Wheat Field",
+        "Chicken Care",
+        "Build Barn",
+        "Cow Feed",
+        "Dairy Care",
+        "Carrot Garden",
+        "Fertilizer",
+        "Pig Pen",
+        "Speed Boots",
+        "Bigger Store"
+    };
+        "Cow Feed",
+        "Dairy Care",
+        "Carrot Garden",
+        "Fertilizer",
+        "Pig Pen",
+        "Speed Boots",
         "Bigger Store"
     };
 
@@ -1281,11 +1295,16 @@ public class UIManager : MonoBehaviour
 
         // Fallback to hardcoded upgrades
         UpgradeType[] upgradeTypes = {
-            UpgradeType.CornField,
-            UpgradeType.ChickenProduction,
-            UpgradeType.EggPrice,
-            UpgradeType.Speed,
-            UpgradeType.StoreCapacity
+            UpgradeType.WheatField,
+            UpgradeType.ChickenCare,
+            UpgradeType.CowPen,
+            UpgradeType.CowFeed,
+            UpgradeType.MilkProduction,
+            UpgradeType.CarrotGarden,
+            UpgradeType.Fertilizer,
+            UpgradeType.PigPen,
+            UpgradeType.HelperSpeed,
+            UpgradeType.BiggerStore
         };
 
         if (upgradeIndex < StoryUpgradeCosts.Length)

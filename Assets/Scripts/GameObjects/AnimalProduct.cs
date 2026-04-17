@@ -45,15 +45,14 @@ public class AnimalProduct : MonoBehaviour, IInteractable, IFeedable, IZoneMembe
         }
     }
     
-    public bool Interact()
+    public void Interact()
     {
-        if (isHungry) return false;
-        if (productionTimer > 0) return false;
+        if (isHungry) return;
+        if (productionTimer > 0) return;
         
         // Produce and reset
         GameManager.Instance.AddItem(productId, 1, transform.position);
         productionTimer = productionTime;
-        return true;
     }
     
     public void Feed(string itemID)

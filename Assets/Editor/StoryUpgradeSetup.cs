@@ -83,25 +83,45 @@ public class StoryUpgradeSetup : EditorWindow
         }
 
         // Create 5 upgrades according to story
-        CreateUpgrade(upgradesPath, "BetterSeeds", "Better Seeds", 
-            "Improved seeds yield 20% more corn per harvest", 
-            100, UpgradeType.CornField, 1.2f);
+        CreateUpgrade(upgradesPath, "WheatField", "Wheat Field", 
+            "Unlock wheat fields to grow wheat", 
+            100, UpgradeType.WheatField, 1.2f);
         
-        CreateUpgrade(upgradesPath, "HealthierChickens", "Healthier Chickens", 
+        CreateUpgrade(upgradesPath, "ChickenCare", "Chicken Care", 
             "Healthier chickens produce 20% more eggs", 
-            200, UpgradeType.ChickenProduction, 1.2f);
+            150, UpgradeType.ChickenCare, 1.2f);
         
-        CreateUpgrade(upgradesPath, "PremiumEggs", "Premium Eggs", 
-            "Premium eggs sell for 20% higher prices", 
-            300, UpgradeType.EggPrice, 1.2f);
+        CreateUpgrade(upgradesPath, "BuildBarn", "Build Barn", 
+            "Unlock cow pen and milk production", 
+            200, UpgradeType.CowPen, 1.2f);
         
-        CreateUpgrade(upgradesPath, "FasterOperations", "Faster Operations", 
-            "All farm operations are 20% faster", 
-            500, UpgradeType.Speed, 1.2f);
+        CreateUpgrade(upgradesPath, "CowFeed", "Cow Feed", 
+            "Better feed increases wheat yield 20%", 
+            175, UpgradeType.CowFeed, 1.2f);
+        
+        CreateUpgrade(upgradesPath, "DairyCare", "Dairy Care", 
+            "Better care increases milk production 20%", 
+            225, UpgradeType.MilkProduction, 1.2f);
+
+        CreateUpgrade(upgradesPath, "CarrotGarden", "Carrot Garden", 
+            "Unlock carrot crop for feeding pigs", 
+            300, UpgradeType.CarrotGarden, 1.2f);
+
+        CreateUpgrade(upgradesPath, "Fertilizer", "Fertilizer", 
+            "All crops yield 20% more", 
+            200, UpgradeType.Fertilizer, 1.2f);
+
+        CreateUpgrade(upgradesPath, "PigPen", "Pig Pen", 
+            "Unlock pig pen and truffle production", 
+            400, UpgradeType.PigPen, 1.2f);
+
+        CreateUpgrade(upgradesPath, "SpeedBoots", "Speed Boots", 
+            "Helpers move 20% faster", 
+            350, UpgradeType.HelperSpeed, 1.2f);
         
         CreateUpgrade(upgradesPath, "BiggerStore", "Bigger Store", 
-            "Expanded store increases efficiency by 20%", 
-            750, UpgradeType.StoreCapacity, 1.2f);
+            "Expanded store increases sell prices by 20%", 
+            500, UpgradeType.BiggerStore, 1.2f);
 
         AssetDatabase.SaveAssets();
         

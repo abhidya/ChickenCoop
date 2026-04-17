@@ -54,11 +54,15 @@ public class FarmZoneTemplate : ScriptableObject
         FarmItemDefinition corn = ScriptableObject.CreateInstance<FarmItemDefinition>();
         corn.id = "Corn"; corn.displayName = "Corn"; corn.basePrice = 5;
         FarmItemDefinition egg = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        egg.id = "Egg"; egg.displayName = "Egg"; egg.basePrice = 10;
+        egg.id = "Egg"; egg.displayName = "Egg"; egg.basePrice = 15;
         FarmItemDefinition wheat = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        wheat.id = "Wheat"; wheat.displayName = "Wheat"; wheat.basePrice = 15;
+        wheat.id = "Wheat"; wheat.displayName = "Wheat"; wheat.basePrice = 8;
         FarmItemDefinition milk = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        milk.id = "Milk"; milk.displayName = "Milk"; milk.basePrice = 40;
+        milk.id = "Milk"; milk.displayName = "Milk"; milk.basePrice = 25;
+        FarmItemDefinition carrot = ScriptableObject.CreateInstance<FarmItemDefinition>();
+        carrot.id = "Carrot"; carrot.displayName = "Carrot"; carrot.basePrice = 10;
+        FarmItemDefinition truffle = ScriptableObject.CreateInstance<FarmItemDefinition>();
+        truffle.id = "Truffle"; truffle.displayName = "Truffle"; truffle.basePrice = 50;
 
         switch (zoneId)
         {
@@ -99,6 +103,25 @@ public class FarmZoneTemplate : ScriptableObject
                 template.outputItem = milk;
                 template.baseProductionTime = 12f;
                 template.decorationPrefabs = LoadDecorations(new[] { "Prop_Bucket_01", "Env_Barrel" });
+                break;
+            case "Carrot":
+                template.displayName = "Carrot Garden";
+                template.zoneType = ZoneType.Crop;
+                template.spacing = new Vector2(2.8f, 2.5f);
+                template.slotObjectResourcePath = "HappyHarvestCarrot";
+                template.outputItem = carrot;
+                template.baseProductionTime = 3f;
+                template.decorationPrefabs = LoadDecorations(new[] { "Env_Flower_01" });
+                break;
+            case "Pig":
+                template.displayName = "Pig Pen";
+                template.zoneType = ZoneType.Animal;
+                template.spacing = new Vector2(4.0f, 3.5f);
+                template.slotObjectResourcePath = "HappyHarvestPig";
+                template.inputItem = carrot;
+                template.outputItem = truffle;
+                template.baseProductionTime = 15f;
+                template.decorationPrefabs = LoadDecorations(new[] { "Env_Barrel" });
                 break;
         }
 

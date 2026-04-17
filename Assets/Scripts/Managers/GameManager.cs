@@ -72,9 +72,19 @@ namespace ChickenCoop.Managers
     private bool hasPurchasedWheat = false;
     private bool hasPurchasedCow = false;
 
+    // Upgrade unlock flags
+    private bool hasUnlockedWheat = false;
+    private bool hasUnlockedChicken = false;
+    private bool hasUnlockedCow = false;
+    private bool hasUnlockedCarrot = false;
+    private bool hasUnlockedPig = false;
+
     // Upgrade multipliers
     private float cornMultiplier = 1f;
+    private float wheatMultiplier = 1f;
+    private float carrotMultiplier = 1f;
     private float eggMultiplier = 1f;
+    private float milkMultiplier = 1f;
     private float priceMultiplier = 1f;
     private float speedMultiplier = 1f;
     private float storeEfficiencyMultiplier = 1f;
@@ -661,26 +671,40 @@ namespace ChickenCoop.Managers
         return false;
     }
 
-    /// <summary>
-    /// Apply an upgrade multiplier
-    /// </summary>
     public void ApplyUpgrade(UpgradeType type, float multiplier)
     {
         switch (type)
         {
-            case UpgradeType.CornField:
+            case UpgradeType.WheatField:
+                hasUnlockedWheat = true;
+                break;
+            case UpgradeType.ChickenCare:
+                eggMultiplier *= multiplier;
+                break;
+            case UpgradeType.CowPen:
+                hasUnlockedCow = true;
+                break;
+            case UpgradeType.CowFeed:
+                wheatMultiplier *= multiplier;
+                break;
+            case UpgradeType.MilkProduction:
+                milkMultiplier *= multiplier;
+                break;
+            case UpgradeType.CarrotGarden:
+                hasUnlockedCarrot = true;
+                break;
+            case UpgradeType.Fertilizer:
                 cornMultiplier *= multiplier;
+                wheatMultiplier *= multiplier;
+                carrotMultiplier *= multiplier;
                 break;
-            case UpgradeType.ChickenProduction:
-                eggMultiplier *= 1.5f; // Buffed from 1.2f
+            case UpgradeType.PigPen:
+                hasUnlockedPig = true;
                 break;
-            case UpgradeType.EggPrice:
-                priceMultiplier *= 1.5f; // Buffed from 1.2f
-                break;
-            case UpgradeType.Speed:
+            case UpgradeType.HelperSpeed:
                 speedMultiplier *= multiplier;
                 break;
-            case UpgradeType.StoreCapacity:
+            case UpgradeType.BiggerStore:
                 storeEfficiencyMultiplier *= multiplier;
                 break;
         }
@@ -1036,40 +1060,6 @@ namespace ChickenCoop.Managers
             StoryVisualBinder.AttachVisualPrefabAsChild(chicken.transform, visualPrefab, renderer, "Visual", true);
         }
         return chicken;
-    }
-
-    private GameObject SpawnCornFieldAt(Vector3 pos, string name = "CornField")
-    {
-        GameObject corn = new GameObject(name);
-        corn.tag = "CornField";
-        corn.layer = LayerMask.NameToLayer("Environment");
-        corn.transform.position = pos;
-
-        corn.AddComponent<HarvestableField>();
-        
-        BoxCollider2D collider = corn.AddComponent<BoxCollider2D>();
-        collider.isTrigger = true;
-        collider.size = new Vector2(1f, 1f);
-
-        SpriteRenderer renderer = corn.AddComponent<SpriteRenderer>();
-        renderer.enabled = false;
-
-        // NEW: Check for dynamic resource path
-        string resourcePath = RuntimeCornVisualResourcePath;
-        FarmZoneTemplate template = config != null ? config.zoneTemplates.Find(z => z.id == "Corn") : null;
-        if (template != null && !string.IsNullOrEmpty(template.slotObjectResourcePath)) 
-            resourcePath = template.slotObjectResourcePath;
-
-        GameObject visualPrefab = Resources.Load<GameObject>(resourcePath);
-        if (visualPrefab != null)
-        {
-            StoryVisualBinder.AttachVisualPrefabAsChild(corn.transform, visualPrefab, renderer, "Visual", true);
-        }
-
-        // Add soil visual under the corn
-        AttachSoilVisual(corn.transform);
-
-        return corn;
     }
 
     private void AttachSoilVisual(Transform target)
@@ -1565,15 +1555,17 @@ namespace ChickenCoop.Managers
     }
 }
 
-/// <summary>
-/// Enum for different upgrade types
-/// </summary>
     public enum UpgradeType
     {
-        CornField,
-        ChickenProduction,
-        EggPrice,
-        Speed,
-        StoreCapacity
+        WheatField,
+        ChickenCare,
+        CowPen,
+        CowFeed,
+        MilkProduction,
+        CarrotGarden,
+        Fertilizer,
+        PigPen,
+        HelperSpeed,
+        BiggerStore
     }
 }

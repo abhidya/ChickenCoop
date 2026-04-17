@@ -110,14 +110,18 @@ public class StoreCounter : MonoBehaviour, IInteractable
             bool hasItems = GameManager.Instance != null && (GameManager.Instance.Eggs > 0 || 
                           GameManager.Instance.Corn > 0 || 
                           GameManager.Instance.GetItemCount("Wheat") > 0 || 
-                          GameManager.Instance.GetItemCount("Milk") > 0);
+                          GameManager.Instance.GetItemCount("Milk") > 0 ||
+                          GameManager.Instance.GetItemCount("Carrot") > 0 ||
+                          GameManager.Instance.GetItemCount("Truffle") > 0);
             spriteRenderer.color = hasItems ? activeColor : inactiveColor;
         }
 
         bool itemsToSell = GameManager.Instance != null && (GameManager.Instance.Eggs > 0 || 
                           GameManager.Instance.Corn > 0 || 
                           GameManager.Instance.GetItemCount("Wheat") > 0 || 
-                          GameManager.Instance.GetItemCount("Milk") > 0);
+                          GameManager.Instance.GetItemCount("Milk") > 0 ||
+                          GameManager.Instance.GetItemCount("Carrot") > 0 ||
+                          GameManager.Instance.GetItemCount("Truffle") > 0);
         ApplyStoryTint(itemsToSell ? activeColor : inactiveColor);
     }
 
@@ -141,7 +145,9 @@ public class StoreCounter : MonoBehaviour, IInteractable
         return GameManager.Instance.Eggs > 0 || 
                GameManager.Instance.Corn > 0 || 
                GameManager.Instance.GetItemCount("Wheat") > 0 || 
-               GameManager.Instance.GetItemCount("Milk") > 0;
+               GameManager.Instance.GetItemCount("Milk") > 0 ||
+               GameManager.Instance.GetItemCount("Carrot") > 0 ||
+               GameManager.Instance.GetItemCount("Truffle") > 0;
     }
 
     /// <summary>
@@ -199,7 +205,27 @@ public class StoreCounter : MonoBehaviour, IInteractable
         for (int i = 0; i < milkCount; i++)
         {
             GameManager.Instance.RemoveItem("Milk", 1);
-            GameManager.Instance.AddCoins(50, salePosition); // Milk price
+            GameManager.Instance.AddCoins(50, salePosition);
+            SpawnCoinBurst();
+            yield return new WaitForSeconds(burstInterval);
+        }
+
+        // Sell Carrot
+        int carrotCount = GameManager.Instance.GetItemCount("Carrot");
+        for (int i = 0; i < carrotCount; i++)
+        {
+            GameManager.Instance.RemoveItem("Carrot", 1);
+            GameManager.Instance.AddCoins(15, salePosition);
+            SpawnCoinBurst();
+            yield return new WaitForSeconds(burstInterval);
+        }
+
+        // Sell Truffle
+        int truffleCount = GameManager.Instance.GetItemCount("Truffle");
+        for (int i = 0; i < truffleCount; i++)
+        {
+            GameManager.Instance.RemoveItem("Truffle", 1);
+            GameManager.Instance.AddCoins(80, salePosition);
             SpawnCoinBurst();
             yield return new WaitForSeconds(burstInterval);
         }
@@ -329,7 +355,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
     /// </summary>
     public void UpgradeStore()
     {
-        GameManager.Instance.ApplyUpgrade(UpgradeType.StoreCapacity, 1.2f);
+        GameManager.Instance.ApplyUpgrade(UpgradeType.BiggerStore, 1.2f);
 
         // Visual feedback
         StartCoroutine(UpgradeAnimation());
