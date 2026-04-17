@@ -218,17 +218,16 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
                 if (zoneController != null)
                 {
                     Bounds bounds = zoneController.GetZoneBounds();
-                        // Ensure chickens stay strictly within their zone by shrinking the wander area by 0.7 units on each side
-                        bounds.Expand(-1.4f); 
-                        if (bounds.size.x < 1.0f || bounds.size.y < 1.0f) bounds = zoneController.GetZoneBounds(); // Safety fallback
+                    // Ensure chickens stay strictly within their zone by shrinking the wander area by 0.7 units on each side
+                    bounds.Expand(-1.4f); 
+                    if (bounds.size.x < 1.0f || bounds.size.y < 1.0f) bounds = zoneController.GetZoneBounds(); // Safety fallback
 
-                        Vector3 dest = new Vector3(
-                            Random.Range(bounds.min.x, bounds.max.x),
-                            Random.Range(bounds.min.y, bounds.max.y),
-                            transform.position.z
-                        );
-                        yield return StartCoroutine(WanderTo(dest));
-                    }
+                    Vector3 dest = new Vector3(
+                        Random.Range(bounds.min.x, bounds.max.x),
+                        Random.Range(bounds.min.y, bounds.max.y),
+                        transform.position.z
+                    );
+                    yield return StartCoroutine(WanderTo(dest));
                 }
             }
         }
@@ -616,6 +615,8 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     /// </summary>
     private IEnumerator EggBounceAnimation(Transform egg, Vector3 targetPos)
     {
+        if (egg == null) yield break;
+
         Vector3 startPos = targetPos + new Vector3(0, 0.3f, 0);
         egg.position = startPos;
         egg.localScale = Vector3.zero;
@@ -626,6 +627,7 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         float t = 0;
         while (t < 0.15f)
         {
+            if (egg == null) yield break;
             t += Time.deltaTime;
             float scale = Mathf.Sin(t / 0.15f * Mathf.PI / 2f) * (targetScale * 1.2f);
             egg.localScale = Vector3.one * Mathf.Min(scale, targetScale);
@@ -638,10 +640,12 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         float bounceHeight = 0.1f;
         for (int i = 0; i < bounces; i++)
         {
+            if (egg == null) yield break;
             Vector3 upPos = targetPos + new Vector3(0, bounceHeight, 0);
             t = 0;
             while (t < 0.1f)
             {
+                if (egg == null) yield break;
                 t += Time.deltaTime;
                 egg.position = Vector3.Lerp(targetPos, upPos, Mathf.Sin(t / 0.1f * Mathf.PI));
                 yield return null;
@@ -649,8 +653,11 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
             bounceHeight *= 0.5f;
         }
 
-        egg.position = targetPos;
-        egg.localScale = Vector3.one * targetScale;
+        if (egg != null)
+        {
+            egg.position = targetPos;
+            egg.localScale = Vector3.one * targetScale;
+        }
     }
 
     /// <summary>

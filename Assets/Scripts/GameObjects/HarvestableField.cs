@@ -12,6 +12,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     [Header("Harvest Settings")]
     [SerializeField] private int cornPerHarvest = 1;
     [SerializeField] private float harvestCooldown = 2f;
+    [SerializeField] private string productId = "Corn";
 
     [Header("Animation Settings")]
     [SerializeField] private float bounceAmount = 0.1f;
@@ -54,6 +55,12 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
         if (spriteRenderer == null)
         {
             spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        // Set tag for tutorial/logic
+        if (gameObject.CompareTag("Untagged"))
+        {
+            gameObject.tag = "CornField";
         }
 
         EnsureProgressBar();
@@ -162,6 +169,8 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
                 if (visual != null)
                 {
                     storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
+                    // NEW: Assign cornVisual to the newly attached visual for swaying
+                    cornVisual = visual.transform;
                 }
             }
         }
@@ -247,6 +256,11 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
             float bounce = 1f + Mathf.Sin(bounceTimer * 2f) * bounceAmount * 0.3f;
             transform.localScale = originalScale * bounce;
         }
+        else
+        {
+            // Reset scale if not ready to avoid getting stuck at weird scales
+            transform.localScale = Vector3.Lerp(transform.localScale, originalScale, Time.deltaTime * 5f);
+        }
     }
 
     /// <summary>
@@ -293,8 +307,8 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
         cooldownTimer = harvestCooldown;
         UpdateVisuals(); // Switch to wet soil immediately on harvest
 
-        // Add corn to inventory
-        GameManager.Instance.AddCorn(cornPerHarvest, transform.position + Vector3.up * 0.6f);
+        // Add product to inventory
+        GameManager.Instance.AddItem(productId, cornPerHarvest, transform.position + Vector3.up * 0.6f);
 
         // Play harvest animation
         StartCoroutine(HarvestAnimation());
@@ -336,7 +350,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
         }
 
         // Return to normal (smaller for cooldown)
-        Vector3 smallScale = original * 0.8f;
+        Vector3 smallScale = original * 0.5f; // User said oversized, let's make it smaller when harvested
         t = 0;
         while (t < 0.15f)
         {
@@ -574,6 +588,11 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     // --- IZoneMember Implementation ---
     public void Initialize(string zoneID, int slotIndex)
     {
+        // Simple mapping: if in Wheat zone, produce Wheat
+        if (zoneID == "Wheat") productId = "Wheat";
+        else productId = "Corn";
+        
+        // Match name for identification
         gameObject.name = $"{zoneID}_{slotIndex}";
     }
 }

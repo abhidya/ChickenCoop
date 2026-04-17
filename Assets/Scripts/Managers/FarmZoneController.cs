@@ -26,9 +26,12 @@ public class FarmZoneController : MonoBehaviour
         int col = index % template.itemsPerRow;
         int row = index / template.itemsPerRow;
         
-        // Standardizing growth: zones grow right (+X) and back (+Y) 
-        // The starting corner is (0,0) relative to the zone origin
-        return transform.position + new Vector3(col * template.spacing.x, row * template.spacing.y, 0);
+        // Calculate grid dimensions for centering
+        // For a max of 9 in 3 rows, we use 3x3 as the target bounding box
+        float offsetX = (template.itemsPerRow - 1) * template.spacing.x * 0.5f;
+        float offsetY = (Mathf.CeilToInt((float)template.maxSlots / template.itemsPerRow) - 1) * template.spacing.y * 0.5f;
+        
+        return transform.position + new Vector3((col * template.spacing.x) - offsetX, (row * template.spacing.y) - offsetY, 0);
     }
 
     public void AddSlot(Transform slotTransform)

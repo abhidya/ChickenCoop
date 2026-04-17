@@ -63,6 +63,11 @@ namespace ChickenCoop.Managers
     private int coins;
     private int helperCount;
 
+    // Robust tutorial tracking
+    private int totalCornHarvested = 0;
+    private int totalEggsProduced = 0;
+    private int totalWheatHarvested = 0;
+
     // Expansion Flags (Free after first purchase)
     private bool hasPurchasedWheat = false;
     private bool hasPurchasedCow = false;
@@ -88,6 +93,11 @@ namespace ChickenCoop.Managers
     public int Eggs => eggs;
     public int Coins => coins;
     public int HelperCount => helperCount;
+    
+    // Public accessors for tutorial tracking
+    public int TotalCornHarvested => totalCornHarvested;
+    public int TotalEggsProduced => totalEggsProduced;
+    public int TotalWheatHarvested => totalWheatHarvested;
     public int EggSellPrice => Mathf.RoundToInt(GetEggSellPrice() * priceMultiplier);
     public int HelperCost => GetHelperBaseCost() + (helperCount * GetHelperCostIncrease());
     public float SpeedMultiplier => speedMultiplier;
@@ -236,6 +246,7 @@ namespace ChickenCoop.Managers
     {
         int actualAmount = Mathf.CeilToInt(amount * cornMultiplier);
         corn += actualAmount;
+        totalCornHarvested += actualAmount;
         
         // Sync with generic inventory
         inventory["Corn"] = corn;
@@ -250,6 +261,37 @@ namespace ChickenCoop.Managers
         }
 
         // Play collection sound
+        AudioManager.Instance?.PlaySound("collect");
+        
+        // Signal tutorial
+        TutorialManager.Instance?.OnTaskCompleted("HarvestCorn");
+    }
+
+    /// <summary>
+    /// Generic method to add any item to inventory
+    /// </summary>
+    public void AddItem(string itemId, int amount, Vector3? worldPosition = null)
+    {
+        if (string.IsNullOrEmpty(itemId)) return;
+
+        if (itemId == "Corn") { AddCorn(amount, worldPosition); return; }
+        if (itemId == "Egg") { AddEgg(amount, worldPosition); return; }
+
+        if (!inventory.ContainsKey(itemId)) inventory[itemId] = 0;
+        inventory[itemId] += amount;
+
+        // Track totals for tutorial
+        if (itemId == "Wheat") totalWheatHarvested += amount;
+
+        // Feedback
+        if (worldPosition.HasValue)
+        {
+            Color color = Color.white;
+            if (itemId == "Wheat") color = new Color(0.96f, 0.87f, 0.47f);
+            OnResourceGained?.Invoke($"+{amount} {itemId.ToUpper()}", worldPosition.Value, color);
+        }
+
+        UIManager.Instance?.UpdateAllResourceText();
         AudioManager.Instance?.PlaySound("collect");
     }
 
@@ -268,6 +310,7 @@ namespace ChickenCoop.Managers
     {
         int actualAmount = Mathf.CeilToInt(amount * eggMultiplier);
         eggs += actualAmount;
+        totalEggsProduced += actualAmount;
         
         // Sync with generic inventory
         inventory["Egg"] = eggs;
@@ -323,8 +366,11 @@ namespace ChickenCoop.Managers
         if (itemId == "Coins") OnCoinsChanged?.Invoke(coins);
     }
 
+    public bool SpendCorn(int amount) => UseCorn(amount);
     public bool UseCorn(int amount) => UseItem("Corn", amount);
     public bool UseEggs(int amount) => UseItem("Egg", amount);
+
+    public bool RemoveItem(string itemId, int amount) => UseItem(itemId, amount);
     public bool UseCoins(int amount)
     {
         if (coins >= amount)
@@ -360,14 +406,20 @@ namespace ChickenCoop.Managers
             controller.Initialize(template);
             
             // Positioning Logic: Shifted strictly to the right (+X) to prevent overlaps
-            float startX = -5f; // Start farm from -5.0
+            float startX = 0f;
             if (activeZoneControllers.Count > 0)
             {
                 var lastZone = activeZoneControllers[activeZoneControllers.Count - 1];
-                startX = lastZone.transform.position.x + lastZone.template.GetTotalWidth() + 10.0f; // 10.0f buffer to prevent overlap
+                // New placement: Last zone position + half width of last + buffer + half width of new
+                startX = lastZone.transform.position.x + (lastZone.template.GetTotalWidth() * 0.5f) + 8.0f + (template.GetTotalWidth() * 0.5f);
+            }
+            else
+            {
+                // First zone (Corn) at origin or offset
+                startX = -15.0f; 
             }
             
-            obj.transform.position = new Vector3(startX, -1f, 0f);
+            obj.transform.position = new Vector3(startX, -2.5f, 0f);
             activeZoneControllers.Add(controller);
             EnvironmentManager.Instance?.RefreshFences();
             
@@ -381,12 +433,11 @@ namespace ChickenCoop.Managers
         Debug.LogWarning($"[GameManager] Template for {zoneID} not found. Initializing proper runtime template.");
         FarmZoneTemplate template = ScriptableObject.CreateInstance<FarmZoneTemplate>();
         template.id = zoneID;
-        template.maxSlots = 9; // Enforce 3x3 grid limit
-        
-        // Square Pens: Set itemsPerRow to 3 and spacing to be symmetric (2.0)
+        // Restrict to 9 items in a 3x3 tight grid
+        template.maxSlots = 9;
         template.itemsPerRow = 3;
-        template.spacing = new Vector2(2.0f, 2.0f);
-        template.zonePadding = 2.0f;
+        template.spacing = new Vector2(2.8f, 2.5f); // Increased for Happy Harvest visuals
+        template.zonePadding = 4.0f;
         
         // Decorations: Add Rock and Bush prefabs to the corners
         template.decorationPrefabs = new List<GameObject>();
@@ -456,10 +507,14 @@ namespace ChickenCoop.Managers
 
         return template;
     }
-    public void AddObjectToZone(string zoneID)
-    {
         FarmZoneController zone = GetOrCreateZone(zoneID);
         if (zone == null) return;
+        
+        if (zone.CurrentCount >= zone.template.maxSlots)
+        {
+            Debug.Log($"[GameManager] {zoneID} already at max slots ({zone.template.maxSlots})");
+            return;
+        }
 
         bool canAfford = false;
         
@@ -1089,11 +1144,11 @@ namespace ChickenCoop.Managers
         {
             GameObject soilObj = new GameObject("SoilVisual");
             soilObj.transform.SetParent(target, false);
-            soilObj.transform.localPosition = new Vector3(0, -0.2f, 0.01f); // Move closest to stalk while staying behind
+            soilObj.transform.localPosition = new Vector3(0, -0.2f, 0.01f);
             
             SpriteRenderer sr = soilObj.AddComponent<SpriteRenderer>();
             sr.sprite = soilSprite;
-            sr.sortingOrder = -10; // Ensure it's behind the stalk
+            sr.sortingOrder = 2; // Increased sorting order to ensure visibility on farm backdrop
             
             // Adjust scale to fit the slot nicely
             soilObj.transform.localScale = Vector3.one * 1.5f; 
@@ -1111,13 +1166,6 @@ namespace ChickenCoop.Managers
         GameObject incubator = new GameObject("Incubator");
         incubator.transform.position = new Vector3(8f, 2f, 10f); // Positioned in background near market
         incubator.AddComponent<Incubator>();
-    }
-
-    private void EnsureTitleCardManager()
-    {
-        if (FindObjectOfType<TitleCardManager>() != null) return;
-
-        GameObject manager = new GameObject("TitleCardManager");
     }
 
     // Purchase Handlers for Market

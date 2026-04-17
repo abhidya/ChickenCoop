@@ -221,12 +221,12 @@ public class TutorialManager : MonoBehaviour
         tutorialActive = true;
         currentStep = TutorialStep.Welcome;
         
-        // SYNC: Initialize tutorial counters to current game state
+        // SYNC: Initialize tutorial counters to current game state for robust tracking
         if (GameManager.Instance != null)
         {
-            cornHarvestedDuringTutorial = GameManager.Instance.Corn;
-            eggsCollectedDuringTutorial = GameManager.Instance.Eggs;
-            Debug.Log($"[TutorialManager] Syncing tutorial. Starting Corn: {cornHarvestedDuringTutorial}, Starting Eggs: {eggsCollectedDuringTutorial}");
+            cornHarvestedDuringTutorial = GameManager.Instance.TotalCornHarvested;
+            eggsCollectedDuringTutorial = GameManager.Instance.TotalEggsProduced;
+            Debug.Log($"[TutorialManager] Syncing tutorial. Baseline Corn: {cornHarvestedDuringTutorial}, Baseline Eggs: {eggsCollectedDuringTutorial}");
         }
 
         if (tutorialPanel != null)
@@ -437,12 +437,10 @@ public class TutorialManager : MonoBehaviour
 
         if (currentStep == TutorialStep.HarvestCorn)
         {
-            // Robust check: any increase or even just the event firing 
-            // if we are on this step is enough to prove the player interacted.
-            if (newValue > cornHarvestedDuringTutorial || (newValue == cornHarvestedDuringTutorial && newValue > 0))
+            // Use TotalCornHarvested from GameManager for robust check
+            if (GameManager.Instance.TotalCornHarvested > cornHarvestedDuringTutorial)
             {
-                Debug.Log("[Tutorial] Corn Harvest Detected. Advancing to FeedChicken.");
-                cornHarvestedDuringTutorial = newValue;
+                Debug.Log($"[Tutorial] Corn Harvest Detected ({GameManager.Instance.TotalCornHarvested} > {cornHarvestedDuringTutorial}). Advancing to FeedChicken.");
                 AdvanceToStep(TutorialStep.FeedChicken);
             }
         }
@@ -452,17 +450,10 @@ public class TutorialManager : MonoBehaviour
     {
         if (!tutorialActive) return;
 
-        int previousEggs = eggsCollectedDuringTutorial;
-        eggsCollectedDuringTutorial = newValue;
-
-        if (currentStep == TutorialStep.CollectEgg && newValue > eggsCollectedDuringTutorial)
+        if (currentStep == TutorialStep.CollectEgg && GameManager.Instance.TotalEggsProduced > eggsCollectedDuringTutorial)
         {
-            eggsCollectedDuringTutorial = newValue;
+            Debug.Log($"[Tutorial] Egg Collection Detected ({GameManager.Instance.TotalEggsProduced} > {eggsCollectedDuringTutorial}). Advancing to SellEgg.");
             AdvanceToStep(TutorialStep.SellEgg);
-        }
-        else
-        {
-            eggsCollectedDuringTutorial = newValue;
         }
     }
 
