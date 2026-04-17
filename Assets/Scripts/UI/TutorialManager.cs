@@ -86,6 +86,8 @@ public class TutorialManager : MonoBehaviour
 
     private void Start()
     {
+        Debug.Log("[TutorialManager] Start() called - initializing...");
+        
         EnsureRuntimeReferences();
         ResolveTargets();
 
@@ -122,6 +124,12 @@ public class TutorialManager : MonoBehaviour
             {
                 UIManager.Instance.OnManagementOpened += OnShopOpened;
             }
+            
+            Debug.Log("[TutorialManager] Successfully subscribed to GameManager events");
+        }
+        else
+        {
+            Debug.LogWarning("[TutorialManager] GameManager.Instance is NULL - cannot subscribe to events!");
         }
 
         // Check again after a short delay to catch late-initialized world objects
@@ -177,6 +185,26 @@ public class TutorialManager : MonoBehaviour
             if (egg != null)
             {
                 AdvanceToStep(TutorialStep.CollectEgg);
+            }
+        }
+        
+        // FALLBACK: Poll for corn harvest in case event subscription had timing issues
+        if (tutorialActive && currentStep == TutorialStep.HarvestCorn)
+        {
+            if (GameManager.Instance != null && GameManager.Instance.TotalCornHarvested > cornHarvestedDuringTutorial)
+            {
+                Debug.Log($"[Tutorial] FALLBACK: Detected corn harvest via polling ({GameManager.Instance.TotalCornHarvested} > {cornHarvestedDuringTutorial}). Advancing to FeedChicken.");
+                AdvanceToStep(TutorialStep.FeedChicken);
+            }
+        }
+        
+        // FALLBACK: Poll for egg collection in case event subscription had timing issues
+        if (tutorialActive && currentStep == TutorialStep.CollectEgg)
+        {
+            if (GameManager.Instance != null && GameManager.Instance.TotalEggsProduced > eggsCollectedDuringTutorial)
+            {
+                Debug.Log($"[Tutorial] FALLBACK: Detected egg collection via polling ({GameManager.Instance.TotalEggsProduced} > {eggsCollectedDuringTutorial}). Advancing to SellEgg.");
+                AdvanceToStep(TutorialStep.SellEgg);
             }
         }
     }

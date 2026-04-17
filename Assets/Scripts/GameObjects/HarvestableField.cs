@@ -155,12 +155,12 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
 
         if (resolvedPrefab != null)
         {
-            // NEW: Check if GameManager's SpawnCornFieldAt already attached a visual as a child
             Transform existingVisual = transform.Find("Visual");
             if (existingVisual != null)
             {
                 storyRenderers = existingVisual.GetComponentsInChildren<SpriteRenderer>(true);
                 if (spriteRenderer != null) spriteRenderer.enabled = false;
+                cornVisual = existingVisual;
             }
             else
             {
@@ -169,7 +169,6 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
                 if (visual != null)
                 {
                     storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
-                    // NEW: Assign cornVisual to the newly attached visual for swaying
                     cornVisual = visual.transform;
                 }
             }
@@ -189,7 +188,8 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     {
         if (!canHarvest)
         {
-            cooldownTimer -= Time.deltaTime * GameManager.Instance.SpeedMultiplier;
+            float speedMult = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+            cooldownTimer -= Time.deltaTime * speedMult;
             
             // Update Progress Bar
             if (progressBarRenderer != null)
@@ -236,30 +236,33 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     }
 
     /// <summary>
-    /// Update ambient bounce animation
-    /// </summary>
     private void UpdateAnimation()
     {
         bounceTimer += Time.deltaTime * bounceSpeed;
 
-        // Gentle swaying animation for corn stalks
-        float sway = Mathf.Sin(bounceTimer) * bounceAmount * 0.5f;
-        
+        // Corn visual bounces/pulses when ready to harvest (but no rotation sway)
         if (cornVisual != null)
         {
-            cornVisual.localRotation = Quaternion.Euler(0, 0, sway * 10f);
+            // Keep rotation static - no swaying
+            cornVisual.localRotation = Quaternion.identity;
+            
+            // Bounce/scale when ready to harvest
+            if (canHarvest)
+            {
+                float bounce = 1f + Mathf.Sin(bounceTimer * 2f) * bounceAmount * 0.3f;
+                cornVisual.localScale = Vector3.one * bounce;
+            }
+            else
+            {
+                cornVisual.localScale = Vector3.one * 0.8f;
+            }
         }
-
-        // Scale bounce when ready
-        if (canHarvest)
+        
+        // Soil stays completely static - no rotation at all
+        if (soilRenderer != null)
         {
-            float bounce = 1f + Mathf.Sin(bounceTimer * 2f) * bounceAmount * 0.3f;
-            transform.localScale = originalScale * bounce;
-        }
-        else
-        {
-            // Reset scale if not ready to avoid getting stuck at weird scales
-            transform.localScale = Vector3.Lerp(transform.localScale, originalScale, Time.deltaTime * 5f);
+            soilRenderer.transform.localRotation = Quaternion.identity;
+            soilRenderer.transform.localScale = Vector3.one;
         }
     }
 
@@ -428,10 +431,11 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
         particles.transform.position = transform.position + new Vector3(0, 0.5f, 0);
 
         ParticleSystem ps = particles.AddComponent<ParticleSystem>();
+        
         var main = ps.main;
         main.startSize = 0.2f;
         main.startLifetime = 0.6f;
-        main.startColor = new Color(1f, 0.9f, 0.2f, 1f); // Golden yellow corn color
+        main.startColor = new Color(1f, 0.9f, 0.2f, 1f);
         main.startSpeed = 3f;
         main.gravityModifier = 0.5f;
         main.maxParticles = 10;
@@ -460,6 +464,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
         sparkle.transform.position = transform.position + new Vector3(0, 0.3f, 0);
 
         ParticleSystem ps = sparkle.AddComponent<ParticleSystem>();
+        
         var main = ps.main;
         main.startSize = 0.15f;
         main.startLifetime = 0.4f;

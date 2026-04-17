@@ -43,6 +43,7 @@ public class UIManager : MonoBehaviour
     private RectTransform sidebarContent;
     private Dictionary<string, TextMeshProUGUI> resourceCounts = new Dictionary<string, TextMeshProUGUI>();
     private Dictionary<string, float> displayedResourceValues = new Dictionary<string, float>();
+    private Dictionary<string, GameObject> resourceSlots = new Dictionary<string, GameObject>(); // For gating Wheat/Milk slots
 
     [Header("Action Buttons")]
     [SerializeField] private Button harvestButton;
@@ -351,13 +352,13 @@ public class UIManager : MonoBehaviour
         float btnY = 0f;
         Vector2 btnSize = isPortrait ? new Vector2(175f, 140f) : new Vector2(190f, 90f);
 
-        harvestButton  = EnsureHarvestButton(actionBar, "Btn1", "🌽\nHarvest", new Vector2(-btnSpacing * 2f, btnY), btnSize, new Color(0.56f, 0.76f, 0.36f));
-        feedButton     = EnsureHarvestButton(actionBar, "Btn2", "🌾\nFeed",    new Vector2(-btnSpacing,      btnY), btnSize, new Color(0.56f, 0.76f, 0.36f));
-        collectButton  = EnsureHarvestButton(actionBar, "Btn3", "🥚\nCollect", new Vector2(0,               btnY), btnSize, new Color(0.56f, 0.76f, 0.36f));
-        sellButton     = EnsureHarvestButton(actionBar, "Btn4", "💰\nSell",    new Vector2(btnSpacing,       btnY), btnSize, new Color(0.89f, 0.65f, 0.22f));
+        harvestButton  = EnsureHarvestButton(actionBar, "Btn1", "Corn\nHarvest", new Vector2(-btnSpacing * 2f, btnY), btnSize, new Color(0.56f, 0.76f, 0.36f));
+        feedButton     = EnsureHarvestButton(actionBar, "Btn2", "Corn\nFeed",    new Vector2(-btnSpacing,      btnY), btnSize, new Color(0.56f, 0.76f, 0.36f));
+        collectButton  = EnsureHarvestButton(actionBar, "Btn3", "Egg\nCollect", new Vector2(0,               btnY), btnSize, new Color(0.56f, 0.76f, 0.36f));
+        sellButton     = EnsureHarvestButton(actionBar, "Btn4", "Coins\nSell",    new Vector2(btnSpacing,       btnY), btnSize, new Color(0.89f, 0.65f, 0.22f));
         
         // MANAGEMENT TOGGLE BUTTON
-        managementToggleButton = EnsureHarvestButton(actionBar, "BtnShop", "🏪\nShop", new Vector2(btnSpacing * 2f, btnY), btnSize, new Color(0.68f, 0.44f, 0.22f));
+        managementToggleButton = EnsureHarvestButton(actionBar, "BtnShop", "Shop\nMenu", new Vector2(btnSpacing * 2f, btnY), btnSize, new Color(0.68f, 0.44f, 0.22f));
         managementToggleButton.onClick.RemoveAllListeners();
         managementToggleButton.onClick.AddListener(ToggleManagement);
 
@@ -644,29 +645,40 @@ public class UIManager : MonoBehaviour
         UpdateButtonStates();
     }
 
+    /// <summary>
+    /// Unlocks and shows a resource slot in the sidebar (e.g., Wheat or Milk after purchase)
+    /// </summary>
+    public void UnlockResourceSlot(string slotId)
+    {
+        if (resourceSlots.ContainsKey(slotId) && resourceSlots[slotId] != null)
+        {
+            resourceSlots[slotId].SetActive(true);
+        }
+    }
+
     private void CreateInventorySidebar()
     {
-        // Create the sidebar root anchored to the Left Middle
+        // Create the sidebar root anchored to the Left Middle - compact size
         GameObject sidebarObj = new GameObject("InventorySidebar");
         sidebarObj.transform.SetParent(transform, false);
         inventorySidebar = sidebarObj.AddComponent<RectTransform>();
         inventorySidebar.anchorMin = new Vector2(0, 0.5f);
         inventorySidebar.anchorMax = new Vector2(0, 0.5f);
         inventorySidebar.pivot = new Vector2(0, 0.5f);
-        inventorySidebar.sizeDelta = new Vector2(250, 600);
-        inventorySidebar.anchoredPosition = new Vector3(20, 0, 0);
+        inventorySidebar.sizeDelta = new Vector2(180, 280); // Compact: width 180, height 280
+        inventorySidebar.anchoredPosition = new Vector3(15, 0, 0);
 
         // Add a background panel
         Image bg = sidebarObj.AddComponent<Image>();
         bg.sprite = Resources.Load<Sprite>("Sprite_Button_Blue");
         bg.type = Image.Type.Sliced;
-        bg.color = new Color(0, 0, 0, 0.7f); // Dark tint over blue slice
+        bg.color = new Color(0, 0, 0, 0.6f); // Slightly transparent
         
         // Add ScrollRect
         ScrollRect scroll = sidebarObj.AddComponent<ScrollRect>();
         scroll.horizontal = false;
         scroll.vertical = true;
-        scroll.viewport = sidebarObj.GetComponent<RectTransform>(); // Using self as viewport for simple clipping if mask added
+        scroll.viewport = sidebarObj.GetComponent<RectTransform>();
         
         // Add Mask for clipping
         sidebarObj.AddComponent<CanvasRenderer>();
@@ -679,13 +691,13 @@ public class UIManager : MonoBehaviour
         sidebarContent.anchorMin = new Vector2(0, 1);
         sidebarContent.anchorMax = new Vector2(1, 1);
         sidebarContent.pivot = new Vector2(0.5f, 1);
-        sidebarContent.sizeDelta = new Vector2(0, 0); // Fitter will handle height
+        sidebarContent.sizeDelta = new Vector2(0, 0);
 
         scroll.content = sidebarContent;
 
         VerticalLayoutGroup layout = contentObj.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(15, 15, 15, 15);
-        layout.spacing = 8;
+        layout.padding = new RectOffset(10, 10, 10, 10);
+        layout.spacing = 6;
         layout.childAlignment = TextAnchor.UpperLeft;
         layout.childControlHeight = false;
         layout.childControlWidth = true;
@@ -700,8 +712,13 @@ public class UIManager : MonoBehaviour
         CreateResourceSlot("Corn", "Sprite_Corn_icon");
         CreateResourceSlot("Egg", "egg_icon");
         CreateResourceSlot("Wheat", "Sprite_Wheat_icon");
-        CreateResourceSlot("Milk", "milk_bottle_icon"); 
-    }
+        CreateResourceSlot("Milk", "milk_bottle_icon");
+        
+        // Gate Wheat/Milk slots until unlocked
+        if (resourceSlots.ContainsKey("Wheat"))
+            resourceSlots["Wheat"]?.SetActive(false);
+        if (resourceSlots.ContainsKey("Milk"))
+            resourceSlots["Milk"]?.SetActive(false); 
     }
 
     private void CreateResourceSlot(string id, string iconPath)
@@ -709,28 +726,28 @@ public class UIManager : MonoBehaviour
         GameObject slotObj = new GameObject("Slot_" + id);
         slotObj.transform.SetParent(sidebarContent, false);
         RectTransform rt = slotObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(0, 70);
+        rt.sizeDelta = new Vector2(0, 50); // Compact slot height
 
         // Background for slot
         Image bg = slotObj.AddComponent<Image>();
         bg.sprite = Resources.Load<Sprite>("Sprite_Button_Blue");
         bg.type = Image.Type.Sliced;
-        bg.color = new Color(0.2f, 0.2f, 0.2f, 0.5f); // Subtle well look
+        bg.color = new Color(0.2f, 0.2f, 0.2f, 0.4f); // Subtle, less opaque
 
         // Horizontal Layout for Slot Content
         HorizontalLayoutGroup layout = slotObj.AddComponent<HorizontalLayoutGroup>();
-        layout.padding = new RectOffset(10, 10, 5, 5);
-        layout.spacing = 10;
+        layout.padding = new RectOffset(8, 8, 4, 4);
+        layout.spacing = 8;
         layout.childAlignment = TextAnchor.MiddleLeft;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
         layout.childForceExpandWidth = false;
 
-        // Icon
+        // Icon - smaller
         GameObject iconObj = new GameObject("Icon");
         iconObj.transform.SetParent(slotObj.transform, false);
         RectTransform iconRT = iconObj.AddComponent<RectTransform>();
-        iconRT.sizeDelta = new Vector2(50, 50);
+        iconRT.sizeDelta = new Vector2(36, 36); // Compact icon
 
         Image iconImg = iconObj.AddComponent<Image>();
         iconImg.sprite = Resources.Load<Sprite>(iconPath);
@@ -740,11 +757,11 @@ public class UIManager : MonoBehaviour
         GameObject nameObj = new GameObject("Label");
         nameObj.transform.SetParent(slotObj.transform, false);
         RectTransform nameRT = nameObj.AddComponent<RectTransform>();
-        nameRT.sizeDelta = new Vector2(80, 50);
+        nameRT.sizeDelta = new Vector2(50, 36);
 
         TextMeshProUGUI nameTmp = nameObj.AddComponent<TextMeshProUGUI>();
         nameTmp.text = id;
-        nameTmp.fontSize = 20;
+        nameTmp.fontSize = 14;
         nameTmp.font = cornCountText != null ? cornCountText.font : null;
         nameTmp.alignment = TextAlignmentOptions.Left;
         nameTmp.color = Color.white;
@@ -753,10 +770,10 @@ public class UIManager : MonoBehaviour
         GameObject textObj = new GameObject("Count");
         textObj.transform.SetParent(slotObj.transform, false);
         RectTransform textRT = textObj.AddComponent<RectTransform>();
-        textRT.sizeDelta = new Vector2(60, 50);
+        textRT.sizeDelta = new Vector2(45, 36);
 
         TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = 22;
+        tmp.fontSize = 16;
         tmp.alignment = TextAlignmentOptions.Right;
         tmp.text = "0";
         tmp.color = Color.white;
@@ -764,6 +781,7 @@ public class UIManager : MonoBehaviour
 
         resourceCounts[id] = tmp;
         displayedResourceValues[id] = 0f;
+        resourceSlots[id] = slotObj;
     }
 
     /// <summary>
@@ -947,45 +965,30 @@ public class UIManager : MonoBehaviour
 
         int chickenCount = chickenZone != null ? chickenZone.CurrentCount : 0;
         int cornCount = cornZone != null ? cornZone.CurrentCount : 0;
+        int chickenMax = chickenZone != null ? chickenZone.template.maxSlots : 9;
+        int cornMax = cornZone != null ? cornZone.template.maxSlots : 9;
 
-        // Resource Cost logic (1 Corn, 1 Egg)
-        bool canIncubate = chickenZone != null && GameManager.Instance.Eggs >= 1;
-        bool canPlant = cornZone != null && GameManager.Instance.Corn >= 1;
+        bool chickenAtMax = chickenCount >= chickenMax;
+        bool cornAtMax = cornCount >= cornMax;
 
         if (incubateButton != null) 
         {
+            bool canIncubate = !chickenAtMax && GameManager.Instance.Eggs >= 1;
             incubateButton.interactable = canIncubate;
+            incubateButton.gameObject.SetActive(!chickenAtMax);
             TextMeshProUGUI label = incubateButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.text = "Incubate (1 Egg)";
+            if (label != null) label.text = chickenAtMax ? "Chicken Max" : "Incubate (1 Egg)";
             UpdateButtonVisual(incubateButton, canIncubate);
         }
 
         if (plantButton != null) 
         {
+            bool canPlant = !cornAtMax && GameManager.Instance.Corn >= 1;
             plantButton.interactable = canPlant;
+            plantButton.gameObject.SetActive(!cornAtMax);
             TextMeshProUGUI label = plantButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.text = "Plant (1 Corn)";
+            if (label != null) label.text = cornAtMax ? "Corn Max" : "Plant (1 Corn)";
             UpdateButtonVisual(plantButton, canPlant);
-        }
-
-        // New Wheat expansion button logic
-        Button wheatButton = null; // We would find this if we had a field for it
-        if (wheatButton != null)
-        {
-            bool hasPurchased = GameManager.Instance.HasPurchasedWheat;
-            wheatButton.interactable = hasPurchased || GameManager.Instance.GetItemCount("Wheat") > 0;
-            TextMeshProUGUI label = wheatButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.text = hasPurchased ? "Expand Wheat (FREE)" : "Plant Wheat (1 Wheat)";
-        }
-        
-        // New Cow expansion button logic
-        Button cowButton = null; 
-        if (cowButton != null)
-        {
-            bool hasPurchased = GameManager.Instance.HasPurchasedCow;
-            cowButton.interactable = hasPurchased || GameManager.Instance.GetItemCount("Milk") > 0;
-            TextMeshProUGUI label = cowButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.text = hasPurchased ? "Expand Cows (FREE)" : "Add Cow (1 Milk)";
         }
     }
 
@@ -1009,10 +1012,11 @@ public class UIManager : MonoBehaviour
             }
 
             incubateButton.onClick.RemoveAllListeners();
-            incubateButton.onClick.AddListener(() => {
-                 GameManager.Instance.AddChicken();
-                 UpdateExpansionButtons();
-            });
+            incubateButton.onClick.AddListener(OnIncubateClicked);
+        }
+        else
+        {
+            Debug.LogWarning("[UIManager] incubateButton is NULL in SetupExpansionButtons!");
         }
         
         if (plantButton != null)
@@ -1028,11 +1032,42 @@ public class UIManager : MonoBehaviour
             }
 
             plantButton.onClick.RemoveAllListeners();
-            plantButton.onClick.AddListener(() => {
-                GameManager.Instance.AddCornField();
-                UpdateExpansionButtons();
-            });
+            plantButton.onClick.AddListener(OnPlantClicked);
         }
+        else
+        {
+            Debug.LogWarning("[UIManager] plantButton is NULL in SetupExpansionButtons!");
+        }
+    }
+
+    private void OnIncubateClicked()
+    {
+        Debug.Log("[UIManager] Incubate button clicked!");
+        if (GameManager.Instance != null)
+        {
+            Debug.Log($"[UIManager] Calling AddChicken(). Current Eggs: {GameManager.Instance.Eggs}");
+            GameManager.Instance.AddChicken();
+        }
+        else
+        {
+            Debug.LogError("[UIManager] GameManager.Instance is NULL!");
+        }
+        UpdateExpansionButtons();
+    }
+
+    private void OnPlantClicked()
+    {
+        Debug.Log("[UIManager] Plant button clicked!");
+        if (GameManager.Instance != null)
+        {
+            Debug.Log($"[UIManager] Calling AddCornField(). Current Corn: {GameManager.Instance.Corn}");
+            GameManager.Instance.AddCornField();
+        }
+        else
+        {
+            Debug.LogError("[UIManager] GameManager.Instance is NULL!");
+        }
+        UpdateExpansionButtons();
     }
 
     // Event handlers

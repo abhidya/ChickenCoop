@@ -217,22 +217,29 @@ public class EnvironmentAnimator : MonoBehaviour
 
     private void AutoPopulateTargets()
     {
-        if (swayingObjects == null || swayingObjects.Length == 0)
+        // Only animate DECORATIVE environment objects, NOT gameplay objects
+        // HarvestableField and Chicken have their own animations and shouldn't sway
+        swayingObjects = new Transform[0];
+        bouncingObjects = new Transform[0];
+        
+        // Auto-find decorative objects in scene (trees, grass, flowers)
+        var decorRoot = GameObject.Find("Environment_Decor");
+        if (decorRoot != null)
         {
-            swayingObjects = new Transform[]
+            var children = decorRoot.GetComponentsInChildren<Transform>();
+            var swayingList = new System.Collections.Generic.List<Transform>();
+            var bouncingList = new System.Collections.Generic.List<Transform>();
+            
+            foreach (var child in children)
             {
-                FindObjectOfType<HarvestableField>()?.transform,
-                FindObjectOfType<Chicken>()?.transform
-            };
-        }
-
-        if (bouncingObjects == null || bouncingObjects.Length == 0)
-        {
-            bouncingObjects = new Transform[]
-            {
-                FindObjectOfType<HarvestableField>()?.transform,
-                FindObjectOfType<StoreCounter>()?.transform
-            };
+                if (child.name.Contains("Tree") || child.name.Contains("Grass") || child.name.Contains("Flower"))
+                {
+                    swayingList.Add(child);
+                }
+            }
+            
+            swayingObjects = swayingList.ToArray();
+            bouncingObjects = bouncingList.ToArray();
         }
     }
 }

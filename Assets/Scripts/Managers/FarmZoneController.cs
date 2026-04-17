@@ -26,12 +26,16 @@ public class FarmZoneController : MonoBehaviour
         int col = index % template.itemsPerRow;
         int row = index / template.itemsPerRow;
         
-        // Calculate grid dimensions for centering
-        // For a max of 9 in 3 rows, we use 3x3 as the target bounding box
-        float offsetX = (template.itemsPerRow - 1) * template.spacing.x * 0.5f;
-        float offsetY = (Mathf.CeilToInt((float)template.maxSlots / template.itemsPerRow) - 1) * template.spacing.y * 0.5f;
+        // For 3 items per row (3x3 grid), col ranges 0-2
+        // Grid spans (itemsPerRow - 1) * spacing centered on zone position
+        int totalCols = Mathf.Min(template.itemsPerRow, Mathf.Max(template.maxSlots, 1));
+        float totalWidth = (totalCols - 1) * template.spacing.x;
         
-        return transform.position + new Vector3((col * template.spacing.x) - offsetX, (row * template.spacing.y) - offsetY, 0);
+        // Calculate offset to center the grid
+        float offsetX = col * template.spacing.x - (totalWidth * 0.5f);
+        float offsetY = row * template.spacing.y;
+        
+        return transform.position + new Vector3(offsetX, offsetY, 0);
     }
 
     public void AddSlot(Transform slotTransform)
@@ -49,7 +53,13 @@ public class FarmZoneController : MonoBehaviour
 
     public Bounds GetZoneBounds()
     {
-        if (slots.Count == 0) return new Bounds(transform.position, Vector3.one * 2f);
+        if (slots.Count == 0)
+        {
+            // Empty zone: size based on current slot count potential (1 slot min)
+            float width = template.spacing.x + template.zonePadding;
+            float height = template.spacing.y + template.zonePadding;
+            return new Bounds(transform.position, new Vector3(width, height, 1f));
+        }
         
         Bounds bounds = new Bounds(slots[0].position, Vector3.zero);
         foreach (var slot in slots)
@@ -57,8 +67,10 @@ public class FarmZoneController : MonoBehaviour
             bounds.Encapsulate(slot.position);
         }
         
-        // Add padding from template
-        bounds.Expand(template.zonePadding);
+        // Add minimal padding - only enough for fence, not full max grid
+        float padX = Mathf.Max(template.spacing.x * 0.5f, template.zonePadding * 0.3f);
+        float padY = Mathf.Max(template.spacing.y * 0.5f, template.zonePadding * 0.3f);
+        bounds.Expand(new Vector3(padX, padY, 0));
         return bounds;
     }
 }

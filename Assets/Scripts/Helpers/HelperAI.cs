@@ -6,10 +6,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// HelperAI - Automated helper character that performs a generic game loop:
-/// - Find closest ready IHarvestable -> Harvest
-/// - Find closest hungry IFeedable -> Feed (if inventory permits)
-/// - Collect ground items -> Sell at Market
+/// Automated helper character with prioritized task selection:
+/// 1. Feed hungry animals (HIGHEST - always first)
+/// 2. Harvest ready crops
+/// 3. Collect ground items
+/// 4. Sell at market
+/// Uses weighted random selection with helper avoidance to spread work.
 /// </summary>
 public class HelperAI : MonoBehaviour
 {
@@ -27,7 +29,6 @@ public class HelperAI : MonoBehaviour
     [Header("References")]
     [SerializeField] private SpriteRenderer spriteRenderer;
 
-    private HelperState currentState = HelperState.Idle;
     private bool isMoving = false;
     private float bobTimer = 0f;
     private Vector3 originalScale;
@@ -80,26 +81,8 @@ public class HelperAI : MonoBehaviour
 
     private IEnumerator PerformNextTask()
     {
-        // 1. Collect Ground Items (Highest Priority)
-        var collectible = FindClosestInteractable<CollectibleEgg>(); // Still specialized for now
-        if (collectible != null)
-        {
-            yield return StartCoroutine(MoveAndAction(collectible.transform.position, "ITEM", () => collectible.Interact()));
-            yield break;
-        }
-
-        // 2. Harvest Ready Crops
-        var harvestable = FindClosestHarvestable();
-        if (harvestable != null)
-        {
-            MonoBehaviour mono = harvestable as MonoBehaviour;
-            Vector3 targetPos = mono != null ? mono.transform.position : transform.position;
-            yield return StartCoroutine(MoveAndAction(targetPos, "WORK", () => harvestable.Harvest()));
-            yield break;
-        }
-
-        // 3. Feed Hungry Animals
-        var feedable = FindClosestFeedable();
+        // === PRIORITY 1: FEED HUNGRY ANIMALS (HIGHEST - NEVER IGNORE) ===
+        var feedable = FindRandomFeedable();
         if (feedable != null)
         {
             MonoBehaviour mono = feedable as MonoBehaviour;
@@ -108,8 +91,25 @@ public class HelperAI : MonoBehaviour
             yield break;
         }
 
-        // 4. Sell Inventory
-        if (GameManager.Instance.Eggs > 0 || GameManager.Instance.Corn > 10) // Legacy counts for now
+        // === PRIORITY 2: HARVEST READY CROPS ===
+        var harvestable = FindRandomHarvestable();
+        if (harvestable != null)
+        {
+            MonoBehaviour mono = harvestable as MonoBehaviour;
+            Vector3 targetPos = mono != null ? mono.transform.position : transform.position;
+            yield return StartCoroutine(MoveAndAction(targetPos, "WORK", () => harvestable.Harvest()));
+            yield break;
+        }
+
+        var collectible = FindRandomCollectible<CollectibleEgg>();
+        if (collectible != null)
+        {
+            yield return StartCoroutine(MoveAndAction(collectible.transform.position, "ITEM", () => collectible.Interact()));
+            yield break;
+        }
+
+        // === PRIORITY 4: SELL INVENTORY ===
+        if (GameManager.Instance.Eggs > 0 || GameManager.Instance.Corn > 10)
         {
             if (GameManager.Instance.StorePosition != null)
             {
@@ -122,7 +122,6 @@ public class HelperAI : MonoBehaviour
             }
         }
 
-        currentState = HelperState.Idle;
         yield return new WaitForSeconds(1.0f);
     }
 
@@ -136,34 +135,81 @@ public class HelperAI : MonoBehaviour
         yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
     }
 
-    private IHarvestable FindClosestHarvestable()
+    private IHarvestable FindRandomHarvestable()
     {
-        return FindObjectsOfType<MonoBehaviour>().OfType<IHarvestable>()
+        var harvestables = FindObjectsOfType<MonoBehaviour>().OfType<IHarvestable>()
             .Where(h => h.IsReadyToHarvest())
-            .OrderBy(h => Vector3.Distance(transform.position, ((MonoBehaviour)h).transform.position))
-            .FirstOrDefault();
+            .ToList();
+        
+        if (harvestables.Count == 0) return null;
+        
+        // Score by distance AND helper avoidance, pick weighted random
+        var scored = harvestables.Select(h => {
+            MonoBehaviour mono = (MonoBehaviour)h;
+            float dist = Vector3.Distance(transform.position, mono.transform.position);
+            float helperPenalty = GetMinDistanceToOtherHelpers(mono.transform.position) * 0.5f;
+            float score = dist + helperPenalty + Random.Range(-2f, 2f); // Add randomness
+            return (item: h, score: score);
+        }).OrderBy(x => x.score).ToList();
+        
+        return scored.First().item;
     }
 
-    private IFeedable FindClosestFeedable()
+    private IFeedable FindRandomFeedable()
     {
-        return FindObjectsOfType<MonoBehaviour>().OfType<IFeedable>()
-            .Where(f => f.CanInteract())
-            .OrderBy(f => Vector3.Distance(transform.position, ((MonoBehaviour)f).transform.position))
-            .FirstOrDefault();
+        // Prioritize animals that NEED feeding (not just can interact)
+        var feedables = FindObjectsOfType<MonoBehaviour>().OfType<IFeedable>()
+            .Where(f => f.NeedsFeeding()) // Only hungry animals
+            .ToList();
+        
+        if (feedables.Count == 0) return null;
+        
+        // Score by distance AND helper avoidance, pick weighted random
+        var scored = feedables.Select(f => {
+            MonoBehaviour mono = (MonoBehaviour)f;
+            float dist = Vector3.Distance(transform.position, mono.transform.position);
+            float helperPenalty = GetMinDistanceToOtherHelpers(mono.transform.position) * 0.5f;
+            float score = dist + helperPenalty + Random.Range(-2f, 2f); // Add randomness
+            return (item: f, score: score);
+        }).OrderBy(x => x.score).ToList();
+        
+        return scored.First().item;
     }
 
-    private T FindClosestInteractable<T>() where T : MonoBehaviour, IInteractable
+    private T FindRandomCollectible<T>() where T : MonoBehaviour, IInteractable
     {
-        return FindObjectsOfType<T>()
+        var collectibles = FindObjectsOfType<T>()
             .Where(i => i.CanInteract())
-            .OrderBy(i => Vector3.Distance(transform.position, i.transform.position))
-            .FirstOrDefault();
+            .ToList();
+        
+        if (collectibles.Count == 0) return null;
+        
+        // Score by distance AND helper avoidance, pick weighted random
+        var scored = collectibles.Select(i => {
+            float dist = Vector3.Distance(transform.position, i.transform.position);
+            float helperPenalty = GetMinDistanceToOtherHelpers(i.transform.position) * 0.5f;
+            float score = dist + helperPenalty + Random.Range(-1f, 1f);
+            return (item: i, score: score);
+        }).OrderBy(x => x.score).ToList();
+        
+        return scored.First().item;
+    }
+
+    private float GetMinDistanceToOtherHelpers(Vector3 position)
+    {
+        float minDist = float.MaxValue;
+        var otherHelpers = FindObjectsOfType<HelperAI>().Where(h => h != this);
+        foreach (var helper in otherHelpers)
+        {
+            float dist = Vector3.Distance(position, helper.transform.position);
+            if (dist < minDist) minDist = dist;
+        }
+        return minDist;
     }
 
     private IEnumerator MoveTo(Vector3 position)
     {
         isMoving = true;
-        currentState = HelperState.Moving;
         Vector3 startPos = transform.position;
         position.z = startPos.z;
 

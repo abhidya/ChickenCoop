@@ -262,9 +262,6 @@ namespace ChickenCoop.Managers
 
         // Play collection sound
         AudioManager.Instance?.PlaySound("collect");
-        
-        // Signal tutorial
-        TutorialManager.Instance?.OnTaskCompleted("HarvestCorn");
     }
 
     /// <summary>
@@ -405,20 +402,32 @@ namespace ChickenCoop.Managers
             
             controller.Initialize(template);
             
-            // Positioning Logic: Shifted strictly to the right (+X) to prevent overlaps
-            float startX = 0f;
-            if (activeZoneControllers.Count > 0)
+            float startX;
+            
+            if (activeZoneControllers.Count == 0)
             {
-                var lastZone = activeZoneControllers[activeZoneControllers.Count - 1];
-                // New placement: Last zone position + half width of last + buffer + half width of new
-                startX = lastZone.transform.position.x + (lastZone.template.GetTotalWidth() * 0.5f) + 8.0f + (template.GetTotalWidth() * 0.5f);
+                startX = -16.0f;
             }
             else
             {
-                // First zone (Corn) at origin or offset
-                startX = -15.0f; 
+                var lastZone = activeZoneControllers[activeZoneControllers.Count - 1];
+                
+                // Calculate grid width based on max slots, not current slots
+                int lastMaxCols = Mathf.Min(lastZone.template.itemsPerRow, lastZone.template.maxSlots);
+                float lastGridWidth = (lastMaxCols - 1) * lastZone.template.spacing.x;
+                float lastZoneRightEdge = lastZone.transform.position.x + (lastGridWidth / 2f);
+                
+                int ourMaxCols = Mathf.Min(template.itemsPerRow, template.maxSlots);
+                float ourGridWidth = (ourMaxCols - 1) * template.spacing.x;
+                
+                // Minimal gap - zones only need space for fences
+                float gapBetweenZones = 1.5f;
+                float halfOurGrid = ourGridWidth / 2f;
+                
+                startX = lastZoneRightEdge + gapBetweenZones + halfOurGrid;
             }
             
+            startX = Mathf.Clamp(startX, -20f, 20f);
             obj.transform.position = new Vector3(startX, -2.5f, 0f);
             activeZoneControllers.Add(controller);
             EnvironmentManager.Instance?.RefreshFences();
@@ -430,85 +439,20 @@ namespace ChickenCoop.Managers
 
     private FarmZoneTemplate CreateProperTemplate(string zoneID)
     {
-        Debug.LogWarning($"[GameManager] Template for {zoneID} not found. Initializing proper runtime template.");
-        FarmZoneTemplate template = ScriptableObject.CreateInstance<FarmZoneTemplate>();
-        template.id = zoneID;
-        // Restrict to 9 items in a 3x3 tight grid
-        template.maxSlots = 9;
-        template.itemsPerRow = 3;
-        template.spacing = new Vector2(2.8f, 2.5f); // Increased for Happy Harvest visuals
-        template.zonePadding = 4.0f;
-        
-        // Decorations: Add Rock and Bush prefabs to the corners
-        template.decorationPrefabs = new List<GameObject>();
-        GameObject rock = Resources.Load<GameObject>("Env_Rock_01");
-        GameObject bush = Resources.Load<GameObject>("Env_Bush_01");
-        if (rock != null) template.decorationPrefabs.Add(rock);
-        if (bush != null) template.decorationPrefabs.Add(bush);
-
-        template.baseUnlockCost = 100;
-        template.costPerAdditionalSlot = 50;
-
-        // Initialize Items
-        FarmItemDefinition corn = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        corn.id = "Corn";
-        corn.displayName = "Corn";
-        corn.basePrice = 5;
-
-        FarmItemDefinition egg = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        egg.id = "Egg";
-        egg.displayName = "Egg";
-        egg.basePrice = 10;
-
-        FarmItemDefinition wheat = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        wheat.id = "Wheat";
-        wheat.displayName = "Wheat";
-        wheat.basePrice = 15;
-
-        FarmItemDefinition milk = ScriptableObject.CreateInstance<FarmItemDefinition>();
-        milk.id = "Milk";
-        milk.displayName = "Milk";
-        milk.basePrice = 40;
-
-        if (zoneID == "Chicken")
-        {
-            template.displayName = "Chicken Pen";
-            template.zoneType = ZoneType.Animal;
-            template.slotObjectResourcePath = "HappyHarvestChicken";
-            template.inputItem = corn;
-            template.outputItem = egg;
-            template.baseProductionTime = 5.0f;
-        }
-        else if (zoneID == "Corn")
-        {
-            template.displayName = "Corn Field";
-            template.zoneType = ZoneType.Crop;
-            template.slotObjectResourcePath = "HappyHarvestCorn";
-            template.outputItem = corn;
-            template.baseProductionTime = 2.0f;
-        }
-        else if (zoneID == "Wheat")
-        {
-            template.displayName = "Wheat Field";
-            template.zoneType = ZoneType.Crop;
-            template.slotObjectResourcePath = "HappyHarvestWheat";
-            template.outputItem = wheat;
-            template.baseProductionTime = 4.0f;
-        }
-        else if (zoneID == "Cow")
-        {
-            template.displayName = "Cow Pen";
-            template.zoneType = ZoneType.Animal;
-            template.slotObjectResourcePath = "HappyHarvestCow";
-            template.inputItem = wheat;
-            template.outputItem = milk;
-            template.baseProductionTime = 12.0f;
-        }
-
-        return template;
+        Debug.LogWarning($"[GameManager] Template for {zoneID} not found. Using factory method.");
+        return FarmZoneTemplate.CreateDefault(zoneID);
     }
+
+    public void AddObjectToZone(string zoneID)
+    {
+        Debug.Log($"[GameManager] AddObjectToZone called with zoneID={zoneID}");
         FarmZoneController zone = GetOrCreateZone(zoneID);
-        if (zone == null) return;
+        if (zone == null) {
+            Debug.LogError($"[GameManager] GetOrCreateZone returned null for {zoneID}");
+            return;
+        }
+        
+        Debug.Log($"[GameManager] Zone {zoneID}: CurrentCount={zone.CurrentCount}, maxSlots={zone.template.maxSlots}");
         
         if (zone.CurrentCount >= zone.template.maxSlots)
         {
@@ -517,6 +461,8 @@ namespace ChickenCoop.Managers
         }
 
         bool canAfford = false;
+        
+        Debug.Log($"[GameManager] Checking affordability. Corn={Corn}, Eggs={Eggs}");
         
         // 1-to-1 Resource Barter for basic expansion
         // Market purchase logic would be handled by a separate Shop method, but here we enforce resource growth for Plant/Incubate
@@ -575,32 +521,28 @@ namespace ChickenCoop.Managers
         if (canAfford)
         {
             Vector3 pos = zone.GetNextSlotPosition();
-            GameObject instance = null;
-
-            if (zoneID == "Chicken")
-                instance = SpawnChickenAt(pos, $"Chicken_{zone.CurrentCount}");
-            else if (zoneID == "Corn")
-                instance = SpawnCornFieldAt(pos, $"CornField_{zone.CurrentCount}");
-            else if (zoneID == "Wheat")
-                instance = SpawnCornFieldAt(pos, $"WheatField_{zone.CurrentCount}"); // Wheat Field Logic
-            else if (zoneID == "Cow")
-                instance = SpawnChickenAt(pos, $"Cow_{zone.CurrentCount}"); // Cow asset path handled in template
-            else
-            {
-                string resourcePath = zone.template.slotObjectResourcePath;
-                GameObject prefab = Resources.Load<GameObject>(resourcePath);
-                if (prefab != null) instance = Instantiate(prefab, pos, Quaternion.identity);
-                if (instance != null && zone.template.zoneType == ZoneType.Crop) AttachSoilVisual(instance.transform);
-            }
+            GameObject instance = SpawnFromTemplate(zone, pos, $"{zoneID}_{zone.CurrentCount}");
 
             if (instance != null)
             {
                 zone.AddSlot(instance.transform);
+                Debug.Log($"[GameManager] Added instance to zone. Triggering OnZoneExpanded({zoneID}, {zone.CurrentCount})");
                 OnZoneExpanded?.Invoke(zoneID, zone.CurrentCount);
+                
+                // Spawn decorations for this zone
+                SpawnZoneDecorations(zone, instance.transform);
                 
                 EnvironmentManager.Instance?.RefreshFences();
                 UpdateExpansionButtons();
             }
+            else
+            {
+                Debug.LogError($"[GameManager] Failed to spawn instance for zone {zoneID}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[GameManager] Cannot afford to add {zoneID}. Corn={Corn}, Eggs={Eggs}");
         }
     }
 
@@ -1132,11 +1074,9 @@ namespace ChickenCoop.Managers
 
     private void AttachSoilVisual(Transform target)
     {
-        // Load the Soil sprite from the Happy Harvest path
         Sprite soilSprite = Resources.Load<Sprite>("HappyHarvestSoil");
         if (soilSprite == null) 
         {
-            // Fallback to specific user requested name (ensure it's in a Resources folder)
             soilSprite = Resources.Load<Sprite>("Sprite_Tiles_Soil");
         }
 
@@ -1144,18 +1084,170 @@ namespace ChickenCoop.Managers
         {
             GameObject soilObj = new GameObject("SoilVisual");
             soilObj.transform.SetParent(target, false);
-            soilObj.transform.localPosition = new Vector3(0, -0.2f, 0.01f);
+            soilObj.transform.localPosition = new Vector3(0, -0.25f, 0.01f);
             
             SpriteRenderer sr = soilObj.AddComponent<SpriteRenderer>();
             sr.sprite = soilSprite;
-            sr.sortingOrder = 2; // Increased sorting order to ensure visibility on farm backdrop
+            sr.sortingOrder = 2;
             
-            // Adjust scale to fit the slot nicely
-            soilObj.transform.localScale = Vector3.one * 1.5f; 
+            soilObj.transform.localScale = Vector3.one * 0.8f; 
         }
         else
         {
             Debug.LogWarning("[GameManager] Could not find 'Sprite_Tiles_Soil' or 'HappyHarvestSoil' sprite in Resources.");
+        }
+    }
+
+    private GameObject SpawnFromTemplate(FarmZoneController zone, Vector3 pos, string name)
+    {
+        if (zone.template == null || string.IsNullOrEmpty(zone.template.slotObjectResourcePath))
+        {
+            Debug.LogError($"[GameManager] Template missing resource path for zone");
+            return null;
+        }
+
+        GameObject prefab = Resources.Load<GameObject>(zone.template.slotObjectResourcePath);
+        if (prefab == null)
+        {
+            Debug.LogError($"[GameManager] Could not load prefab: {zone.template.slotObjectResourcePath}");
+            return null;
+        }
+
+        GameObject instance = Instantiate(prefab, pos, Quaternion.identity);
+        instance.name = name;
+
+        // Attach appropriate component based on zone type and ID
+        if (zone.template.zoneType == ZoneType.Crop)
+        {
+            if (instance.GetComponent<HarvestableField>() == null)
+                instance.AddComponent<HarvestableField>();
+            AttachSoilVisual(instance.transform);
+            instance.tag = zone.template.id == "Corn" ? "CornField" : zone.template.id;
+            
+            // Set layer safely
+            int envLayer = LayerMask.NameToLayer("Environment");
+            if (envLayer >= 0) instance.layer = envLayer;
+            
+            BoxCollider2D col = instance.GetComponent<BoxCollider2D>();
+            if (col == null)
+            {
+                col = instance.AddComponent<BoxCollider2D>();
+                col.isTrigger = true;
+                col.size = new Vector2(1f, 1f);
+            }
+        }
+        else if (zone.template.zoneType == ZoneType.Animal)
+        {
+            // Chickens use Chicken component, other animals just get basic interaction
+            if (zone.template.id == "Chicken")
+            {
+                if (instance.GetComponent<Chicken>() == null)
+                    instance.AddComponent<Chicken>();
+            }
+            else
+            {
+                // For Cow and other animals, use basic AnimalProduct component
+                AnimalProduct animal = instance.GetComponent<AnimalProduct>();
+                if (animal == null)
+                {
+                    animal = instance.AddComponent<AnimalProduct>();
+                    animal.Initialize(zone.template.outputItem.id, zone.template.baseProductionTime);
+                }
+                
+                // Add roaming bounds if BasicAnimalMovement exists
+                BasicAnimalMovement movement = instance.GetComponent<BasicAnimalMovement>();
+                if (movement != null && movement.Area == null)
+                {
+                    // Create a simple box collider for roaming bounds
+                    BoxCollider2D roamArea = instance.AddComponent<BoxCollider2D>();
+                    roamArea.isTrigger = true;
+                    roamArea.size = new Vector2(template.spacing.x * 2, template.spacing.y * 2);
+                    movement.Area = roamArea;
+                }
+            }
+            
+            instance.tag = zone.template.id;
+            
+            CircleCollider2D col = instance.GetComponent<CircleCollider2D>();
+            if (col == null)
+            {
+                col = instance.AddComponent<CircleCollider2D>();
+                col.isTrigger = true;
+                col.radius = 0.5f;
+            }
+            
+            SpriteRenderer renderer = instance.GetComponent<SpriteRenderer>();
+            if (renderer != null) renderer.enabled = false;
+        }
+
+        return instance;
+    }
+    
+    private GameObject SpawnCornFieldAt(Vector3 pos, string name = "CornField")
+    {
+        GameObject corn = new GameObject(name);
+        corn.tag = "CornField";
+        
+        // Set layer safely
+        int envLayer = LayerMask.NameToLayer("Environment");
+        if (envLayer >= 0) corn.layer = envLayer;
+        
+        corn.transform.position = pos;
+
+        corn.AddComponent<HarvestableField>();
+        
+        BoxCollider2D collider = corn.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        collider.size = new Vector2(1f, 1f);
+
+        SpriteRenderer renderer = corn.AddComponent<SpriteRenderer>();
+        renderer.enabled = false;
+
+        // NEW: Check for dynamic resource path
+        string resourcePath = RuntimeCornVisualResourcePath;
+        FarmZoneTemplate template = config != null ? config.zoneTemplates.Find(z => z.id == "Corn") : null;
+        if (template != null && !string.IsNullOrEmpty(template.slotObjectResourcePath)) 
+            resourcePath = template.slotObjectResourcePath;
+
+        GameObject visualPrefab = Resources.Load<GameObject>(resourcePath);
+        if (visualPrefab != null)
+        {
+            StoryVisualBinder.AttachVisualPrefabAsChild(corn.transform, visualPrefab, renderer, "Visual", true);
+        }
+
+        // Add soil visual under the corn
+        AttachSoilVisual(corn.transform);
+
+        return corn;
+    }
+
+    private void SpawnZoneDecorations(FarmZoneController zone, Transform anchor)
+    {
+        if (zone.template == null || zone.template.decorationPrefabs == null || zone.template.decorationPrefabs.Count == 0)
+            return;
+
+        // Spawn decorations only for the FIRST item in zone (once per zone, not per slot)
+        if (zone.CurrentCount > 1)
+            return;
+
+        foreach (var decoPrefab in zone.template.decorationPrefabs)
+        {
+            if (decoPrefab == null) continue;
+
+            Vector3 offset = new Vector3(
+                UnityEngine.Random.Range(-1f, 1f),
+                UnityEngine.Random.Range(-0.5f, 0.5f),
+                0.1f
+            );
+
+            GameObject deco = Instantiate(decoPrefab, anchor.position + offset, Quaternion.identity);
+            deco.transform.localScale *= 0.5f;
+            
+            // Set appropriate sorting order
+            foreach (var sr in deco.GetComponentsInChildren<SpriteRenderer>())
+            {
+                sr.sortingOrder = -5;
+            }
         }
     }
 
@@ -1172,14 +1264,18 @@ namespace ChickenCoop.Managers
     public void RegisterWheatPurchase()
     {
         hasPurchasedWheat = true;
-        OnZoneExpanded?.Invoke("Wheat", 0); // Trigger UI refresh
+        AddObjectToZone("Wheat");
+        OnZoneExpanded?.Invoke("Wheat", 0);
+        UIManager.Instance?.UnlockResourceSlot("Wheat");
         SaveGame();
     }
 
     public void RegisterCowPurchase()
     {
         hasPurchasedCow = true;
-        OnZoneExpanded?.Invoke("Cow", 0); // Trigger UI refresh
+        AddObjectToZone("Cow");
+        OnZoneExpanded?.Invoke("Cow", 0);
+        UIManager.Instance?.UnlockResourceSlot("Milk");
         SaveGame();
     }
     
