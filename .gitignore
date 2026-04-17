@@ -78,3 +78,5 @@ crashlytics-build.properties
 !.codex/prompts/
 !.codex/prompts/**
 .codex/*
+node_modules/.bin/tsc
+node_modules/*
