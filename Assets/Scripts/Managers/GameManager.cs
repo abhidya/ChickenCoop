@@ -49,8 +49,14 @@ namespace ChickenCoop.Managers
     [SerializeField] private GameObject helperPrefab;
     [SerializeField] private GameObject coinParticlePrefab;
     [SerializeField] private GameObject sparkleParticlePrefab;
+    [SerializeField] private GameObject zoneControllerPrefab;
 
-    // Current resource counts
+    // Data-Driven Zone Management
+    private List<FarmZoneController> activeZoneControllers = new List<FarmZoneController>();
+    public List<FarmZoneController> ActiveZoneControllers => activeZoneControllers;
+    private Dictionary<string, int> inventory = new Dictionary<string, int>();
+
+    // Current resource counts (Maintained for UI backward compatibility)
     private int corn;
     private int eggs;
     private int coins;
@@ -199,6 +205,10 @@ namespace ChickenCoop.Managers
         helperCount = 0;
         currentAct = 1;
 
+        // Initialize generic inventory
+        inventory["Corn"] = corn;
+        inventory["Egg"] = eggs;
+
         // Trigger initial UI updates
         OnCornChanged?.Invoke(corn);
         OnEggsChanged?.Invoke(eggs);
@@ -218,6 +228,10 @@ namespace ChickenCoop.Managers
     {
         int actualAmount = Mathf.CeilToInt(amount * cornMultiplier);
         corn += actualAmount;
+        
+        // Sync with generic inventory
+        inventory["Corn"] = corn;
+        
         OnCornChanged?.Invoke(corn);
 
         // Trigger floating text feedback
@@ -240,26 +254,16 @@ namespace ChickenCoop.Managers
     }
 
     /// <summary>
-    /// Use corn from inventory (returns false if not enough)
-    /// </summary>
-    public bool UseCorn(int amount)
-    {
-        if (corn >= amount)
-        {
-            corn -= amount;
-            OnCornChanged?.Invoke(corn);
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
     /// Add eggs to inventory
     /// </summary>
     public void AddEgg(int amount, Vector3? worldPosition = null)
     {
         int actualAmount = Mathf.CeilToInt(amount * eggMultiplier);
         eggs += actualAmount;
+        
+        // Sync with generic inventory
+        inventory["Egg"] = eggs;
+        
         OnEggsChanged?.Invoke(eggs);
 
         // Trigger floating text feedback
@@ -280,63 +284,106 @@ namespace ChickenCoop.Managers
         AddEgg(amount, null);
     }
 
-    public bool UseEggs(int amount)
+    // Use generic item from inventory
+    public bool UseItem(string itemId, int amount)
     {
-        if (eggs >= amount)
+        int currentCount = GetItemCount(itemId);
+        if (currentCount >= amount)
         {
-            eggs -= amount;
-            OnEggsChanged?.Invoke(eggs);
+            inventory[itemId] = currentCount - amount;
+            
+            // Sync legacy counts for now
+            if (itemId == "Corn") corn = inventory[itemId];
+            if (itemId == "Egg") eggs = inventory[itemId];
+            
+            NotifyResourcesChanged(itemId);
             return true;
         }
         return false;
     }
 
-    public void AddChicken()
+    public int GetItemCount(string itemId)
     {
-        if (chickenPositions.Count < 6 && eggs >= 1)
-        {
-            if (UseEggs(1))
-            {
-                // Align Chickens on the RIGHT side of the farm
-                Vector3 origin = (chickenPositions.Count > 0) ? chickenPositions[0].position : new Vector3(8.0f, -1.0f, 0f);
-                Vector3 nextGridPos = GetNextGridPosition(chickenPositions.Count, origin, 1.8f, 1.4f, true);
-                
-                GameObject newPosObj = new GameObject("ChickenPos_" + chickenPositions.Count);
-                newPosObj.transform.position = nextGridPos;
-                chickenPositions.Add(newPosObj.transform);
-                
-                SpawnChickenAt(newPosObj.transform.position, "Chicken_" + (chickenPositions.Count - 1));
-                
-                if (chickenPositions.Count == 2) currentAct = 2;
-                if (chickenPositions.Count >= 3) currentAct = 3;
+        if (inventory.ContainsKey(itemId)) return inventory[itemId];
+        return 0;
+    }
 
-                // Sync environment visuals
+    private void NotifyResourcesChanged(string itemId)
+    {
+        if (itemId == "Corn") OnCornChanged?.Invoke(corn);
+        if (itemId == "Egg") OnEggsChanged?.Invoke(eggs);
+        if (itemId == "Coins") OnCoinsChanged?.Invoke(coins);
+    }
+
+    public bool UseCorn(int amount) => UseItem("Corn", amount);
+    public bool UseEggs(int amount) => UseItem("Egg", amount);
+    public bool UseCoins(int amount)
+    {
+        if (coins >= amount)
+        {
+            coins -= amount;
+            OnCoinsChanged?.Invoke(coins);
+            return true;
+        }
+        return false;
+    }
+
+    public FarmZoneController GetOrCreateZone(string zoneID)
+    {
+        FarmZoneController controller = activeZoneControllers.Find(c => c.template.id == zoneID);
+        if (controller == null)
+        {
+            FarmZoneTemplate template = config.zoneTemplates.Find(t => t.id == zoneID);
+            if (template == null) return null;
+
+            GameObject obj = (zoneControllerPrefab != null) ? Instantiate(zoneControllerPrefab) : new GameObject("Zone_" + zoneID);
+            controller = obj.GetComponent<FarmZoneController>();
+            if (controller == null) controller = obj.AddComponent<FarmZoneController>();
+            
+            controller.Initialize(template);
+            
+            // Positioning Logic: Shifted strictly to the right (+X) to prevent overlaps
+            float startX = -5f; // Start farm from -5.0
+            if (activeZoneControllers.Count > 0)
+            {
+                var lastZone = activeZoneControllers[activeZoneControllers.Count - 1];
+                startX = lastZone.transform.position.x + lastZone.template.GetTotalWidth() + config.zoneSpacingBuffer;
+            }
+            
+            obj.transform.position = new Vector3(startX, -1f, 0f);
+            activeZoneControllers.Add(controller);
+            EnvironmentManager.Instance?.RefreshFences();
+        }
+        return controller;
+    }
+
+    public void AddObjectToZone(string zoneID)
+    {
+        FarmZoneController zone = GetOrCreateZone(zoneID);
+        if (zone == null || zone.CurrentCount >= zone.template.maxSlots) return;
+
+        // Cost Check (Generic)
+        int cost = (zone.CurrentCount == 0) ? zone.template.baseUnlockCost : zone.template.costPerAdditionalSlot;
+        if (coins >= cost)
+        {
+            if (UseCoins(cost))
+            {
+                Vector3 pos = zone.GetNextSlotPosition();
+                GameObject instance = Instantiate(zone.template.mainPrefab, pos, Quaternion.identity);
+                zone.AddSlot(instance.transform);
+                
+                // Track Act progression (for legacy support)
+                if (zoneID == "Chicken" && zone.CurrentCount == 2) currentAct = 2;
+                if (zoneID == "Chicken" && zone.CurrentCount >= 3) currentAct = 3;
+
                 EnvironmentManager.Instance?.RefreshFences();
             }
         }
     }
 
-    public void AddCornField()
-    {
-        if (cornFieldPositions.Count < 6 && corn >= 1)
-        {
-            if (UseCorn(1))
-            {
-                // Align Corn on the LEFT side of the farm
-                Vector3 origin = (cornFieldPositions.Count > 0) ? cornFieldPositions[0].position : new Vector3(-8.0f, -1.0f, 0f);
-                Vector3 nextGridPos = GetNextGridPosition(cornFieldPositions.Count, origin, 1.8f, 1.4f, false);
-                
-                GameObject newPosObj = new GameObject("CornPos_" + cornFieldPositions.Count);
-                newPosObj.transform.position = nextGridPos;
-                cornFieldPositions.Add(newPosObj.transform);
-                
-                SpawnCornFieldAt(newPosObj.transform.position, "CornField_" + (cornFieldPositions.Count - 1));
-
-                // Sync environment visuals
-                EnvironmentManager.Instance?.RefreshFences();
-            }
-        }
-    }
+    // Legacy Support for UI buttons
+    public void AddChicken() => AddObjectToZone("Chicken");
+    public void AddCornField() => AddObjectToZone("Corn");
 
     private Vector3 GetNextGridPosition(int index, Vector3 origin, float spacingX, float spacingY, bool growRight)
     {

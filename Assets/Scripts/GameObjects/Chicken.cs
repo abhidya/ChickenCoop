@@ -1,13 +1,14 @@
 using UnityEngine;
 using System.Collections;
 using ChickenCoop.Managers;
+using ChickenCoop.Interfaces;
 
 /// <summary>
 /// Chicken - Represents a chicken that can be fed corn and produces eggs.
 /// Includes cute animations: blinking, wiggling, eating, and egg laying.
-/// Implements IInteractable for player interaction.
+/// Implements IInteractable, IFeedable, and IZoneMember interfaces.
 /// </summary>
-public class Chicken : MonoBehaviour, IInteractable
+public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
 {
     private const string RuntimeChickenVisualResourcePath = "HappyHarvestChicken";
     private static Sprite runtimeEggSprite;
@@ -720,6 +721,7 @@ public class Chicken : MonoBehaviour, IInteractable
         }
         transform.localRotation = originalRotation;
     }
+
     /// <summary>
     /// Spawn cute heart particles when fed
     /// </summary>
@@ -749,5 +751,29 @@ public class Chicken : MonoBehaviour, IInteractable
 
         ps.Play();
         Destroy(hearts, 1.5f);
+    }
+
+    // --- IFeedable Implementation ---
+    public bool NeedsFeeding() => !isLayingEgg;
+    
+    public void Feed(string itemID)
+    {
+        // For POC, we assume any food is fine, but we'll eventually check itemID
+        TryFeed(true);
+    }
+
+    public bool CanAcceptFood(string itemID)
+    {
+        // Eventually check if itemID matches template's required food
+        return !isLayingEgg;
+    }
+
+    // GetProductionProgress() and other methods are already satisfied by existing public methods
+
+    // --- IZoneMember Implementation ---
+    public void Initialize(string zoneID, int slotIndex)
+    {
+        // Store for future specialized logic
+        gameObject.name = $"{zoneID}_{slotIndex}";
     }
 }

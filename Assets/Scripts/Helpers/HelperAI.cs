@@ -1,27 +1,19 @@
 using UnityEngine;
 using ChickenCoop.Managers;
+using ChickenCoop.Interfaces;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
-/// HelperAI - Automated helper character that performs the game loop:
-/// Harvest corn -> Feed chicken -> Collect egg -> Sell at store
-/// Uses simple state machine and tweened movement between task points.
+/// HelperAI - Automated helper character that performs a generic game loop:
+/// - Find closest ready IHarvestable -> Harvest
+/// - Find closest hungry IFeedable -> Feed (if inventory permits)
+/// - Collect ground items -> Sell at Market
 /// </summary>
 public class HelperAI : MonoBehaviour
 {
-    // Helper states for the automation loop
-    public enum HelperState
-    {
-        Idle,
-        MovingToCorn,
-        HarvestingCorn,
-        MovingToChicken,
-        FeedingChicken,
-        CollectingEgg,
-        MovingToStore,
-        SellingEgg,
-        Waiting
-    }
+    public enum HelperState { Idle, Moving, Harvesting, Feeding, Selling, Waiting }
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 3f;
@@ -35,19 +27,12 @@ public class HelperAI : MonoBehaviour
     [Header("References")]
     [SerializeField] private SpriteRenderer spriteRenderer;
 
-    // State machine
-    #pragma warning disable CS0414 // Field is assigned but never read - used for debugging state transitions
     private HelperState currentState = HelperState.Idle;
-    #pragma warning restore CS0414
-    private Vector3 targetPosition;
     private bool isMoving = false;
-
-    // Animation
     private float bobTimer = 0f;
     private Vector3 originalScale;
     private Transform happyHarvestVisualRoot;
 
-    // Helper ID for visual distinction
     private int helperId;
     private static int helperCounter = 0;
 
@@ -63,14 +48,9 @@ public class HelperAI : MonoBehaviour
             waitTime = config.helperWaitTime;
         }
 
-        if (spriteRenderer == null)
-        {
-            spriteRenderer = GetComponent<SpriteRenderer>();
-        }
-
+        spriteRenderer = spriteRenderer ?? GetComponent<SpriteRenderer>();
         happyHarvestVisualRoot = StoryVisualBinder.FindAttachedVisualRoot(transform);
 
-        // Give each helper a slightly different color tint
         if (spriteRenderer != null)
         {
             float hueOffset = (helperId * 0.15f) % 1f;
@@ -78,7 +58,6 @@ public class HelperAI : MonoBehaviour
             spriteRenderer.color = Color.HSVToRGB((h + hueOffset) % 1f, s, v);
         }
 
-        // Start the helper loop after a small delay
         StartCoroutine(StartHelperLoop());
     }
 
@@ -87,295 +66,133 @@ public class HelperAI : MonoBehaviour
         UpdateAnimation();
     }
 
-    /// <summary>
-    /// Main helper automation loop
-    /// </summary>
     private IEnumerator StartHelperLoop()
     {
-        // Initial random delay to stagger helpers
         yield return new WaitForSeconds(Random.Range(0.5f, 2f));
 
         while (true)
         {
             yield return StartCoroutine(PerformNextTask());
-            
-            float wait = waitTime / Mathf.Max(GameManager.Instance.SpeedMultiplier * GameManager.Instance.StoreEfficiencyMultiplier, 0.01f);
+            float wait = waitTime / Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f);
             yield return new WaitForSeconds(wait);
         }
     }
 
     private IEnumerator PerformNextTask()
     {
-        // Priority 1: Collect eggs on ground
-        CollectibleEgg closestEgg = FindClosestEgg();
-        if (closestEgg != null)
+        // 1. Collect Ground Items (Highest Priority)
+        var collectible = FindClosestInteractable<CollectibleEgg>(); // Still specialized for now
+        if (collectible != null)
         {
-            SpawnTaskBubble("EGG");
-            yield return StartCoroutine(CollectEgg());
+            yield return StartCoroutine(MoveAndAction(collectible.transform.position, "ITEM", () => collectible.Interact()));
             yield break;
         }
 
-        // Priority 2: Feed hungry chickens
-        Chicken hungryChicken = FindHungryChicken();
-        if (hungryChicken != null && GameManager.Instance.Corn > 0)
+        // 2. Harvest Ready Crops
+        var harvestable = FindClosestHarvestable();
+        if (harvestable != null)
         {
-            SpawnTaskBubble("FEED");
-            yield return StartCoroutine(GoToAndFeedChicken(hungryChicken));
+            yield return StartCoroutine(MoveAndAction(harvestable.transform.position, "WORK", () => harvestable.Harvest()));
             yield break;
         }
 
-        // Priority 3: Harvest ready corn
-        HarvestableField readyField = FindReadyField();
-        if (readyField != null) // Removed 10 corn hoarding cap
+        // 3. Feed Hungry Animals
+        var feedable = FindClosestFeedable();
+        if (feedable != null)
         {
-            SpawnTaskBubble("WORK");
-            yield return StartCoroutine(GoToAndHarvestCorn(readyField));
+            yield return StartCoroutine(MoveAndAction(feedable.transform.position, "FEED", () => feedable.Feed("Generic")));
             yield break;
         }
 
-        // Priority 4: Sell eggs in inventory
-        if (GameManager.Instance.Eggs > 0)
+        // 4. Sell Inventory
+        if (GameManager.Instance.Eggs > 0 || GameManager.Instance.Corn > 10) // Legacy counts for now
         {
-            SpawnTaskBubble("GOLD");
-            yield return StartCoroutine(GoToAndSellEgg());
-            yield break;
-        }
-
-        // Priority 5: Help harvest more corn even if we have some
-        if (readyField != null)
-        {
-            SpawnTaskBubble("WORK");
-            yield return StartCoroutine(GoToAndHarvestCorn(readyField));
-            yield break;
+            if (GameManager.Instance.StorePosition != null)
+            {
+                yield return StartCoroutine(MoveAndAction(GameManager.Instance.StorePosition.position, "GOLD", () => {
+                    StoreCounter store = FindObjectOfType<StoreCounter>();
+                    if (store != null) store.SellEgg();
+                    else GameManager.Instance.SellEgg(transform.position);
+                }));
+                yield break;
+            }
         }
 
         currentState = HelperState.Idle;
         yield return new WaitForSeconds(1.0f);
     }
 
-    /// <summary>
-    /// Move to corn field and harvest corn
-    /// </summary>
-    private IEnumerator GoToAndHarvestCorn(HarvestableField field = null)
+    private IEnumerator MoveAndAction(Vector3 pos, string bubbleText, System.Action action)
     {
-        currentState = HelperState.MovingToCorn;
-        if (field == null) field = FindReadyField();
-        
-        if (field != null)
-        {
-            yield return StartCoroutine(MoveTo(field.transform.position));
-            currentState = HelperState.HarvestingCorn;
-
-            if (field.IsReadyToHarvest())
-            {
-                PlaySquashStretch();
-                SpawnDustPuff();
-                yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-                field.Harvest();
-                yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
-            }
-        }
-    }
-
-    private IEnumerator GoToAndFeedChicken(Chicken chicken = null)
-    {
-        currentState = HelperState.MovingToChicken;
-        if (chicken == null) chicken = FindHungryChicken();
-
-        if (chicken != null)
-        {
-            yield return StartCoroutine(MoveTo(chicken.transform.position));
-            currentState = HelperState.FeedingChicken;
-
-            if (chicken.FeedWithCorn())
-            {
-                chicken.PlayFeedingEffect();
-                PlaySquashStretch();
-                yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-            }
-        }
-    }
-
-    private HarvestableField FindReadyField()
-    {
-        HarvestableField[] fields = FindObjectsOfType<HarvestableField>();
-        foreach (var f in fields) if (f.IsReadyToHarvest()) return f;
-        return null;
-    }
-
-    private Chicken FindHungryChicken()
-    {
-        Chicken[] chickens = FindObjectsOfType<Chicken>();
-        foreach (var c in chickens) if (c.CanInteract()) return c;
-        return null;
-    }
-
-    /// <summary>
-    /// Collect egg from chicken
-    /// </summary>
-    private IEnumerator CollectEgg()
-    {
-        currentState = HelperState.CollectingEgg;
-        float timeout = 3f / Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f);
-        CollectibleEgg egg = null;
-
-        while (timeout > 0f)
-        {
-            egg = FindClosestEgg();
-            if (egg != null)
-            {
-                break;
-            }
-
-            timeout -= Time.deltaTime;
-            yield return null;
-        }
-
-        if (egg != null)
-        {
-            yield return StartCoroutine(MoveTo(egg.transform.position));
-
-            if (egg == null || !egg.CanInteract())
-            {
-                yield return new WaitForSeconds(0.1f / GameManager.Instance.SpeedMultiplier);
-                yield break;
-            }
-
-            PlaySquashStretch();
-            yield return new WaitForSeconds(0.25f / GameManager.Instance.SpeedMultiplier);
-            egg.Interact();
-            SpawnSparkle();
-        }
-
-        yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
-    }
-
-    /// <summary>
-    /// Move to store and sell egg
-    /// </summary>
-    private IEnumerator GoToAndSellEgg()
-    {
-        currentState = HelperState.MovingToStore;
-
-        if (GameManager.Instance.StorePosition != null)
-        {
-            yield return StartCoroutine(MoveTo(GameManager.Instance.StorePosition.position));
-        }
-
-        currentState = HelperState.SellingEgg;
-
+        SpawnTaskBubble(bubbleText);
+        yield return StartCoroutine(MoveTo(pos));
         PlaySquashStretch();
-        yield return new WaitForSeconds(0.3f / GameManager.Instance.SpeedMultiplier);
-
-        // Sell egg at store
-        StoreCounter store = FindObjectOfType<StoreCounter>();
-        if (store != null)
-        {
-            store.SellEgg();
-        }
-        else
-        {
-            GameManager.Instance.SellEgg(transform.position + Vector3.up * 0.5f);
-        }
-
-        yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
-
-        currentState = HelperState.Idle;
+        yield return new WaitForSeconds(0.4f / GameManager.Instance.SpeedMultiplier);
+        action?.Invoke();
+        yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
     }
 
-    /// <summary>
-    /// Smooth movement to target position
-    /// </summary>
+    private IHarvestable FindClosestHarvestable()
+    {
+        return FindObjectsOfType<MonoBehaviour>().OfType<IHarvestable>()
+            .Where(h => h.IsReadyToHarvest())
+            .OrderBy(h => Vector3.Distance(transform.position, ((MonoBehaviour)h).transform.position))
+            .FirstOrDefault();
+    }
+
+    private IFeedable FindClosestFeedable()
+    {
+        return FindObjectsOfType<MonoBehaviour>().OfType<IFeedable>()
+            .Where(f => f.CanInteract())
+            .OrderBy(f => Vector3.Distance(transform.position, ((MonoBehaviour)f).transform.position))
+            .FirstOrDefault();
+    }
+
+    private T FindClosestInteractable<T>() where T : MonoBehaviour, IInteractable
+    {
+        return FindObjectsOfType<T>()
+            .Where(i => i.CanInteract())
+            .OrderBy(i => Vector3.Distance(transform.position, i.transform.position))
+            .FirstOrDefault();
+    }
+
     private IEnumerator MoveTo(Vector3 position)
     {
-        targetPosition = position;
-        targetPosition.z = transform.position.z;
         isMoving = true;
+        currentState = HelperState.Moving;
+        Vector3 startPos = transform.position;
+        position.z = startPos.z;
 
-        // Flip sprite based on direction
         if (spriteRenderer != null)
         {
-            bool faceLeft = position.x < transform.position.x;
+            bool faceLeft = position.x < startPos.x;
             spriteRenderer.flipX = faceLeft;
             StoryVisualBinder.SetFacing(happyHarvestVisualRoot, faceLeft);
         }
 
-        SpawnDustPuff();
-
-        Vector3 startPos = transform.position;
-        float distance = Vector3.Distance(startPos, targetPosition);
-        float duration = distance / (moveSpeed * GameManager.Instance.SpeedMultiplier);
+        float distance = Vector3.Distance(startPos, position);
+        float duration = distance / Mathf.Max(moveSpeed * GameManager.Instance.SpeedMultiplier, 0.1f);
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-
-            // Smooth step easing
-            t = t * t * (3f - 2f * t);
-
-            transform.position = Vector3.Lerp(startPos, targetPosition, t);
-
+            transform.position = Vector3.Lerp(startPos, position, elapsed / duration);
             yield return null;
         }
 
-        transform.position = targetPosition;
+        transform.position = position;
         isMoving = false;
     }
 
-    private CollectibleEgg FindClosestEgg()
-    {
-        CollectibleEgg[] eggs = FindObjectsOfType<CollectibleEgg>();
-        CollectibleEgg closestEgg = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (CollectibleEgg egg in eggs)
-        {
-            if (egg == null || !egg.CanInteract())
-            {
-                continue;
-            }
-
-            float distance = Vector3.Distance(transform.position, egg.transform.position);
-            if (distance < closestDistance)
-            {
-                closestDistance = distance;
-                closestEgg = egg;
-            }
-        }
-
-        return closestEgg;
-    }
-
-    /// <summary>
-    /// Update bobbing animation
-    /// </summary>
     private void UpdateAnimation()
     {
         bobTimer += Time.deltaTime * bobSpeed;
-
-        if (isMoving)
-        {
-            // Walking bob - more pronounced
-            float bob = Mathf.Abs(Mathf.Sin(bobTimer * 2f)) * bobAmount;
-            transform.localScale = originalScale + new Vector3(0, bob, 0);
-        }
-        else
-        {
-            // Idle bob - gentle
-            float bob = Mathf.Sin(bobTimer) * bobAmount * 0.3f;
-            transform.localScale = originalScale + new Vector3(0, bob, 0);
-        }
+        float bob = (isMoving ? Mathf.Abs(Mathf.Sin(bobTimer * 2f)) : Mathf.Sin(bobTimer) * 0.3f) * bobAmount;
+        transform.localScale = originalScale + new Vector3(0, bob, 0);
     }
 
-    /// <summary>
-    /// Play squash and stretch animation
-    /// </summary>
-    private void PlaySquashStretch()
-    {
-        StartCoroutine(SquashStretchAnimation());
-    }
+    private void PlaySquashStretch() => StartCoroutine(SquashStretchAnimation());
 
     private IEnumerator SquashStretchAnimation()
     {
@@ -384,129 +201,23 @@ public class HelperAI : MonoBehaviour
         Vector3 stretch = new Vector3(original.x * 0.85f, original.y * 1.15f, original.z);
 
         float t = 0;
-        while (t < 0.08f)
-        {
-            t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(original, squash, t / 0.08f);
-            yield return null;
-        }
-
+        while (t < 0.1f) { t += Time.deltaTime; transform.localScale = Vector3.Lerp(original, squash, t / 0.1f); yield return null; }
         t = 0;
-        while (t < 0.08f)
-        {
-            t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(squash, stretch, t / 0.08f);
-            yield return null;
-        }
-
+        while (t < 0.1f) { t += Time.deltaTime; transform.localScale = Vector3.Lerp(squash, stretch, t / 0.1f); yield return null; }
         t = 0;
-        while (t < 0.08f)
-        {
-            t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(stretch, original, t / 0.08f);
-            yield return null;
-        }
-
+        while (t < 0.1f) { t += Time.deltaTime; transform.localScale = Vector3.Lerp(stretch, original, t / 0.1f); yield return null; }
         transform.localScale = original;
     }
 
-    /// <summary>
-    /// Spawn dust puff effect
-    /// </summary>
-    private void SpawnDustPuff()
-    {
-        GameObject dustPuff = new GameObject("DustPuff");
-        dustPuff.transform.position = transform.position - new Vector3(0, 0.25f, 0);
-
-        ParticleSystem ps = dustPuff.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.startSize = 0.15f;
-        main.startLifetime = 0.4f;
-        main.startColor = new Color(0.85f, 0.75f, 0.65f, 0.4f);
-        main.startSpeed = 0.3f;
-        main.gravityModifier = -0.05f;
-        main.maxParticles = 3;
-        main.duration = 0.1f;
-        main.loop = false;
-
-        var emission = ps.emission;
-        emission.rateOverTime = 0;
-        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 3) });
-
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Circle;
-        shape.radius = 0.15f;
-
-        ps.Play();
-        Destroy(dustPuff, 0.8f);
-    }
-
-    /// <summary>
-    /// Spawn sparkle effect for collection
-    /// </summary>
-    private void SpawnSparkle()
-    {
-        GameObject sparkle = new GameObject("Sparkle");
-        sparkle.transform.position = transform.position;
-
-        ParticleSystem ps = sparkle.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.startSize = 0.1f;
-        main.startLifetime = 0.5f;
-        main.startColor = new Color(1f, 1f, 0.6f, 1f);
-        main.startSpeed = 1f;
-        main.gravityModifier = -0.5f;
-        main.maxParticles = 8;
-        main.duration = 0.1f;
-        main.loop = false;
-
-        var emission = ps.emission;
-        emission.rateOverTime = 0;
-        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 8) });
-
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Circle;
-        shape.radius = 0.3f;
-
-        ps.Play();
-        Destroy(sparkle, 1f);
-    }
-
-    /// <summary>
-    /// Spawns a small floating icon above helper's head to show current task.
-    /// </summary>
     private void SpawnTaskBubble(string icon)
     {
         GameObject bubble = new GameObject("TaskBubble");
         bubble.transform.position = transform.position + Vector3.up * 1.5f;
-
-        // Using a TextMesh for a simple, code-driven world-space icon
-        GameObject textObj = new GameObject("Icon");
-        textObj.transform.SetParent(bubble.transform);
-        textObj.transform.localPosition = Vector2.zero;
-
-        var tm = textObj.AddComponent<TextMesh>();
+        var tm = bubble.AddComponent<TextMesh>();
         tm.text = icon;
-        tm.fontSize = 48; // Emojis need larger font size for Mesh
+        tm.fontSize = 32;
         tm.anchor = TextAnchor.MiddleCenter;
-        tm.alignment = TextAlignment.Center;
         tm.characterSize = 0.1f;
-        tm.color = Color.white;
-
-        StartCoroutine(BubbleFloat(bubble));
-    }
-
-    private IEnumerator BubbleFloat(GameObject bubble)
-    {
-        float t = 0;
-        float duration = 1.0f;
-        Vector3 start = bubble.transform.position;
-        while (bubble != null && t < duration)
-        {
-            t += Time.deltaTime;
-            bubble.transform.position = start + Vector3.up * (t * 0.5f);
-            yield return null;
-        }
-        if (bubble != null) Destroy(bubble);
+        Destroy(bubble, 1.0f);
     }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// GameConfig - ScriptableObject for game-wide configuration settings.
@@ -7,12 +8,17 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "GameConfig", menuName = "ChickenCoop/Game Config")]
 public class GameConfig : ScriptableObject
 {
+    [Header("Data Driven Templates")]
+    public List<FarmZoneTemplate> zoneTemplates;
+    public List<FarmItemDefinition> itemDefinitions;
+    public float zoneSpacingBuffer = 5.0f;
+
     [Header("Starting Resources")]
     public int startingCorn = 0;
     public int startingEggs = 0;
     public int startingCoins = 50;
 
-    [Header("Production Values")]
+    [Header("Production Values (Legacy - Deprecating)")]
     [Tooltip("Corn harvested per click")]
     public int cornPerHarvest = 1;
 

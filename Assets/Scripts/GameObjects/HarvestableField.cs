@@ -1,13 +1,13 @@
 using UnityEngine;
 using System.Collections;
 using ChickenCoop.Managers;
+using ChickenCoop.Interfaces;
 
 /// <summary>
 /// HarvestableField - Represents a corn field that can be harvested for corn.
-/// Implements IInteractable for player interaction.
-/// Includes growth animation and harvest effects.
+/// Implements IInteractable, IHarvestable, and IZoneMember interfaces.
 /// </summary>
-public class HarvestableField : MonoBehaviour, IInteractable
+public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZoneMember
 {
     [Header("Harvest Settings")]
     [SerializeField] private int cornPerHarvest = 1;
@@ -189,9 +189,18 @@ public class HarvestableField : MonoBehaviour, IInteractable
             {
                 canHarvest = true;
                 OnReadyToHarvest();
+                UpdateVisuals(); // Restore dry soil when ready
                 
                 if (progressBarRenderer != null && progressBarRenderer.transform.parent.parent != null)
                     progressBarRenderer.transform.parent.parent.gameObject.SetActive(false);
+            }
+            else
+            {
+                // Keep updating soil color during cooldown so it shows wet soil correctly
+                if (soilRenderer != null && soilRenderer.sprite == null)
+                {
+                    soilRenderer.color = new Color(0.3f, 0.2f, 0.1f); // wet/dark soil
+                }
             }
         }
     }
@@ -272,6 +281,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
 
         canHarvest = false;
         cooldownTimer = harvestCooldown;
+        UpdateVisuals(); // Switch to wet soil immediately on harvest
 
         // Add corn to inventory
         GameManager.Instance.AddCorn(cornPerHarvest, transform.position + Vector3.up * 0.6f);
@@ -549,5 +559,11 @@ public class HarvestableField : MonoBehaviour, IInteractable
         progressBarRenderer.sortingOrder = 51;
 
         root.SetActive(false);
+    }
+
+    // --- IZoneMember Implementation ---
+    public void Initialize(string zoneID, int slotIndex)
+    {
+        gameObject.name = $"{zoneID}_{slotIndex}";
     }
 }
