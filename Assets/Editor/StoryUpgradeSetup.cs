@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// Editor utility to help set up the game according to the Story Upgrade requirements.

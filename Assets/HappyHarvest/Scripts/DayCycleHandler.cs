@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UIElements;
+using ChickenCoop.Managers;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -141,7 +142,10 @@ namespace HappyHarvest
             else
             {
 #endif
-                GameManager.Instance.DayCycleHandler.m_Shadows.Add(shadow);
+                if (GameManager.Instance != null && GameManager.Instance.DayCycleHandler != null)
+                {
+                    GameManager.Instance.DayCycleHandler.m_Shadows.Add(shadow);
+                }
 #if UNITY_EDITOR
             }
 #endif

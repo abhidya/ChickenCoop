@@ -6,6 +6,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using ChickenCoop.Managers;
+using ChickenCoop.Managers;
 
 public static class CodexSceneAudit
 {

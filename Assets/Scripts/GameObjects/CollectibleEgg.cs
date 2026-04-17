@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// CollectibleEgg - Egg that can be clicked to collect into inventory

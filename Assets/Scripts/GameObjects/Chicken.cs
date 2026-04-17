@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// Chicken - Represents a chicken that can be fed corn and produces eggs.
@@ -24,17 +25,22 @@ public class Chicken : MonoBehaviour, IInteractable
     [Header("Visual References")]
     [SerializeField] private SpriteRenderer bodySprite;
     [SerializeField] private SpriteRenderer eyeSprite;
+    [SerializeField] private SpriteRenderer progressBarRenderer;
     [SerializeField] private Transform eggSpawnPoint;
     [SerializeField] private GameObject eggPrefab;
     [SerializeField] private GameObject storyVisualPrefab;
+    [SerializeField] private float wanderInterval = 5f;
+    [SerializeField] private float wanderSpeed = 1.25f;
 
     // State
+    private bool isWandering = false;
     private bool isLayingEgg = false;
     private float blinkTimer = 0f;
     private float wiggleTimer = 0f;
     private Vector3 originalScale;
     private Quaternion originalRotation;
     private float productionProgress = 0f;
+    private Transform progressBarPivot;
 
     public bool IsLayingEgg => isLayingEgg;
 
@@ -53,6 +59,8 @@ public class Chicken : MonoBehaviour, IInteractable
         {
             bodySprite = GetComponent<SpriteRenderer>();
         }
+
+        EnsureProgressBar();
 
         CircleCollider2D hitbox = GetComponent<CircleCollider2D>();
         if (hitbox == null)
@@ -77,8 +85,52 @@ public class Chicken : MonoBehaviour, IInteractable
             StoryVisualBinder.AttachVisualPrefab(transform, resolvedPrefab, bodySprite);
         }
 
+        EnsureVisualComponents();
+
         // Randomize initial blink timer
         blinkTimer = Random.Range(0f, blinkInterval);
+
+        StartCoroutine(WanderLoop());
+    }
+
+    private void EnsureVisualComponents()
+    {
+        // Progress Bar (World Space)
+        if (progressBarRenderer == null)
+        {
+            GameObject barContainer = new GameObject("ProgressBar");
+            barContainer.transform.SetParent(transform);
+            barContainer.transform.localPosition = new Vector3(0, 0.5f, 0); // Above chicken
+            
+            GameObject bg = new GameObject("Background");
+            bg.transform.SetParent(barContainer.transform);
+            bg.transform.localPosition = Vector3.zero;
+            bg.transform.localScale = new Vector3(0.08f, 0.015f, 1f);
+            var bgSr = bg.AddComponent<SpriteRenderer>();
+            bgSr.color = new Color(0, 0, 0, 0.5f);
+            bgSr.sortingOrder = 30;
+
+            GameObject pivot = new GameObject("Pivot");
+            pivot.transform.SetParent(barContainer.transform);
+            pivot.transform.localPosition = new Vector3(-0.35f, 0, 0); // Left align
+            progressBarPivot = pivot.transform;
+
+            GameObject fill = new GameObject("Fill");
+            fill.transform.SetParent(progressBarPivot);
+            fill.transform.localPosition = new Vector3(0.35f, 0, 0);
+            fill.transform.localScale = new Vector3(0.08f, 0.015f, 1f);
+            progressBarRenderer = fill.AddComponent<SpriteRenderer>();
+            progressBarRenderer.color = new Color(1f, 0.8f, 0f); // Egg yellow
+            progressBarRenderer.sortingOrder = 31;
+
+            barContainer.SetActive(false);
+        }
+
+        // Trigger for Proximity
+        CircleCollider2D hitbox = GetComponent<CircleCollider2D>();
+        if (hitbox == null) hitbox = gameObject.AddComponent<CircleCollider2D>();
+        hitbox.isTrigger = true;
+        hitbox.radius = 1.0f;
     }
 
     private void Update()
@@ -125,6 +177,72 @@ public class Chicken : MonoBehaviour, IInteractable
     }
 
     /// <summary>
+    /// Update progress bar and handle chicken movement
+    /// </summary>
+    private void UpdateProgressBar()
+    {
+        if (progressBarRenderer != null && isLayingEgg)
+        {
+            if (progressBarRenderer.transform.parent.parent != null && !progressBarRenderer.transform.parent.parent.gameObject.activeSelf)
+                progressBarRenderer.transform.parent.parent.gameObject.SetActive(true);
+
+            if (progressBarPivot != null)
+            {
+                progressBarPivot.localScale = new Vector3(productionProgress, 1, 1);
+            }
+        }
+    }
+
+    private IEnumerator WanderLoop()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(wanderInterval * 0.5f, wanderInterval * 1.5f);
+            yield return new WaitForSeconds(waitTime);
+
+            if (!isLayingEgg && !isWandering && EnvironmentManager.Instance != null)
+            {
+                Bounds bounds = EnvironmentManager.Instance.ChickenPenBounds;
+                if (bounds.size.magnitude > 0.5f)
+                {
+                    Vector3 dest = new Vector3(
+                        Random.Range(bounds.min.x, bounds.max.x),
+                        Random.Range(bounds.min.y, bounds.max.y),
+                        transform.position.z
+                    );
+                    yield return StartCoroutine(WanderTo(dest));
+                }
+            }
+        }
+    }
+
+    private IEnumerator WanderTo(Vector3 destination)
+    {
+        isWandering = true;
+        Vector3 startPos = transform.position;
+        float distance = Vector3.Distance(startPos, destination);
+        float duration = distance / wanderSpeed;
+        float elapsed = 0f;
+
+        // Facing
+        Transform visualRoot = StoryVisualBinder.FindAttachedVisualRoot(transform);
+        if (visualRoot != null)
+        {
+            StoryVisualBinder.SetFacing(visualRoot, destination.x < startPos.x);
+        }
+
+        while (elapsed < duration)
+        {
+            if (isLayingEgg) break; // Cancel wander if fed
+            elapsed += Time.deltaTime;
+            transform.position = Vector3.Lerp(startPos, destination, elapsed / duration);
+            yield return null;
+        }
+
+        isWandering = false;
+    }
+
+    /// <summary>
     /// Update idle bobbing
     /// </summary>
     private void UpdateIdleBob()
@@ -133,14 +251,6 @@ public class Chicken : MonoBehaviour, IInteractable
         {
             float bob = Mathf.Sin(Time.time * 2f) * bobAmount;
             transform.localScale = originalScale + new Vector3(0, bob, 0);
-        }
-    }
-
-    public void Interact()
-    {
-        if (CanInteract())
-        {
-            Feed();
         }
     }
 
@@ -153,9 +263,22 @@ public class Chicken : MonoBehaviour, IInteractable
         return productionProgress;
     }
 
-    /// <summary>
-    /// Check if chicken can be interacted with
-    /// </summary>
+    public void Interact()
+    {
+        if (CanInteract())
+        {
+            Feed();
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player") && CanInteract())
+        {
+            Interact();
+        }
+    }
+
     public bool CanInteract()
     {
         return !isLayingEgg && GameManager.Instance != null && GameManager.Instance.Corn >= cornRequired;
@@ -200,25 +323,79 @@ public class Chicken : MonoBehaviour, IInteractable
 
         // Eating animation - pecking motion
         PlayFeedingEffect();
+        SpawnHeartEffect();
+        
+        UpdateProgressBar();
         yield return StartCoroutine(EatingAnimation());
         productionProgress = 0.4f;
+        UpdateProgressBar();
 
         AudioManager.Instance?.PlaySound("eat");
 
         // Short pause
         yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
         productionProgress = 0.6f;
+        UpdateProgressBar();
 
         // Egg laying animation
         yield return StartCoroutine(LayEggAnimation());
         productionProgress = 1.0f;
+        UpdateProgressBar();
 
         // Spawn egg
         SpawnEgg();
 
+        // Hide progress bar
+        if (progressBarRenderer != null && progressBarRenderer.transform.parent != null && progressBarRenderer.transform.parent.parent != null)
+            progressBarRenderer.transform.parent.parent.gameObject.SetActive(false);
+
         isLayingEgg = false;
         productionProgress = 0f;
     }
+
+    private void EnsureProgressBar()
+    {
+        if (progressBarRenderer != null) return;
+
+        // Try to find in children first
+        Transform bar = transform.Find("ProgressBar");
+        if (bar != null)
+        {
+            progressBarRenderer = bar.Find("Fill")?.GetComponent<SpriteRenderer>();
+            progressBarPivot = bar.Find("Fill")?.transform;
+            return;
+        }
+
+        // Create dynamically
+        GameObject root = new GameObject("ProgressBar");
+        root.transform.SetParent(transform);
+        root.transform.localPosition = new Vector3(0, 0.8f, 0);
+
+        GameObject bg = new GameObject("Background");
+        bg.transform.SetParent(root.transform);
+        bg.transform.localPosition = Vector3.zero;
+        bg.transform.localScale = new Vector3(1, 0.15f, 1);
+        SpriteRenderer bgSr = bg.AddComponent<SpriteRenderer>();
+        bgSr.color = new Color(0, 0, 0, 0.5f);
+        bgSr.sortingOrder = 50;
+
+        GameObject fillRoot = new GameObject("FillPivot");
+        fillRoot.transform.SetParent(root.transform);
+        fillRoot.transform.localPosition = new Vector3(-0.5f, 0, 0);
+        progressBarPivot = fillRoot.transform;
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fillRoot.transform);
+        fill.transform.localPosition = new Vector3(0.5f, 0, 0);
+        fill.transform.localScale = new Vector3(1, 0.15f, 1);
+        progressBarRenderer = fill.AddComponent<SpriteRenderer>();
+        progressBarRenderer.color = Color.green;
+        progressBarRenderer.sortingOrder = 51;
+
+        // Use a simple white pixel sprite if available, otherwise just use color
+        root.SetActive(false);
+    }
+
 
     /// <summary>
     /// Eating/pecking animation
@@ -538,5 +715,35 @@ public class Chicken : MonoBehaviour, IInteractable
             yield return null;
         }
         transform.localRotation = originalRotation;
+    }
+    /// <summary>
+    /// Spawn cute heart particles when fed
+    /// </summary>
+    private void SpawnHeartEffect()
+    {
+        GameObject hearts = new GameObject("FeedHearts");
+        hearts.transform.position = transform.position + new Vector3(0, 0.5f, 0);
+
+        ParticleSystem ps = hearts.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startSize = 0.2f;
+        main.startLifetime = 1.0f;
+        main.startColor = new Color(1f, 0.4f, 0.6f, 1f); // Pink/Rose
+        main.startSpeed = 0.8f;
+        main.gravityModifier = -0.2f; 
+        main.maxParticles = 5;
+        main.duration = 0.5f;
+        main.loop = false;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 3) });
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Sphere;
+        shape.radius = 0.2f;
+
+        ps.Play();
+        Destroy(hearts, 1.5f);
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// PlayerController - Controls the player's farmer character movement and interactions.
@@ -37,6 +38,19 @@ public class PlayerController : MonoBehaviour
 
     // Current interaction target
     private IInteractable currentTarget;
+    private void Awake()
+    {
+        // Ensure child visuals have receivers for animation events
+        Animator anim = GetComponentInChildren<Animator>();
+        if (anim != null && anim.gameObject != gameObject)
+        {
+            if (anim.gameObject.GetComponent<AnimationEventReceiver>() == null)
+            {
+                anim.gameObject.AddComponent<AnimationEventReceiver>();
+            }
+        }
+    }
+
     private void Start()
     {
         targetPosition = transform.position;
@@ -283,14 +297,19 @@ public class PlayerController : MonoBehaviour
         dustPuff.transform.position = transform.position - new Vector3(0, 0.3f, 0);
 
         ParticleSystem ps = dustPuff.AddComponent<ParticleSystem>();
+        ps.Stop(); // Prevent auto-play during config
+
         var main = ps.main;
+        if (!ps.isPlaying)
+        {
+            main.duration = 0.5f;
+        }
         main.startSize = 0.2f;
         main.startLifetime = 0.5f;
         main.startColor = new Color(0.8f, 0.7f, 0.6f, 0.5f);
         main.startSpeed = 0.5f;
         main.gravityModifier = -0.1f;
         main.maxParticles = 5;
-        main.duration = 0.2f;
         main.loop = false;
 
         var emission = ps.emission;
@@ -521,5 +540,19 @@ public class PlayerController : MonoBehaviour
         }
 
         return false;
+    }
+
+    // --- Animation Event Receivers ---
+    // These are called by Happy Harvest animation clips
+
+    public void PlayStepSound()
+    {
+        // Placeholder for future audio implementation
+    }
+
+    public void Emit()
+    {
+        // Often used for dust particles in animations
+        SpawnDustPuff();
     }
 }

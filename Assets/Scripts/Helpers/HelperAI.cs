@@ -1,4 +1,5 @@
 using UnityEngine;
+using ChickenCoop.Managers;
 using System.Collections;
 
 /// <summary>
@@ -109,6 +110,7 @@ public class HelperAI : MonoBehaviour
         CollectibleEgg closestEgg = FindClosestEgg();
         if (closestEgg != null)
         {
+            SpawnTaskBubble("EGG");
             yield return StartCoroutine(CollectEgg());
             yield break;
         }
@@ -117,6 +119,7 @@ public class HelperAI : MonoBehaviour
         Chicken hungryChicken = FindHungryChicken();
         if (hungryChicken != null && GameManager.Instance.Corn > 0)
         {
+            SpawnTaskBubble("FEED");
             yield return StartCoroutine(GoToAndFeedChicken(hungryChicken));
             yield break;
         }
@@ -125,6 +128,7 @@ public class HelperAI : MonoBehaviour
         HarvestableField readyField = FindReadyField();
         if (readyField != null) // Removed 10 corn hoarding cap
         {
+            SpawnTaskBubble("WORK");
             yield return StartCoroutine(GoToAndHarvestCorn(readyField));
             yield break;
         }
@@ -132,6 +136,7 @@ public class HelperAI : MonoBehaviour
         // Priority 4: Sell eggs in inventory
         if (GameManager.Instance.Eggs > 0)
         {
+            SpawnTaskBubble("GOLD");
             yield return StartCoroutine(GoToAndSellEgg());
             yield break;
         }
@@ -139,6 +144,7 @@ public class HelperAI : MonoBehaviour
         // Priority 5: Help harvest more corn even if we have some
         if (readyField != null)
         {
+            SpawnTaskBubble("WORK");
             yield return StartCoroutine(GoToAndHarvestCorn(readyField));
             yield break;
         }
@@ -464,5 +470,43 @@ public class HelperAI : MonoBehaviour
 
         ps.Play();
         Destroy(sparkle, 1f);
+    }
+
+    /// <summary>
+    /// Spawns a small floating icon above helper's head to show current task.
+    /// </summary>
+    private void SpawnTaskBubble(string icon)
+    {
+        GameObject bubble = new GameObject("TaskBubble");
+        bubble.transform.position = transform.position + Vector3.up * 1.5f;
+
+        // Using a TextMesh for a simple, code-driven world-space icon
+        GameObject textObj = new GameObject("Icon");
+        textObj.transform.SetParent(bubble.transform);
+        textObj.transform.localPosition = Vector2.zero;
+
+        var tm = textObj.AddComponent<TextMesh>();
+        tm.text = icon;
+        tm.fontSize = 48; // Emojis need larger font size for Mesh
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.characterSize = 0.1f;
+        tm.color = Color.white;
+
+        StartCoroutine(BubbleFloat(bubble));
+    }
+
+    private IEnumerator BubbleFloat(GameObject bubble)
+    {
+        float t = 0;
+        float duration = 1.0f;
+        Vector3 start = bubble.transform.position;
+        while (bubble != null && t < duration)
+        {
+            t += Time.deltaTime;
+            bubble.transform.position = start + Vector3.up * (t * 0.5f);
+            yield return null;
+        }
+        if (bubble != null) Destroy(bubble);
     }
 }

@@ -1,6 +1,7 @@
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using ChickenCoop.Managers;
 
 public class CoreLoopEditModeTests
 {

@@ -1,4 +1,5 @@
 using UnityEngine;
+using ChickenCoop.Managers;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
@@ -34,13 +35,13 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private Button nextButton;
 
     [Header("Tutorial Messages")]
-    [SerializeField] private string welcomeMessage = "Welcome to Chicken Coop! 🐔\nLet's learn how to run your farm.";
-    [SerializeField] private string harvestMessage = "Tap the corn field to harvest corn! 🌽";
-    [SerializeField] private string feedMessage = "Great! Now feed the chicken by tapping on it. 🐔";
-    [SerializeField] private string collectMessage = "Collect the egg the chicken laid! 🥚";
-    [SerializeField] private string sellMessage = "Sell your egg at the store for coins! 💰";
-    [SerializeField] private string hireMessage = "You've earned enough coins! Hire a helper to automate. 👷";
-    [SerializeField] private string completeMessage = "Excellent! You've mastered the basics!\nKeep farming to grow your empire! 🏆";
+    [SerializeField] private string welcomeMessage = "Welcome to Chicken Coop!\nLet's learn how to run your farm.";
+    [SerializeField] private string harvestMessage = "Tap the corn field to harvest corn!";
+    [SerializeField] private string feedMessage = "Great! Now feed the chicken by tapping on it.";
+    [SerializeField] private string collectMessage = "Collect the egg the chicken laid!";
+    [SerializeField] private string sellMessage = "Sell your egg at the store for coins!";
+    [SerializeField] private string hireMessage = "You've earned enough coins! Hire a helper to automate.";
+    [SerializeField] private string completeMessage = "Excellent! You've mastered the basics!\nKeep farming to grow your empire!";
 
     [Header("Target References")]
     [SerializeField] private Transform cornFieldTarget;
@@ -106,6 +107,19 @@ public class TutorialManager : MonoBehaviour
             GameManager.Instance.OnEggsChanged += OnEggsChanged;
             GameManager.Instance.OnCoinsChanged += OnCoinsChanged;
             GameManager.Instance.OnHelperCountChanged += OnHelperHired;
+        }
+
+        // Check again after a short delay to catch late-initialized world objects
+        StartCoroutine(ResolveTargetsPeriodically());
+    }
+
+    private IEnumerator ResolveTargetsPeriodically()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            yield return new WaitForSeconds(1f);
+            ResolveTargets();
+            if (tutorialActive) ShowCurrentStep(); // Refresh arrow
         }
     }
 
@@ -419,7 +433,7 @@ public class TutorialManager : MonoBehaviour
             else if (instructionText != null)
             {
                 int remaining = helperCost - newValue;
-                instructionText.text = $"Sell eggs until you reach {helperCost} coins! {remaining} more to go. 💰";
+                instructionText.text = $"Sell eggs until you reach {helperCost} coins! {remaining} more to go.";
             }
         }
     }
@@ -539,6 +553,7 @@ public class TutorialManager : MonoBehaviour
             arrowText.fontSize = 44f;
             arrowText.alignment = TextAlignmentOptions.Center;
             arrowText.color = StoryColorPalette.Special;
+            arrowText.raycastTarget = false;
         }
     }
 

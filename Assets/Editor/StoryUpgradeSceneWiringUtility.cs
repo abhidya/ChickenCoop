@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using ChickenCoop.Managers;
 
 public static class StoryUpgradeSceneWiringUtility
 {

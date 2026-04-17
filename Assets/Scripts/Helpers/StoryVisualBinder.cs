@@ -148,7 +148,11 @@ public static class StoryVisualBinder
             string lowered = child.name.ToLowerInvariant();
             if (lowered.Contains("ui target") || lowered == "logic" || lowered.Contains("collider") || lowered.Contains("pathfind"))
             {
-                DestroyObject(child.gameObject);
+                // Safety: check if this object is actually part of the visuals (has a renderer)
+                if (child.GetComponent<SpriteRenderer>() == null && child.GetComponent<Renderer>() == null)
+                {
+                    DestroyObject(child.gameObject);
+                }
             }
         }
     }
@@ -352,6 +356,9 @@ public static class StoryVisualBinder
                 return true;
             case "SpriteSkin":
                 return preserveRigComponents;
+            case "ShadowInstance":
+            case "ShadowInstance2D":
+                return false;
         }
 
         string namespaceName = component.GetType().Namespace ?? string.Empty;

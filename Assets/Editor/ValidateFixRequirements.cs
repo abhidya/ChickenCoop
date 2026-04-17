@@ -1,8 +1,10 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.SceneManagement;
+using ChickenCoop.Managers;
 using System.Collections.Generic;
 using System.Linq;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// Editor utility to validate that all fix requirements from the problem statement are met.

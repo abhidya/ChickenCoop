@@ -1,4 +1,5 @@
 using UnityEngine;
+using ChickenCoop.Managers;
 using System.Collections;
 
 /// <summary>
@@ -51,8 +52,17 @@ public class StoreCounter : MonoBehaviour, IInteractable
             if (visual != null)
             {
                 storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
+                // Reduce scale for Market Stall to fit world better
+                visual.transform.localScale = Vector3.one * 0.7f;
+                // Move visual up slightly so character stands "in front" of the counter
+                visual.transform.localPosition = new Vector3(0, -0.2f, 0);
             }
         }
+
+        // Enforce SortingGroup so characters consistently draw in front/behind based on Y-position
+        var sGroup = gameObject.GetComponent<UnityEngine.Rendering.SortingGroup>();
+        if (sGroup == null) sGroup = gameObject.AddComponent<UnityEngine.Rendering.SortingGroup>();
+        sGroup.sortingOrder = 0; // Standard world sorting
 
         UpdateVisual();
     }

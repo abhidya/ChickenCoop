@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Collections.Generic;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// UpgradeData - ScriptableObject for configuring farm upgrades.
@@ -38,6 +40,16 @@ public class UpgradeData : ScriptableObject
     [Tooltip("Flat bonus added per level")]
     public int flatBonus = 0;
 
+    [Header("Tree Progression")]
+    [Tooltip("The game act required to unlock this upgrade (1-4)")]
+    public int requiredAct = 1;
+
+    [Tooltip("Other upgrades that must be maxed before this appears")]
+    public List<UpgradeData> prerequisiteUpgrades = new List<UpgradeData>();
+
+    [Tooltip("If true, upgrade is removed from shop once maxed")]
+    public bool hideWhenMaxed = true;
+
     [Header("Visual")]
     [Tooltip("Color tint for upgrade UI")]
     public Color tintColor = Color.white;
@@ -74,6 +86,36 @@ public class UpgradeData : ScriptableObject
     }
 
     /// <summary>
+    /// Checks if all prerequisite upgrades are maxed out
+    /// </summary>
+    public bool ArePrerequisitesMet()
+    {
+        if (prerequisiteUpgrades == null || prerequisiteUpgrades.Count == 0) return true;
+        
+        foreach (var pre in prerequisiteUpgrades)
+        {
+            if (pre == null) continue;
+            if (pre.maxLevel > 0 && pre.currentLevel < pre.maxLevel) return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Checks if this upgrade should be visible in the shop
+    /// </summary>
+    public bool IsVisible()
+    {
+        // Hide if maxed out and setting is enabled
+        if (hideWhenMaxed && maxLevel > 0 && currentLevel >= maxLevel) return false;
+        
+        // Check Act requirement
+        if (GameManager.Instance != null && GameManager.Instance.CurrentAct < requiredAct) return false;
+        
+        // Show if prerequisites are met
+        return ArePrerequisitesMet();
+    }
+
+    /// <summary>
     /// Check if upgrade can be purchased
     /// </summary>
     public bool CanPurchase()
@@ -82,6 +124,10 @@ public class UpgradeData : ScriptableObject
         {
             return false;
         }
+
+        if (!ArePrerequisitesMet()) return false;
+        if (GameManager.Instance != null && GameManager.Instance.CurrentAct < requiredAct) return false;
+
         return GameManager.Instance != null && GameManager.Instance.CanAfford(GetCost());
     }
 

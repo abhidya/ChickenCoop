@@ -126,7 +126,10 @@ namespace HappyHarvest
         
         void Update()
         {
-            m_TimerLabel.text = GameManager.Instance.CurrentTimeAsString();
+            if (m_TimerLabel != null && GameManager.Instance != null)
+            {
+                m_TimerLabel.text = GameManager.Instance.CurrentTimeAsString();
+            }
         }
 
         private void OnApplicationFocus(bool hasFocus)

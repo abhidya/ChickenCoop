@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// HarvestableField - Represents a corn field that can be harvested for corn.
@@ -18,10 +19,18 @@ public class HarvestableField : MonoBehaviour, IInteractable
     [SerializeField] private Color readyColor = new Color(1f, 0.9f, 0.3f);
     [SerializeField] private Color cooldownColor = new Color(0.6f, 0.7f, 0.4f);
 
-    [Header("References")]
+    [Header("Visual References")]
     [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private SpriteRenderer soilRenderer;
+    [SerializeField] private SpriteRenderer progressBarRenderer;
     [SerializeField] private Transform cornVisual;
     [SerializeField] private GameObject storyVisualPrefab;
+
+    [Header("Assets")]
+    [SerializeField] private Sprite drySoilSprite;
+    [SerializeField] private Sprite wetSoilSprite;
+    [SerializeField] private Sprite progressBarBgSprite;
+    [SerializeField] private Sprite progressBarFillSprite;
 
     // State
     private bool canHarvest = true;
@@ -29,6 +38,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
     private Vector3 originalScale;
     private float bounceTimer = 0f;
     private SpriteRenderer[] storyRenderers;
+    private Transform progressBarPivot;
 
     private void Start()
     {
@@ -46,10 +56,88 @@ public class HarvestableField : MonoBehaviour, IInteractable
             spriteRenderer = GetComponent<SpriteRenderer>();
         }
 
+        EnsureProgressBar();
+        EnsureVisualComponents();
+        UpdateVisuals();
+    }
+
+    private void UpdateVisuals()
+    {
+        Color color = canHarvest ? readyColor : cooldownColor;
+
         if (spriteRenderer != null)
         {
-            spriteRenderer.color = readyColor;
+            spriteRenderer.color = color;
         }
+
+        if (soilRenderer != null)
+        {
+            soilRenderer.sprite = canHarvest ? drySoilSprite : wetSoilSprite;
+            // Fallback if sprites missing but we want darkening
+            if (soilRenderer.sprite == null)
+            {
+                soilRenderer.color = canHarvest ? new Color(0.6f, 0.4f, 0.2f) : new Color(0.3f, 0.2f, 0.1f);
+            }
+            else
+            {
+                soilRenderer.color = Color.white;
+            }
+        }
+
+        ApplyStoryTint(color);
+    }
+
+    private void EnsureVisualComponents()
+    {
+        // Soil Renderer
+        if (soilRenderer == null)
+        {
+            GameObject soilObj = new GameObject("SoilVisual");
+            soilObj.transform.SetParent(transform);
+            soilObj.transform.localPosition = new Vector3(0, -0.4f, 0);
+            soilRenderer = soilObj.AddComponent<SpriteRenderer>();
+            soilRenderer.sortingOrder = -1;
+            
+            if (drySoilSprite == null) drySoilSprite = Resources.Load<Sprite>("HappyHarvestDrySoil"); // Example path, will adjust if needed
+            if (wetSoilSprite == null) wetSoilSprite = Resources.Load<Sprite>("HappyHarvestWetSoil");
+        }
+
+        // Progress Bar (World Space)
+        if (progressBarRenderer == null)
+        {
+            GameObject barContainer = new GameObject("ProgressBar");
+            barContainer.transform.SetParent(transform);
+            barContainer.transform.localPosition = new Vector3(0, 0.6f, 0);
+            
+            GameObject bg = new GameObject("Background");
+            bg.transform.SetParent(barContainer.transform);
+            bg.transform.localPosition = Vector3.zero;
+            bg.transform.localScale = new Vector3(0.12f, 0.02f, 1f);
+            var bgSr = bg.AddComponent<SpriteRenderer>();
+            bgSr.color = new Color(0, 0, 0, 0.5f);
+            bgSr.sortingOrder = 10;
+
+            GameObject pivot = new GameObject("Pivot");
+            pivot.transform.SetParent(barContainer.transform);
+            pivot.transform.localPosition = new Vector3(-0.5f, 0, 0); // Left align
+            progressBarPivot = pivot.transform;
+
+            GameObject fill = new GameObject("Fill");
+            fill.transform.SetParent(progressBarPivot);
+            fill.transform.localPosition = new Vector3(0.5f, 0, 0);
+            fill.transform.localScale = new Vector3(0.12f, 0.02f, 1f);
+            progressBarRenderer = fill.AddComponent<SpriteRenderer>();
+            progressBarRenderer.color = Color.green;
+            progressBarRenderer.sortingOrder = 11;
+
+            barContainer.SetActive(false);
+        }
+
+        // Trigger for Proximity
+        CircleCollider2D col = GetComponent<CircleCollider2D>();
+        if (col == null) col = gameObject.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius = 1.0f;
 
         // Resolve visual prefab — serialized field first, then Resources fallback
         GameObject resolvedPrefab = storyVisualPrefab;
@@ -83,10 +171,27 @@ public class HarvestableField : MonoBehaviour, IInteractable
         if (!canHarvest)
         {
             cooldownTimer -= Time.deltaTime * GameManager.Instance.SpeedMultiplier;
+            
+            // Update Progress Bar
+            if (progressBarRenderer != null)
+            {
+                if (progressBarRenderer.transform.parent.parent != null && !progressBarRenderer.transform.parent.parent.gameObject.activeSelf)
+                    progressBarRenderer.transform.parent.parent.gameObject.SetActive(true);
+                
+                float progress = 1f - Mathf.Clamp01(cooldownTimer / harvestCooldown);
+                if (progressBarPivot != null)
+                {
+                    progressBarPivot.localScale = new Vector3(progress, 1, 1);
+                }
+            }
+
             if (cooldownTimer <= 0)
             {
                 canHarvest = true;
                 OnReadyToHarvest();
+                
+                if (progressBarRenderer != null && progressBarRenderer.transform.parent.parent != null)
+                    progressBarRenderer.transform.parent.parent.gameObject.SetActive(false);
             }
         }
     }
@@ -136,6 +241,14 @@ public class HarvestableField : MonoBehaviour, IInteractable
         }
     }
 
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player") && canHarvest)
+        {
+            Interact();
+        }
+    }
+
     /// <summary>
     /// Check if field can be harvested
     /// </summary>
@@ -167,12 +280,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
         StartCoroutine(HarvestAnimation());
 
         // Update visual
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.color = cooldownColor;
-        }
-
-        ApplyStoryTint(cooldownColor);
+        UpdateVisuals();
 
         // Spawn pop particle effect
         SpawnHarvestParticles();
@@ -250,12 +358,7 @@ public class HarvestableField : MonoBehaviour, IInteractable
     /// </summary>
     private void OnReadyToHarvest()
     {
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.color = readyColor;
-        }
-
-        ApplyStoryTint(readyColor);
+        UpdateVisuals();
 
         // Pop animation
         StartCoroutine(ReadyPopAnimation());
@@ -404,5 +507,47 @@ public class HarvestableField : MonoBehaviour, IInteractable
         }
 
         Object.DestroyImmediate(target);
+    }
+
+    private void EnsureProgressBar()
+    {
+        if (progressBarRenderer != null) return;
+
+        // Try to find in children
+        Transform bar = transform.Find("ProgressBar");
+        if (bar != null)
+        {
+            progressBarRenderer = bar.Find("FillPivot/Fill")?.GetComponent<SpriteRenderer>();
+            progressBarPivot = bar.Find("FillPivot")?.transform;
+            return;
+        }
+
+        // Create dynamically
+        GameObject root = new GameObject("ProgressBar");
+        root.transform.SetParent(transform);
+        root.transform.localPosition = new Vector3(0, 1.2f, 0);
+
+        GameObject bg = new GameObject("Background");
+        bg.transform.SetParent(root.transform);
+        bg.transform.localPosition = Vector3.zero;
+        bg.transform.localScale = new Vector3(1.2f, 0.15f, 1);
+        SpriteRenderer bgSr = bg.AddComponent<SpriteRenderer>();
+        bgSr.color = new Color(0, 0, 0, 0.5f);
+        bgSr.sortingOrder = 50;
+
+        GameObject fillRoot = new GameObject("FillPivot");
+        fillRoot.transform.SetParent(root.transform);
+        fillRoot.transform.localPosition = new Vector3(-0.6f, 0, 0);
+        progressBarPivot = fillRoot.transform;
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fillRoot.transform);
+        fill.transform.localPosition = new Vector3(0.6f, 0, 0);
+        fill.transform.localScale = new Vector3(1, 0.15f, 1);
+        progressBarRenderer = fill.AddComponent<SpriteRenderer>();
+        progressBarRenderer.color = new Color(1f, 0.8f, 0.2f); // Golden yellow for corn
+        progressBarRenderer.sortingOrder = 51;
+
+        root.SetActive(false);
     }
 }

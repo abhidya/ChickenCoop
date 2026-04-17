@@ -6,12 +6,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-/// <summary>
-/// GameManager - Central game controller that manages all game state, resources, and game loop.
-/// Implements singleton pattern for global access.
-/// </summary>
-public class GameManager : MonoBehaviour
+namespace ChickenCoop.Managers
 {
+    /// <summary>
+    /// GameManager - Central game controller that manages all game state, resources, and game loop.
+    /// Implements singleton pattern for global access.
+    /// </summary>
+    public class GameManager : MonoBehaviour
+    {
     // Singleton instance
     public static GameManager Instance { get; private set; }
 
@@ -82,8 +84,18 @@ public class GameManager : MonoBehaviour
     public PlayerController Player => FindObjectOfType<PlayerController>();
     
     // Leveling State
-    private int currentLevel = 1;
-    public int CurrentLevel => currentLevel;
+    private int currentAct = 1;
+    public int CurrentAct => currentAct;
+
+    public void AdvanceAct()
+    {
+        currentAct = Mathf.Min(currentAct + 1, 4);
+        Debug.Log($"[GameManager] Advanced to Act {currentAct}!");
+        
+        // Refresh UI and environment for the new Act
+        UIManager.Instance?.ShowActTitle(currentAct);
+        EnvironmentManager.Instance?.RefreshFences();
+    }
 
     // Helper methods for config values with fallbacks
     private int GetEggSellPrice() => config != null ? config.eggSellPrice : eggSellPrice;
@@ -127,6 +139,19 @@ public class GameManager : MonoBehaviour
             es.AddComponent<EventSystem>();
             es.AddComponent<StandaloneInputModule>();
             Debug.Log("[GameManager] Created missing EventSystem for UI support.");
+        }
+        else
+        {
+            // Resolve duplicate event systems in the scene
+            EventSystem[] systems = FindObjectsOfType<EventSystem>();
+            if (systems.Length > 1)
+            {
+                Debug.LogWarning($"[GameManager] Purging {systems.Length - 1} duplicate EventSystems.");
+                for (int i = 1; i < systems.Length; i++)
+                {
+                    Destroy(systems[i].gameObject);
+                }
+            }
         }
     }
 
@@ -172,7 +197,7 @@ public class GameManager : MonoBehaviour
         eggs = GetStartingEggs();
         coins = GetStartingCoins();
         helperCount = 0;
-        currentLevel = 1;
+        currentAct = 1;
 
         // Trigger initial UI updates
         OnCornChanged?.Invoke(corn);
@@ -199,7 +224,7 @@ public class GameManager : MonoBehaviour
         if (worldPosition.HasValue)
         {
             Color cornColor = config != null ? config.cornColor : new Color(1f, 0.9f, 0.3f);
-            OnResourceGained?.Invoke($"+{actualAmount} 🌽", worldPosition.Value, cornColor);
+            OnResourceGained?.Invoke($"+{actualAmount} CORN", worldPosition.Value, cornColor);
         }
 
         // Play collection sound
@@ -241,7 +266,7 @@ public class GameManager : MonoBehaviour
         if (worldPosition.HasValue)
         {
             Color eggColor = config != null ? config.eggColor : new Color(1f, 0.98f, 0.9f);
-            OnResourceGained?.Invoke($"+{actualAmount} 🥚", worldPosition.Value, eggColor);
+            OnResourceGained?.Invoke($"+{actualAmount} EGG", worldPosition.Value, eggColor);
         }
 
         AudioManager.Instance?.PlaySound("egg");
@@ -281,8 +306,8 @@ public class GameManager : MonoBehaviour
                 
                 SpawnChickenAt(newPosObj.transform.position, "Chicken_" + (chickenPositions.Count - 1));
                 
-                if (chickenPositions.Count == 2) currentLevel = 2;
-                if (chickenPositions.Count >= 3) currentLevel = 3;
+                if (chickenPositions.Count == 2) currentAct = 2;
+                if (chickenPositions.Count >= 3) currentAct = 3;
             }
         }
     }
@@ -358,7 +383,7 @@ public class GameManager : MonoBehaviour
         if (worldPosition.HasValue)
         {
             Color coinColor = config != null ? config.coinColor : new Color(1f, 0.85f, 0.2f);
-            OnResourceGained?.Invoke($"+{amount} 💰", worldPosition.Value, coinColor);
+            OnResourceGained?.Invoke($"+{amount} GOLD", worldPosition.Value, coinColor);
         }
     }
 
@@ -639,6 +664,11 @@ public class GameManager : MonoBehaviour
         {
             EnvironmentAnimator environmentAnimator = new GameObject("EnvironmentAnimator").AddComponent<EnvironmentAnimator>();
             environmentAnimator.CreateAmbientParticles();
+        }
+
+        if (FindObjectOfType<EnvironmentManager>() == null)
+        {
+            new GameObject("EnvironmentManager").AddComponent<EnvironmentManager>();
         }
 
         if (FindObjectOfType<UIManager>() == null)
@@ -1035,16 +1065,26 @@ public class GameManager : MonoBehaviour
             SaveGame();
         }
     }
+
+    /// <summary>
+    /// Returns the current game time as a formatted string (e.g. 12:00)
+    /// </summary>
+    public string CurrentTimeAsString()
+    {
+        DayNightCycle cycle = FindObjectOfType<DayNightCycle>();
+        return cycle != null ? cycle.GetTimeString() : "00:00";
+    }
 }
 
 /// <summary>
 /// Enum for different upgrade types
 /// </summary>
-public enum UpgradeType
-{
-    CornField,
-    ChickenProduction,
-    EggPrice,
-    Speed,
-    StoreCapacity
+    public enum UpgradeType
+    {
+        CornField,
+        ChickenProduction,
+        EggPrice,
+        Speed,
+        StoreCapacity
+    }
 }

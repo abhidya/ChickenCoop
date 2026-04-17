@@ -192,14 +192,16 @@ public class EnvironmentAnimator : MonoBehaviour
         ambient.transform.position = Vector3.zero;
 
         ParticleSystem ps = ambient.AddComponent<ParticleSystem>();
+        ps.Stop(); // Ensure it's not and-playing during config
+
         var main = ps.main;
+        main.duration = 10f; // Default duration check
         main.startSize = 0.05f;
         main.startLifetime = 5f;
         main.startColor = new Color(1f, 1f, 0.8f, 0.3f);
         main.startSpeed = 0.2f;
         main.gravityModifier = -0.02f;
         main.maxParticles = 30;
-        main.duration = 0f;
         main.loop = true;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
 

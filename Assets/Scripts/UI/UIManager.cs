@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// UIManager - Manages all UI elements including resource displays, upgrade buttons,
@@ -61,6 +62,11 @@ public class UIManager : MonoBehaviour
     [Header("Progress Indicators")]
     [SerializeField] private Image cornProgressBar;
     [SerializeField] private Image eggProgressBar;
+
+    [Header("Management Toggle")]
+    [SerializeField] private Button managementToggleButton;
+    [SerializeField] private GameObject managementDrawer;
+    private bool isManagementOpen = false;
 
     [Header("Animation Settings")]
     [SerializeField] private float punchScale = 1.3f;
@@ -143,6 +149,16 @@ public class UIManager : MonoBehaviour
         // Setup button listeners
         SetupButtons();
         SetupExpansionButtons();
+        
+        // Ensure only one EventSystem
+        CleanupDuplicateEventSystems();
+
+        // Initialize Background Systems
+        if (EnvironmentManager.Instance == null)
+        {
+            GameObject envObj = new GameObject("EnvironmentManager");
+            envObj.AddComponent<EnvironmentManager>();
+        }
 
         // Initialize displays
         UpdateAllDisplays();
@@ -154,10 +170,43 @@ public class UIManager : MonoBehaviour
     private void UpdateAdaptiveLayout()
     {
         float ratio = (float)Screen.width / Screen.height;
-        if (Mathf.Abs(ratio - lastAspectRatio) < 0.01f) return;
+        if (Mathf.Abs(ratio - lastAspectRatio) < 0.01f)
+        {
+            // Even if ratio is same, handle drawer state animations here if needed
+            return;
+        }
         lastAspectRatio = ratio;
         
         EnsureRuntimeBindings(); // Re-apply anchors/pivots based on ratio
+    }
+
+    public void ToggleManagement()
+    {
+        isManagementOpen = !isManagementOpen;
+        if (managementDrawer != null)
+        {
+            RectTransform rect = managementDrawer.GetComponent<RectTransform>();
+            if (isManagementOpen)
+            {
+                SetPanelActiveWithShadow(managementDrawer, true);
+
+                VisualFeedbackManager drawerVfx = VisualFeedbackManager.Instance ?? FindObjectOfType<VisualFeedbackManager>();
+                drawerVfx?.SlideIn(rect, new Vector2(0, -1000f), 0.4f);
+            }
+            else
+            {
+                SetPanelActiveWithShadow(managementDrawer, false);
+            }
+        }
+        
+        if (managementToggleButton != null)
+        {
+            TextMeshProUGUI label = managementToggleButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.text = isManagementOpen ? "Close Shop" : "Shop / Build";
+        }
+        
+        VisualFeedbackManager globalVfx = VisualFeedbackManager.Instance ?? FindObjectOfType<VisualFeedbackManager>();
+        globalVfx?.ShakeCamera(0.1f, 0.05f);
     }
 
     private void EnsureSerializedArrays()
@@ -226,69 +275,97 @@ public class UIManager : MonoBehaviour
 
         RectTransform canvasRect = transform as RectTransform;
         
-        // Adaptive Anchors
-        Vector2 resourcePos = isPortrait ? new Vector2(0f, -40f) : new Vector2(20f, -20f);
+        // --- HUD: CLEAN RESOURCE BAR (Icons + Minimalist) ---
+        Vector2 resourcePos = isPortrait ? new Vector2(0f, -60f) : new Vector2(25f, -25f);
         Vector2 resourceAnchor = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
         Vector2 resourcePivot = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
-        RectTransform resourcePanel = EnsurePanel("ResourcePanel", canvasRect, resourcePos, new Vector2(380f, 175f), resourceAnchor, resourcePivot);
+        RectTransform hudPanel = EnsurePanelWithShadow("HUDPanel", canvasRect, resourcePos, new Vector2(isPortrait ? 800f : 550f, 90f), resourceAnchor, resourcePivot);
 
-        Vector2 buttonPanelPos = isPortrait ? new Vector2(0f, 200f) : new Vector2(0f, 85f);
-        Vector2 buttonPanelSize = isPortrait ? new Vector2(500f, 350f) : new Vector2(940f, 120f);
-        RectTransform buttonPanel = EnsurePanel("ButtonPanel", canvasRect, buttonPanelPos, buttonPanelSize, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-
-        Vector2 upgradePos = isPortrait ? new Vector2(0f, -220f) : new Vector2(-20f, 0f);
-        Vector2 upgradeAnchor = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(1f, 0.5f);
-        Vector2 upgradePivot = isPortrait ? new Vector2(0.5f, 1f) : new Vector2(1f, 0.5f);
-        RectTransform upgradesRect = EnsurePanel("UpgradePanel", canvasRect, upgradePos, new Vector2(320f, 420f), upgradeAnchor, upgradePivot);
-
-        Vector2 expansionPos = isPortrait ? new Vector2(0f, 500f) : new Vector2(0f, 240f);
-        RectTransform expansionPanel = EnsurePanel("ExpansionPanel", canvasRect, expansionPos, new Vector2(420f, 100f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-
-        // Re-anchor sub-elements in portrait
-        float textX = isPortrait ? 12f : 12f; // keeps relative
-
-        cornCountText = EnsureText(resourcePanel, "CornCountText", "Corn: 0", new Vector2(12f, -12f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
-        cornProgressBar = EnsureProgressBar(resourcePanel, "CornProgressBar", new Vector2(12f, -44f), new Vector2(150f, 6f));
+        cornCountText = EnsureText(hudPanel, "CornCountText", "CORN: 0", new Vector2(20f, -12f), new Vector2(150f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 30f);
+        eggsCountText = EnsureText(hudPanel, "EggsCountText", "EGGS: 0", new Vector2(isPortrait ? 250f : 170f, -12f), new Vector2(150f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 30f);
+        coinsCountText = EnsureText(hudPanel, "CoinsCountText", "COINS: 0", new Vector2(isPortrait ? 480f : 320f, -12f), new Vector2(200f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 30f);
         
-        eggsCountText = EnsureText(resourcePanel, "EggsCountText", "Eggs: 0", new Vector2(12f, -52f), new Vector2(160f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
-        eggProgressBar = EnsureProgressBar(resourcePanel, "EggProgressBar", new Vector2(12f, -84f), new Vector2(150f, 6f));
+        // Minimal progress bars tucked under icons
+        cornProgressBar = EnsureProgressBar(hudPanel, "CornBar", new Vector2(20f, -60f), new Vector2(110f, 4f));
+        eggProgressBar = EnsureProgressBar(hudPanel, "EggBar", new Vector2(isPortrait ? 250f : 170f, -60f), new Vector2(110f, 4f));
+
+        // --- MANAGEMENT DRAWER: CONSOLIDATED TOOLS (Hidden by default) ---
+        Vector2 drawerSize = isPortrait ? new Vector2(900f, 1100f) : new Vector2(700f, 750f);
+        RectTransform drawer = EnsurePanelWithShadow("ManagementDrawer", canvasRect, new Vector2(0, 0), drawerSize, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        managementDrawer = drawer.gameObject;
+        if (!isManagementOpen) SetPanelActiveWithShadow(managementDrawer, false);
+
+        // Management Content: Header
+        EnsureText(drawer, "ShopHeader", "Farm Management", new Vector2(0f, -10f), new Vector2(500f, 60f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), 42f).alignment = TextAlignmentOptions.Center;
         
-        coinsCountText = EnsureText(resourcePanel, "CoinsCountText", "Coins: 50", new Vector2(12f, -92f), new Vector2(180f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 26f);
-        timeText = EnsureText(resourcePanel, "TimeText", "00:00", new Vector2(190f, -92f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f); 
-        helperCountText = EnsureText(resourcePanel, "HelperCountText", "Helpers: 0", new Vector2(190f, -12f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f);
-        incomeRateText = EnsureText(resourcePanel, "IncomeRateText", "Manual play", new Vector2(190f, -52f), new Vector2(170f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f);
-        nextGoalText = EnsureText(resourcePanel, "NextGoalText", "Save coins to hire helper!", new Vector2(12f, -132f), new Vector2(350f, 32f), new Vector2(0f, 1f), new Vector2(0f, 1f), 20f);
+        // Stats in Management
+        helperCountText = EnsureText(drawer, "HelperStats", "Helpers: 0", new Vector2(30f, -90f), new Vector2(300f, 36f), new Vector2(0f, 1f), new Vector2(0f, 1f), 24f); 
+        incomeRateText = EnsureText(drawer, "IncomeStats", "Profit/hr: 0", new Vector2(drawerSize.x - 30f, -90f), new Vector2(300f, 36f), new Vector2(1f, 1f), new Vector2(1f, 1f), 24f);
+        incomeRateText.alignment = TextAlignmentOptions.Right;
 
-        cornIcon = cornCountText != null ? cornCountText.rectTransform : cornIcon;
-        eggsIcon = eggsCountText != null ? eggsCountText.rectTransform : eggsIcon;
-        coinsIcon = coinsCountText != null ? coinsCountText.rectTransform : coinsIcon;
+        // Sub-Panels inside Drawer
+        RectTransform upgradesSub = EnsurePanel("UpgradesArea", drawer, new Vector2(0, -150f), new Vector2(drawerSize.x - 60f, 450f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+        upgradesSub.GetComponent<Image>().color = new Color(0,0,0,0.1f);
+        upgradePanel = upgradesSub.gameObject;
 
-        if (isPortrait)
-        {
-            // 2 column grid for portrait
-            harvestButton = EnsureButton(buttonPanel, "HarvestButton", "Harvest", new Vector2(-120f, 80f), new Vector2(220f, 70f));
-            feedButton = EnsureButton(buttonPanel, "FeedButton", "Feed", new Vector2(120f, 80f), new Vector2(220f, 70f));
-            collectButton = EnsureButton(buttonPanel, "CollectButton", "Collect", new Vector2(-120f, 0f), new Vector2(220f, 70f));
-            sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(120f, 0f), new Vector2(220f, 70f));
-            hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(0f, -80f), new Vector2(300f, 70f));
-            
-            incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate", new Vector2(-105f, 0f), new Vector2(180f, 80f));
-            plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant", new Vector2(105f, 0f), new Vector2(180f, 80f));
-        }
-        else
-        {
-            harvestButton = EnsureButton(buttonPanel, "HarvestButton", "Harvest", new Vector2(-360f, 0f), new Vector2(150f, 56f));
-            feedButton = EnsureButton(buttonPanel, "FeedButton", "Feed", new Vector2(-180f, 0f), new Vector2(150f, 56f));
-            collectButton = EnsureButton(buttonPanel, "CollectButton", "Collect", new Vector2(0f, 0f), new Vector2(150f, 56f));
-            sellButton = EnsureButton(buttonPanel, "SellButton", "Sell", new Vector2(180f, 0f), new Vector2(150f, 56f));
-            hireHelperButton = EnsureButton(buttonPanel, "HireHelperButton", "Hire Helper", new Vector2(360f, 0f), new Vector2(170f, 56f));
-            
-            incubateButton = EnsureButton(expansionPanel, "IncubateButton", "Incubate Egg", new Vector2(-105f, 0f), new Vector2(180f, 64f));
-            plantButton = EnsureButton(expansionPanel, "PlantButton", "Plant Corn", new Vector2(105f, 0f), new Vector2(180f, 64f));
-        }
+        // Ensure Vertical Layout for Upgrades
+        VerticalLayoutGroup vlg = upgradesSub.GetComponent<VerticalLayoutGroup>() ?? upgradesSub.gameObject.AddComponent<VerticalLayoutGroup>();
+        vlg.padding = new RectOffset(20, 20, 20, 20);
+        vlg.spacing = 15f;
+        vlg.childAlignment = TextAnchor.UpperCenter;
+        vlg.childForceExpandWidth = false;
+        vlg.childForceExpandHeight = false;
+        vlg.childControlWidth = false;
+        vlg.childControlHeight = false;
 
-        upgradePanel = upgradesRect != null ? upgradesRect.gameObject : upgradePanel;
+        RectTransform expansionsSub = EnsurePanel("ExpansionsArea", drawer, new Vector2(0, -650f), new Vector2(drawerSize.x - 60f, 200f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
+        expansionsSub.GetComponent<Image>().color = new Color(0,0,0,0.1f);
+
+        // Ensure Horizontal Layout for common expansion buttons (Incubate, Plant)
+        // We'll use a container for just these two if needed, but let's try direct layout first
+        HorizontalLayoutGroup hlg = expansionsSub.GetComponent<HorizontalLayoutGroup>() ?? expansionsSub.gameObject.AddComponent<HorizontalLayoutGroup>();
+        hlg.padding = new RectOffset(10, 10, 10, 10);
+        hlg.spacing = 30f;
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = false;
+        hlg.childControlWidth = false;
+        hlg.childControlHeight = false;
+
+        // Expansion Buttons
+        incubateButton = EnsureButton(expansionsSub, "IncubateBtn", "Incubate", Vector2.zero, new Vector2(200f, 80f));
+        plantButton = EnsureButton(expansionsSub, "PlantBtn", "Plant", Vector2.zero, new Vector2(200f, 80f));
+
+        nextGoalText = EnsureText(drawer, "GoalText", "Next Goal...", new Vector2(0f, 50f), new Vector2(drawerSize.x - 100f, 40f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), 22f);
+        nextGoalText.alignment = TextAlignmentOptions.Center;
+
+        // --- ACTION BAR: PRIMARY CLICKING AREA (Always Bottom) ---
+        Vector2 buttonPanelPos = isPortrait ? new Vector2(0f, 80f) : new Vector2(0f, 40f);
+        Vector2 buttonPanelSize = isPortrait ? new Vector2(1000f, 180f) : new Vector2(1200f, 100f);
+        RectTransform actionBar = EnsurePanel("ActionBar", canvasRect, buttonPanelPos, buttonPanelSize, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+        actionBar.GetComponent<Image>().color = new Color(0,0,0,0); // Clear background
+
+        float btnSpacing = isPortrait ? 220f : 240f;
+        float btnY = 0f;
+        Vector2 btnSize = isPortrait ? new Vector2(180f, 120f) : new Vector2(200f, 80f);
+
+        harvestButton = EnsureButton(actionBar, "Btn1", "Harvest", new Vector2(-btnSpacing * 2f, btnY), btnSize);
+        feedButton = EnsureButton(actionBar, "Btn2", "Feed", new Vector2(-btnSpacing, btnY), btnSize);
+        collectButton = EnsureButton(actionBar, "Btn3", "Collect", new Vector2(0, btnY), btnSize);
+        sellButton = EnsureButton(actionBar, "Btn4", "Sell", new Vector2(btnSpacing, btnY), btnSize);
+        
+        // MANAGEMENT TOGGLE BUTTON
+        managementToggleButton = EnsureButton(actionBar, "BtnShop", "Shop / Build", new Vector2(btnSpacing * 2f, btnY), btnSize);
+        managementToggleButton.onClick.RemoveAllListeners();
+        managementToggleButton.onClick.AddListener(ToggleManagement);
+        managementToggleButton.GetComponent<Image>().color = new Color(0.9f, 0.7f, 0.4f); // Golden brown for shop
+
+        upgradePanel = upgradesSub != null ? upgradesSub.gameObject : upgradePanel;
         EnsureSerializedArrays();
+
+        // Specific Hire Helper button update - Removing it from Horizontal group by not making it a direct child if we want it below, 
+        // but for now let's just use it as part of the list or handle it after
+        hireHelperButton = EnsureButton(expansionsSub, "HireBtn", "Hire Helper", Vector2.zero, new Vector2(250f, 60f));
 
         if (upgradeButtons == null || upgradeButtons.Length != StoryUpgradeCount)
         {
@@ -307,8 +384,8 @@ public class UIManager : MonoBehaviour
 
         for (int i = 0; i < StoryUpgradeCount; i++)
         {
-            float y = -24f - (i * 72f);
-            Button upgradeButton = EnsureButton(upgradesRect, $"UpgradeButton_{i + 1}", StoryUpgradeNames[i], new Vector2(0f, y), new Vector2(270f, 60f));
+            RectTransform upgradeArea = upgradePanel != null ? upgradePanel.GetComponent<RectTransform>() : canvasRect;
+            Button upgradeButton = EnsureButton(upgradeArea, $"UpgradeButton_{i + 1}", StoryUpgradeNames[i], Vector2.zero, new Vector2(300f, 70f));
             TextMeshProUGUI[] texts = upgradeButton.GetComponentsInChildren<TextMeshProUGUI>(true);
 
             if (texts.Length == 0)
@@ -325,7 +402,7 @@ public class UIManager : MonoBehaviour
             nameRect.sizeDelta = new Vector2(-12f, 24f);
             nameText.fontSize = 20f;
 
-            TextMeshProUGUI costText = EnsureButtonSubtext(upgradeButton.transform, "CostText", $"💰{StoryUpgradeCosts[i]}", new Vector2(0f, -12f));
+            TextMeshProUGUI costText = EnsureButtonSubtext(upgradeButton.transform, "CostText", $"Gold {StoryUpgradeCosts[i]}", new Vector2(0f, -12f));
 
             upgradeButtons[i] = upgradeButton;
             upgradeNameTexts[i] = nameText;
@@ -583,55 +660,56 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Update upgrade button visuals using UpgradeData or fallback to hardcoded values
+    /// Update upgrade button visuals using UpgradeData tree logic
     /// </summary>
     private void UpdateUpgradeButtons()
     {
         EnsureSerializedArrays();
 
+        if (availableUpgrades == null || availableUpgrades.Length == 0) return;
+
         for (int i = 0; i < upgradeButtons.Length; i++)
         {
-            if (upgradeButtons[i] == null) continue;
+            if (i >= availableUpgrades.Length || upgradeButtons[i] == null) continue;
 
-            // Skip if already purchased
-            if (upgradesPurchased != null && i < upgradesPurchased.Length && upgradesPurchased[i])
-            {
-                upgradeButtons[i].interactable = false;
-                UpdateButtonVisual(upgradeButtons[i], false);
-                continue;
-            }
-
-            // Get cost from UpgradeData if available, otherwise use fallback
-            int cost;
-            string upgradeName;
+            UpgradeData data = availableUpgrades[i];
             
-            if (availableUpgrades != null && i < availableUpgrades.Length && availableUpgrades[i] != null)
-            {
-                cost = availableUpgrades[i].GetCost();
-                upgradeName = availableUpgrades[i].upgradeName;
-            }
-            else
-            {
-                cost = i < StoryUpgradeCosts.Length ? StoryUpgradeCosts[i] : 100;
-                upgradeName = i < StoryUpgradeNames.Length ? StoryUpgradeNames[i] : "Upgrade";
-            }
+            // Check visibility based on Act and Prerequisites
+            bool isVisible = data.IsVisible();
+            upgradeButtons[i].gameObject.SetActive(isVisible);
 
-            bool canAfford = GameManager.Instance.CanAfford(cost);
+            if (!isVisible) continue;
+
+            int cost = data.GetCost();
+            bool canAfford = data.CanPurchase();
+            
             upgradeButtons[i].interactable = canAfford;
             UpdateButtonVisual(upgradeButtons[i], canAfford);
 
             // Update cost text
             if (upgradeCostTexts != null && i < upgradeCostTexts.Length && upgradeCostTexts[i] != null)
             {
-                upgradeCostTexts[i].text = $"💰{cost}";
+                upgradeCostTexts[i].text = $"Gold {cost}";
                 upgradeCostTexts[i].color = canAfford ? Color.white : Color.red;
             }
 
-            // Update name text if available
+            // Update name text
             if (upgradeNameTexts != null && i < upgradeNameTexts.Length && upgradeNameTexts[i] != null)
             {
-                upgradeNameTexts[i].text = upgradeName;
+                upgradeNameTexts[i].text = data.upgradeName;
             }
+        }
+    }
+
+    /// <summary>
+    /// Shows the large cinematic title card for a new Act
+    /// </summary>
+    public void ShowActTitle(int actIndex)
+    {
+        TitleCardManager tcm = FindObjectOfType<TitleCardManager>();
+        if (tcm != null)
+        {
+            tcm.ShowTitleCard(actIndex);
         }
     }
 
@@ -664,7 +742,7 @@ public class UIManager : MonoBehaviour
     {
         if (levelText != null && GameManager.Instance != null)
         {
-            levelText.text = $"Stage {GameManager.Instance.CurrentLevel}/3";
+            levelText.text = $"Act {GameManager.Instance.CurrentAct}/4";
         }
     }
 
@@ -880,27 +958,27 @@ public class UIManager : MonoBehaviour
             UpgradeData upgrade = availableUpgrades[upgradeIndex];
             if (upgrade.Purchase())
             {
-                // Mark as purchased
-                if (upgradesPurchased != null && upgradeIndex < upgradesPurchased.Length)
-                {
-                    upgradesPurchased[upgradeIndex] = true;
-                }
-
                 // Visual feedback
                 if (upgradeIndex < upgradeButtons.Length && upgradeButtons[upgradeIndex] != null)
                 {
-                    upgradeButtons[upgradeIndex].interactable = false;
                     PunchScale(upgradeButtons[upgradeIndex].GetComponent<RectTransform>());
+                    
+                    // Only disable/hide if it's maxed or shouldn't be visible anymore
+                    bool shouldStay = upgrade.IsVisible();
+                    upgradeButtons[upgradeIndex].gameObject.SetActive(shouldStay);
+                    if (shouldStay)
+                    {
+                        upgradeButtons[upgradeIndex].interactable = upgrade.CanPurchase();
+                    }
                 }
 
-                ShowUpgradeNotification($"{upgrade.upgradeName} upgraded!");
+                ShowUpgradeNotification($"{upgrade.upgradeName} level {upgrade.currentLevel}!");
+                UpdateUpgradeButtons(); // Refresh all buttons for prerequisites
                 UpdateNextGoal();
                 UpdateIncomeRate();
-                TitleCardManager titleCardManager = FindObjectOfType<TitleCardManager>();
-                if (titleCardManager != null)
-                {
-                    titleCardManager.EvaluateStoryProgress();
-                }
+                
+                // Refresh environment in case this upgrade affects fencing/pens
+                EnvironmentManager.Instance?.RefreshFences();
             }
             else
             {
@@ -1022,7 +1100,7 @@ public class UIManager : MonoBehaviour
             }
             else
             {
-                nextGoalText.text = "👷 Hire more helpers to grow faster!";
+                nextGoalText.text = "Hire more helpers to grow faster!";
             }
         }
     }
@@ -1046,7 +1124,7 @@ public class UIManager : MonoBehaviour
         float loopTime = 7.2f / (GameManager.Instance.SpeedMultiplier * GameManager.Instance.StoreEfficiencyMultiplier);
         float incomePerSecond = helpers * GameManager.Instance.EggSellPrice / loopTime;
 
-        incomeRateText.text = $"+{incomePerSecond:F1} 💰/sec";
+        incomeRateText.text = $"+{incomePerSecond:F1} Gold/sec";
     }
 
     /// <summary>
@@ -1211,17 +1289,63 @@ public class UIManager : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        EventSystem eventSystem = FindObjectOfType<EventSystem>();
-        if (eventSystem == null)
+        EventSystem[] systems = FindObjectsOfType<EventSystem>();
+        if (systems.Length > 1)
         {
-            GameObject eventSystemObject = new GameObject("EventSystem");
-            eventSystem = eventSystemObject.AddComponent<EventSystem>();
+            for (int i = 1; i < systems.Length; i++) Destroy(systems[i].gameObject);
+            return;
         }
 
-        if (eventSystem.GetComponent<StandaloneInputModule>() == null)
+        if (systems.Length == 0)
         {
-            eventSystem.gameObject.AddComponent<StandaloneInputModule>();
+            GameObject eventSystemObject = new GameObject("EventSystem");
+            eventSystemObject.AddComponent<EventSystem>();
+            eventSystemObject.AddComponent<StandaloneInputModule>();
         }
+    }
+
+    private void CleanupDuplicateEventSystems()
+    {
+        EventSystem[] systems = FindObjectsOfType<EventSystem>();
+        if (systems.Length > 1)
+        {
+            for (int i = 1; i < systems.Length; i++) 
+            {
+                // Silence cleanup log to avoid spamming console
+                Destroy(systems[i].gameObject);
+            }
+        }
+    }
+
+    private RectTransform EnsurePanelWithShadow(string name, RectTransform parent, Vector2 pos, Vector2 size, Vector2 anchor, Vector2 pivot)
+    {
+        // Shadow first
+        string shadowName = name + "_Shadow";
+        Transform existingShadow = parent.Find(shadowName);
+        RectTransform shadowRect;
+        if (existingShadow == null)
+        {
+            GameObject obj = new GameObject(shadowName);
+            shadowRect = obj.AddComponent<RectTransform>();
+            shadowRect.SetParent(parent, false);
+            obj.AddComponent<CanvasRenderer>();
+            Image img = obj.AddComponent<Image>();
+            img.color = new Color(0, 0, 0, 0.4f); // Semi-transparent black
+        }
+        else
+        {
+            shadowRect = existingShadow as RectTransform;
+        }
+
+        // Apply same properties to shadow but offset
+        shadowRect.anchorMin = anchor;
+        shadowRect.anchorMax = anchor;
+        shadowRect.pivot = pivot;
+        shadowRect.sizeDelta = size;
+        shadowRect.anchoredPosition = pos + new Vector2(8f, -8f);
+
+        // Main Panel
+        return EnsurePanel(name, parent, pos, size, anchor, pivot);
     }
 
     private RectTransform EnsurePanel(string name, RectTransform parent, Vector2 anchoredPosition, Vector2 size, Vector2 anchorMin, Vector2 anchorMax)
@@ -1414,4 +1538,88 @@ public class UIManager : MonoBehaviour
 
         return fillImage;
     }
+
+    private void SetPanelActiveWithShadow(GameObject panel, bool active)
+    {
+        if (panel == null) return;
+        panel.SetActive(active);
+
+        // Find sibling shadow in parent
+        Transform parent = panel.transform.parent;
+        if (parent != null)
+        {
+            Transform shadow = parent.Find(panel.name + "_Shadow");
+            if (shadow != null) shadow.gameObject.SetActive(active);
+        }
+    }
+}
+
+/// <summary>
+/// VisualFeedbackManager - Global utility for "Juice" and visual polish.
+/// Handles Screen Shake, Scale Punches, and UI Transitions.
+/// </summary>
+public class VisualFeedbackManager : MonoBehaviour
+{
+    public static VisualFeedbackManager Instance { get; private set; }
+
+    private Camera mainCamera;
+    private Vector3 cameraOrigin;
+    private Coroutine shakeCoroutine;
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            mainCamera = Camera.main;
+            if (mainCamera != null) cameraOrigin = mainCamera.transform.position;
+        }
+    }
+
+    public void ShakeCamera(float duration = 0.2f, float intensity = 0.1f)
+    {
+        if (mainCamera == null) mainCamera = Camera.main;
+        if (mainCamera == null) return;
+        if (shakeCoroutine != null) StopCoroutine(shakeCoroutine);
+        shakeCoroutine = StartCoroutine(DoShake(duration, intensity));
+    }
+
+    private IEnumerator DoShake(float duration, float intensity)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float strength = intensity * (1f - elapsed / duration);
+            mainCamera.transform.position = cameraOrigin + (Vector3)Random.insideUnitCircle * strength;
+            yield return null;
+        }
+        mainCamera.transform.position = cameraOrigin;
+        shakeCoroutine = null;
+    }
+
+    public void SlideIn(RectTransform target, Vector2 fromOffset, float duration = 0.5f)
+    {
+        if (target == null) return;
+        StartCoroutine(DoSlideIn(target, fromOffset, duration));
+    }
+
+    private IEnumerator DoSlideIn(RectTransform target, Vector2 fromOffset, float duration)
+    {
+        Vector2 originalPos = target.anchoredPosition;
+        Vector2 startPos = originalPos + fromOffset;
+        target.anchoredPosition = startPos;
+
+        float t = 0;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float progress = t / duration;
+            progress = 1f - Mathf.Pow(1f - progress, 3f);
+            target.anchoredPosition = Vector2.Lerp(startPos, originalPos, progress);
+            yield return null;
+        }
+        target.anchoredPosition = originalPos;
+    }
+
 }

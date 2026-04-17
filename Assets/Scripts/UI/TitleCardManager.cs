@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// TitleCardManager - Displays cinematic title cards for each act of the game story.
