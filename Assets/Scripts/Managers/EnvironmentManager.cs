@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using ChickenCoop.Managers;
 
 /// <summary>
 /// EnvironmentManager - Handles world-space decorative elements like relative fencing

@@ -92,7 +92,9 @@ public class HelperAI : MonoBehaviour
         var harvestable = FindClosestHarvestable();
         if (harvestable != null)
         {
-            yield return StartCoroutine(MoveAndAction(harvestable.transform.position, "WORK", () => harvestable.Harvest()));
+            MonoBehaviour mono = harvestable as MonoBehaviour;
+            Vector3 targetPos = mono != null ? mono.transform.position : transform.position;
+            yield return StartCoroutine(MoveAndAction(targetPos, "WORK", () => harvestable.Harvest()));
             yield break;
         }
 
@@ -100,7 +102,9 @@ public class HelperAI : MonoBehaviour
         var feedable = FindClosestFeedable();
         if (feedable != null)
         {
-            yield return StartCoroutine(MoveAndAction(feedable.transform.position, "FEED", () => feedable.Feed("Generic")));
+            MonoBehaviour mono = feedable as MonoBehaviour;
+            Vector3 targetPos = mono != null ? mono.transform.position : transform.position;
+            yield return StartCoroutine(MoveAndAction(targetPos, "FEED", () => feedable.Feed("Generic")));
             yield break;
         }
 

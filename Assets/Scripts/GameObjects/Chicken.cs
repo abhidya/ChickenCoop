@@ -42,6 +42,7 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     private Quaternion originalRotation;
     private float productionProgress = 0f;
     private Transform progressBarPivot;
+    private FarmZoneController zoneController;
 
     public bool IsLayingEgg => isLayingEgg;
 
@@ -55,6 +56,8 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         {
             cornRequired = config.cornToFeed;
         }
+
+        zoneController = GetComponentInParent<FarmZoneController>();
 
         if (bodySprite == null)
         {
@@ -201,21 +204,21 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
             float waitTime = Random.Range(wanderInterval * 0.5f, wanderInterval * 1.5f);
             yield return new WaitForSeconds(waitTime);
 
-            if (!isLayingEgg && !isWandering && EnvironmentManager.Instance != null)
+            if (!isLayingEgg && !isWandering)
             {
-                Bounds bounds = EnvironmentManager.Instance.ChickenPenBounds;
-                if (bounds.size.magnitude > 0.5f)
+                if (zoneController != null)
                 {
-                    // Restrict chickens to the right side of the farm (x > 1.0)
-                    float targetX = Random.Range(bounds.min.x, bounds.max.x);
-                    targetX = Mathf.Max(targetX, 1.0f); 
-
-                    Vector3 dest = new Vector3(
-                        targetX,
-                        Random.Range(bounds.min.y, bounds.max.y),
-                        transform.position.z
-                    );
-                    yield return StartCoroutine(WanderTo(dest));
+                    Bounds bounds = zoneController.GetZoneBounds();
+                    if (bounds.size.magnitude > 0.5f)
+                    {
+                        // Ensure chickens stay roughly within their zone
+                        Vector3 dest = new Vector3(
+                            Random.Range(bounds.min.x, bounds.max.x),
+                            Random.Range(bounds.min.y, bounds.max.y),
+                            transform.position.z
+                        );
+                        yield return StartCoroutine(WanderTo(dest));
+                    }
                 }
             }
         }
