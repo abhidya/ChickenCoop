@@ -28,7 +28,7 @@ public class PlayerController : MonoBehaviour
     private Vector3 originalScale;
     private Transform happyHarvestVisualRoot;
     private static readonly Vector3 HappyHarvestVisualOffset = new Vector3(0f, -0.35f, 0f);
-    private const float HappyHarvestVisualScale = 0.45f;
+    private const float HappyHarvestVisualScale = 0.75f; // Scaled up to fit environment properly
     private Vector2 lastMoveDirection = Vector2.down;
 
     private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");

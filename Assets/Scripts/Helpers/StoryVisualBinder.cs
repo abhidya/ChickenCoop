@@ -430,5 +430,6 @@ public sealed class StoryVisualFollower : MonoBehaviour
         }
 
         transform.position = target.position + offset;
+        transform.localScale = target.localScale;
     }
 }

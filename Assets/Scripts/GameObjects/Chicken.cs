@@ -86,7 +86,16 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
 
         if (resolvedPrefab != null)
         {
-            StoryVisualBinder.AttachVisualPrefab(transform, resolvedPrefab, bodySprite);
+            // NEW: Check if GameManager's SpawnChickenAt already attached a visual as a child
+            Transform existingVisual = transform.Find("Visual");
+            if (existingVisual != null)
+            {
+                if (bodySprite != null) bodySprite.enabled = false;
+            }
+            else
+            {
+                StoryVisualBinder.AttachVisualPrefab(transform, resolvedPrefab, bodySprite);
+            }
         }
 
         EnsureVisualComponents();
@@ -209,9 +218,10 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
                 if (zoneController != null)
                 {
                     Bounds bounds = zoneController.GetZoneBounds();
-                    if (bounds.size.magnitude > 0.5f)
-                    {
-                        // Ensure chickens stay roughly within their zone
+                        // Ensure chickens stay strictly within their zone by shrinking the wander area by 0.7 units on each side
+                        bounds.Expand(-1.4f); 
+                        if (bounds.size.x < 1.0f || bounds.size.y < 1.0f) bounds = zoneController.GetZoneBounds(); // Safety fallback
+
                         Vector3 dest = new Vector3(
                             Random.Range(bounds.min.x, bounds.max.x),
                             Random.Range(bounds.min.y, bounds.max.y),

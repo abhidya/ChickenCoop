@@ -20,6 +20,7 @@ public class FarmZoneTemplate : ScriptableObject
 
     [Header("Assets")]
     public GameObject mainPrefab;
+    public string slotObjectResourcePath; // e.g. "HappyHarvestChicken"
     public List<GameObject> decorationPrefabs;
     
     [Header("Production Cycle")]

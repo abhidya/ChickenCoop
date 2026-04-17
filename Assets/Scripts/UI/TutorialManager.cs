@@ -23,6 +23,9 @@ public class TutorialManager : MonoBehaviour
         FeedChicken,
         CollectEgg,
         SellEgg,
+        OpenShop,
+        PlantCorn,
+        IncubateChicken,
         HireHelper,
         Complete
     }
@@ -40,6 +43,9 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private string feedMessage = "Great! Now feed the chicken by tapping on it.";
     [SerializeField] private string collectMessage = "Collect the egg the chicken laid!";
     [SerializeField] private string sellMessage = "Sell your egg at the store for coins!";
+    [SerializeField] private string shopMessage = "Great! Now tap the 'Shop' button to see expansion options.";
+    [SerializeField] private string plantMessage = "Time to grow! Tap 'Plant' to add more corn fields.";
+    [SerializeField] private string incubateMessage = "Your farm is expanding! Tap 'Incubate' to get another chicken.";
     [SerializeField] private string hireMessage = "You've earned enough coins! Hire a helper to automate.";
     [SerializeField] private string completeMessage = "Excellent! You've mastered the basics!\nKeep farming to grow your empire!";
 
@@ -47,7 +53,10 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private Transform cornFieldTarget;
     [SerializeField] private Transform chickenTarget;
     [SerializeField] private Transform storeTarget;
+    [SerializeField] private RectTransform shopButtonTarget;
     [SerializeField] private RectTransform hireButtonTarget;
+    [SerializeField] private RectTransform plantButtonTarget;
+    [SerializeField] private RectTransform incubateButtonTarget;
 
     [Header("Settings")]
     [SerializeField] private float arrowBobSpeed = 2f;
@@ -107,6 +116,12 @@ public class TutorialManager : MonoBehaviour
             GameManager.Instance.OnEggsChanged += OnEggsChanged;
             GameManager.Instance.OnCoinsChanged += OnCoinsChanged;
             GameManager.Instance.OnHelperCountChanged += OnHelperHired;
+            GameManager.Instance.OnZoneExpanded += OnZoneExpanded;
+            
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.OnManagementOpened += OnShopOpened;
+            }
         }
 
         // Check again after a short delay to catch late-initialized world objects
@@ -131,6 +146,7 @@ public class TutorialManager : MonoBehaviour
             GameManager.Instance.OnEggsChanged -= OnEggsChanged;
             GameManager.Instance.OnCoinsChanged -= OnCoinsChanged;
             GameManager.Instance.OnHelperCountChanged -= OnHelperHired;
+            GameManager.Instance.OnZoneExpanded -= OnZoneExpanded;
         }
     }
 
@@ -173,6 +189,7 @@ public class TutorialManager : MonoBehaviour
             case TutorialStep.FeedChicken: return chickenTarget;
             case TutorialStep.CollectEgg: return chickenTarget;
             case TutorialStep.SellEgg: return storeTarget;
+            case TutorialStep.OpenShop: return null;
             default: return null;
         }
     }
@@ -204,6 +221,14 @@ public class TutorialManager : MonoBehaviour
         tutorialActive = true;
         currentStep = TutorialStep.Welcome;
         
+        // SYNC: Initialize tutorial counters to current game state
+        if (GameManager.Instance != null)
+        {
+            cornHarvestedDuringTutorial = GameManager.Instance.Corn;
+            eggsCollectedDuringTutorial = GameManager.Instance.Eggs;
+            Debug.Log($"[TutorialManager] Syncing tutorial. Starting Corn: {cornHarvestedDuringTutorial}, Starting Eggs: {eggsCollectedDuringTutorial}");
+        }
+
         if (tutorialPanel != null)
         {
             tutorialPanel.transform.SetAsLastSibling();
@@ -293,6 +318,21 @@ public class TutorialManager : MonoBehaviour
             case TutorialStep.SellEgg:
                 instructionText.text = sellMessage;
                 PointArrowAt(storeTarget);
+                break;
+            
+            case TutorialStep.OpenShop:
+                instructionText.text = shopMessage;
+                PointArrowAtUI(shopButtonTarget);
+                break;
+            
+            case TutorialStep.PlantCorn:
+                instructionText.text = plantMessage;
+                PointArrowAtUI(plantButtonTarget);
+                break;
+
+            case TutorialStep.IncubateChicken:
+                instructionText.text = incubateMessage;
+                PointArrowAtUI(incubateButtonTarget);
                 break;
 
             case TutorialStep.HireHelper:
@@ -393,13 +433,16 @@ public class TutorialManager : MonoBehaviour
     {
         if (!tutorialActive) return;
 
+        Debug.Log($"[Tutorial] OnCornChanged: step={currentStep}, newValue={newValue}, baseline={cornHarvestedDuringTutorial}");
+
         if (currentStep == TutorialStep.HarvestCorn)
         {
-            int previousCorn = cornHarvestedDuringTutorial;
-            cornHarvestedDuringTutorial = newValue;
-            
-            if (newValue > previousCorn)
+            // Robust check: any increase or even just the event firing 
+            // if we are on this step is enough to prove the player interacted.
+            if (newValue > cornHarvestedDuringTutorial || (newValue == cornHarvestedDuringTutorial && newValue > 0))
             {
+                Debug.Log("[Tutorial] Corn Harvest Detected. Advancing to FeedChicken.");
+                cornHarvestedDuringTutorial = newValue;
                 AdvanceToStep(TutorialStep.FeedChicken);
             }
         }
@@ -412,10 +455,14 @@ public class TutorialManager : MonoBehaviour
         int previousEggs = eggsCollectedDuringTutorial;
         eggsCollectedDuringTutorial = newValue;
 
-        if (currentStep == TutorialStep.CollectEgg && newValue > previousEggs)
+        if (currentStep == TutorialStep.CollectEgg && newValue > eggsCollectedDuringTutorial)
         {
-            // Egg was collected
+            eggsCollectedDuringTutorial = newValue;
             AdvanceToStep(TutorialStep.SellEgg);
+        }
+        else
+        {
+            eggsCollectedDuringTutorial = newValue;
         }
     }
 
@@ -425,15 +472,15 @@ public class TutorialManager : MonoBehaviour
 
         if (currentStep == TutorialStep.SellEgg)
         {
-            int helperCost = GameManager.Instance != null ? GameManager.Instance.HelperCost : 100;
-            if (newValue >= helperCost)
+            int expandCost = 50; // Cost for first expansion
+            if (newValue >= expandCost)
             {
-                AdvanceToStep(TutorialStep.HireHelper);
+                AdvanceToStep(TutorialStep.OpenShop);
             }
             else if (instructionText != null)
             {
-                int remaining = helperCost - newValue;
-                instructionText.text = $"Sell eggs until you reach {helperCost} coins! {remaining} more to go.";
+                int remaining = expandCost - newValue;
+                instructionText.text = $"Sell eggs until you reach {expandCost} coins! {remaining} more to go.";
             }
         }
     }
@@ -445,6 +492,29 @@ public class TutorialManager : MonoBehaviour
         if (currentStep == TutorialStep.HireHelper && newValue >= 1)
         {
             AdvanceToStep(TutorialStep.Complete);
+        }
+    }
+
+    private void OnShopOpened()
+    {
+        if (!tutorialActive) return;
+        if (currentStep == TutorialStep.OpenShop)
+        {
+            AdvanceToStep(TutorialStep.PlantCorn);
+        }
+    }
+
+    private void OnZoneExpanded(string zoneId, int newCount)
+    {
+        if (!tutorialActive) return;
+
+        if (currentStep == TutorialStep.PlantCorn && zoneId == "Corn")
+        {
+            AdvanceToStep(TutorialStep.IncubateChicken);
+        }
+        else if (currentStep == TutorialStep.IncubateChicken && zoneId == "Chicken")
+        {
+            AdvanceToStep(TutorialStep.HireHelper);
         }
     }
 
@@ -524,11 +594,34 @@ public class TutorialManager : MonoBehaviour
             textRect.sizeDelta = new Vector2(460f, 90f);
 
             instructionText = textObject.AddComponent<TextMeshProUGUI>();
+            
+            // Robust Font Loading: try Happy Harvest SDF, then search
+            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (font == null) font = Resources.Load<TMP_FontAsset>("LiberationSans SDF");
+            if (font == null) font = Resources.Load<TMP_FontAsset>("Fonts/HappyHarvestSDF");
+            
+            if (font == null)
+            {
+                var allFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+                if (allFonts.Length > 0) font = allFonts[0];
+            }
+            if (font != null) instructionText.font = font;
+            else Debug.LogWarning("[TutorialManager] No TMP_FontAsset found! Tutorial text might be invisible.");
+            
             instructionText.alignment = TextAlignmentOptions.Center;
-            instructionText.fontSize = 24f;
-            instructionText.color = StoryColorPalette.TextDark;
+            instructionText.fontSize = 28f;
+            instructionText.color = new Color(0.24f, 0.15f, 0.14f, 1f); // Deep brown
             instructionText.textWrappingMode = TextWrappingModes.Normal;
             instructionText.raycastTarget = false;
+            
+            // Ensure visibility
+            instructionText.text = welcomeMessage;
+            instructionText.ForceMeshUpdate();
+            
+            // Fix sorting
+            Canvas textCanvas = textObject.AddComponent<Canvas>();
+            textCanvas.overrideSorting = true;
+            textCanvas.sortingOrder = 30001; // Above panels
         }
 
         if (skipButton == null)
@@ -586,9 +679,24 @@ public class TutorialManager : MonoBehaviour
             }
         }
 
+        if (shopButtonTarget == null && UIManager.Instance != null)
+        {
+            shopButtonTarget = UIManager.Instance.ShopButtonTransform;
+        }
+
         if (hireButtonTarget == null && UIManager.Instance != null)
         {
             hireButtonTarget = UIManager.Instance.HireHelperButtonTransform;
+        }
+
+        if (plantButtonTarget == null && UIManager.Instance != null)
+        {
+            plantButtonTarget = UIManager.Instance.PlantButtonTransform;
+        }
+
+        if (incubateButtonTarget == null && UIManager.Instance != null)
+        {
+            incubateButtonTarget = UIManager.Instance.IncubateButtonTransform;
         }
     }
 

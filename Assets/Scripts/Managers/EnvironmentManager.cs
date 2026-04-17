@@ -37,7 +37,12 @@ public class EnvironmentManager : MonoBehaviour
 
     private void LoadAssets()
     {
+        if (fencePrefab != null) return;
         fencePrefab = Resources.Load<GameObject>(fenceResourcePath);
+        if (fencePrefab == null)
+        {
+            Debug.LogError($"[EnvironmentManager] FAILED to load fence prefab from Resources at '{fenceResourcePath}'. Procedural fences will not render.");
+        }
     }
 
     /// <summary>
@@ -45,22 +50,49 @@ public class EnvironmentManager : MonoBehaviour
     /// </summary>
     public void RefreshFences()
     {
-        if (fenceContainer == null || GameManager.Instance == null) return;
+        ClearFences();
 
-        // Clear existing
+        if (GameManager.Instance == null) return;
+        
+        // Ensure prefab is loaded
+        if (fencePrefab == null)
+        {
+            string path = GameManager.Instance.Config != null ? GameManager.Instance.Config.fenceResourcePath : "HappyHarvestFence";
+            fencePrefab = Resources.Load<GameObject>(path);
+            if (fencePrefab == null)
+            {
+                Debug.LogError($"[EnvironmentManager] Failed to load fence prefab from {path}");
+                return;
+            }
+        }
+
+        var zones = GameManager.Instance.ActiveZoneControllers;
+        Debug.Log($"[EnvironmentManager] Refreshing fences for {zones.Count} zones.");
+
+        foreach (var zone in zones)
+        {
+            Bounds bounds = zone.GetZoneBounds();
+            if (bounds.size.magnitude < 0.1f) 
+            {
+                Debug.LogWarning($"[EnvironmentManager] Zone {zone.template.id} has invalid bounds {bounds.size}. Skipping fence.");
+                continue;
+            }
+
+            BuildZoneFence(zone);
+            SpawnZoneDecorations(zone);
+        }
+    }
+
+    private void ClearFences()
+    {
+        if (fenceContainer == null) return;
+
         foreach (Transform child in fenceContainer)
         {
             if (Application.isPlaying) Object.Destroy(child.gameObject);
             else Object.DestroyImmediate(child.gameObject);
         }
         zoneDecorations.Clear();
-
-        // Build individual fences for each zone controller
-        foreach (var zone in GameManager.Instance.ActiveZoneControllers)
-        {
-            BuildZoneFence(zone);
-            SpawnZoneDecorations(zone);
-        }
     }
 
     private void BuildZoneFence(FarmZoneController zone)
@@ -81,17 +113,24 @@ public class EnvironmentManager : MonoBehaviour
         GameObject decorRoot = new GameObject($"{zone.template.id}_Decorations");
         decorRoot.transform.SetParent(fenceContainer);
 
-        // Procedural: place decorations at corners
+        // Procedural: place 2-3 decorations at random spots near corners
         int decorCount = Mathf.Min(zone.template.decorationPrefabs.Count, 3);
         for (int i = 0; i < decorCount; i++)
         {
-            Vector3 pos;
-            if (i == 0) pos = new Vector3(b.min.x + 0.5f, b.max.y - 0.5f, 0);      // Top Left
-            else if (i == 1) pos = new Vector3(b.max.x - 0.5f, b.min.y + 0.5f, 0); // Bottom Right
-            else pos = new Vector3(b.max.x - 0.5f, b.max.y - 0.5f, 0);              // Top Right
+            if (zone.template.decorationPrefabs[i] == null) continue;
+
+            // Pick a corner-ish area but randomize slightly
+            float randX = (i % 2 == 0) ? Random.Range(b.min.x + 0.5f, b.min.x + 1.5f) : Random.Range(b.max.x - 1.5f, b.max.x - 0.5f);
+            float randY = (i < 2) ? Random.Range(b.min.y + 0.5f, b.min.y + 1.5f) : Random.Range(b.max.y - 1.5f, b.max.y - 0.5f);
+            
+            Vector3 pos = new Vector3(randX, randY, 0);
 
             GameObject decor = Instantiate(zone.template.decorationPrefabs[i], pos, Quaternion.identity, decorRoot.transform);
-            decor.transform.rotation = Quaternion.Euler(0, 0, (i % 2 == 0) ? 15f : -15f);
+            decor.transform.rotation = Quaternion.Euler(0, 0, Random.Range(-20f, 20f));
+            
+            // Ensure decorations are drawn behind characters
+            var renderer = decor.GetComponentInChildren<SpriteRenderer>();
+            if (renderer != null) renderer.sortingOrder = -50;
         }
     }
 

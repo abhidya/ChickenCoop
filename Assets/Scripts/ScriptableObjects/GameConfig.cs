@@ -11,6 +11,7 @@ public class GameConfig : ScriptableObject
     [Header("Data Driven Templates")]
     public List<FarmZoneTemplate> zoneTemplates;
     public List<FarmItemDefinition> itemDefinitions;
+    public string fenceResourcePath = "HappyHarvestFence";
     public float zoneSpacingBuffer = 5.0f;
 
     [Header("Starting Resources")]

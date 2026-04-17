@@ -148,11 +148,21 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
 
         if (resolvedPrefab != null)
         {
-            GameObject visual = StoryVisualBinder.AttachVisualPrefab(
-                transform, resolvedPrefab, spriteRenderer, true);
-            if (visual != null)
+            // NEW: Check if GameManager's SpawnCornFieldAt already attached a visual as a child
+            Transform existingVisual = transform.Find("Visual");
+            if (existingVisual != null)
             {
-                storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
+                storyRenderers = existingVisual.GetComponentsInChildren<SpriteRenderer>(true);
+                if (spriteRenderer != null) spriteRenderer.enabled = false;
+            }
+            else
+            {
+                GameObject visual = StoryVisualBinder.AttachVisualPrefab(
+                    transform, resolvedPrefab, spriteRenderer, true);
+                if (visual != null)
+                {
+                    storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
+                }
             }
         }
     }

@@ -25,6 +25,8 @@ public class UIManager : MonoBehaviour
 
     public static UIManager Instance { get; private set; }
 
+    public event System.Action OnManagementOpened;
+
     [Header("Resource Displays")]
     [SerializeField] private TextMeshProUGUI cornCountText;
     [SerializeField] private TextMeshProUGUI eggsCountText;
@@ -34,10 +36,13 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI timeText;
     [SerializeField] private TextMeshProUGUI storyLevelText;
 
-    [Header("Resource Icons")]
-    [SerializeField] private RectTransform cornIcon;
-    [SerializeField] private RectTransform eggsIcon;
     [SerializeField] private RectTransform coinsIcon;
+
+    [Header("Inventory Sidebar (Left)")]
+    private RectTransform inventorySidebar;
+    private RectTransform sidebarContent;
+    private Dictionary<string, TextMeshProUGUI> resourceCounts = new Dictionary<string, TextMeshProUGUI>();
+    private Dictionary<string, float> displayedResourceValues = new Dictionary<string, float>();
 
     [Header("Action Buttons")]
     [SerializeField] private Button harvestButton;
@@ -87,6 +92,10 @@ public class UIManager : MonoBehaviour
     private bool[] upgradesPurchased;
 
     public RectTransform HireHelperButtonTransform => hireHelperButton != null ? hireHelperButton.GetComponent<RectTransform>() : null;
+    public RectTransform IncubateButtonTransform => incubateButton != null ? incubateButton.GetComponent<RectTransform>() : null;
+    public RectTransform PlantButtonTransform => plantButton != null ? plantButton.GetComponent<RectTransform>() : null;
+    public RectTransform ShopButtonTransform => managementToggleButton != null ? managementToggleButton.GetComponent<RectTransform>() : null;
+
     public bool AreAllUpgradesPurchased
     {
         get
@@ -133,6 +142,8 @@ public class UIManager : MonoBehaviour
         {
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         }
+
+        CreateInventorySidebar();
 
         // Initialize upgrade tracking
         upgradesPurchased = new bool[availableUpgrades != null ? availableUpgrades.Length : 0];
@@ -192,6 +203,8 @@ public class UIManager : MonoBehaviour
 
                 VisualFeedbackManager drawerVfx = VisualFeedbackManager.Instance ?? FindObjectOfType<VisualFeedbackManager>();
                 drawerVfx?.SlideIn(rect, new Vector2(0, -1000f), 0.4f);
+                
+                OnManagementOpened?.Invoke();
             }
             else
             {
@@ -369,6 +382,27 @@ public class UIManager : MonoBehaviour
         // but for now let's just use it as part of the list or handle it after
         hireHelperButton = EnsureButton(expansionsSub, "HireBtn", "Hire Helper", Vector2.zero, new Vector2(250f, 60f));
 
+        // Unlock Wheat/Cow Buttons in Shop
+        Button unlockWheatBtn = EnsureButton(expansionsSub, "UnlockWheatBtn", "Unlock Wheat (50 Gold)", Vector2.zero, new Vector2(250f, 60f));
+        unlockWheatBtn.onClick.AddListener(() => {
+            if (GameManager.Instance.SpendCoins(50)) {
+                GameManager.Instance.RegisterWheatPurchase();
+                unlockWheatBtn.gameObject.SetActive(false);
+            } else {
+                ShowCannotAfford(50 - GameManager.Instance.Coins);
+            }
+        });
+
+        Button unlockCowBtn = EnsureButton(expansionsSub, "UnlockCowBtn", "Unlock Cow (500 Gold)", Vector2.zero, new Vector2(250f, 60f));
+        unlockCowBtn.onClick.AddListener(() => {
+            if (GameManager.Instance.SpendCoins(500)) {
+                GameManager.Instance.RegisterCowPurchase();
+                unlockCowBtn.gameObject.SetActive(false);
+            } else {
+                ShowCannotAfford(500 - GameManager.Instance.Coins);
+            }
+        });
+
         if (upgradeButtons == null || upgradeButtons.Length != StoryUpgradeCount)
         {
             upgradeButtons = new Button[StoryUpgradeCount];
@@ -534,7 +568,7 @@ public class UIManager : MonoBehaviour
     // Updates corn text to pure number (icon already in slot container label)
     private void UpdateNumberTweens()
     {
-        // Tween corn display
+        // Tween legacy hardcoded counters
         if (Mathf.Abs(displayedCorn - targetCorn) > 0.1f)
         {
             displayedCorn = Mathf.Lerp(displayedCorn, targetCorn, Time.deltaTime / numberTweenDuration * 5f);
@@ -546,7 +580,6 @@ public class UIManager : MonoBehaviour
             if (cornCountText != null) cornCountText.text = targetCorn.ToString();
         }
 
-        // Tween eggs display
         if (Mathf.Abs(displayedEggs - targetEggs) > 0.1f)
         {
             displayedEggs = Mathf.Lerp(displayedEggs, targetEggs, Time.deltaTime / numberTweenDuration * 5f);
@@ -558,7 +591,6 @@ public class UIManager : MonoBehaviour
             if (eggsCountText != null) eggsCountText.text = targetEggs.ToString();
         }
 
-        // Tween coins display
         if (Mathf.Abs(displayedCoins - targetCoins) > 0.1f)
         {
             displayedCoins = Mathf.Lerp(displayedCoins, targetCoins, Time.deltaTime / numberTweenDuration * 5f);
@@ -569,6 +601,143 @@ public class UIManager : MonoBehaviour
             displayedCoins = targetCoins;
             if (coinsCountText != null) coinsCountText.text = targetCoins.ToString();
         }
+
+        // Tween Sidebar Counters
+        if (resourceCounts == null) return;
+
+        foreach (var pair in resourceCounts)
+        {
+            string id = pair.Key;
+            TextMeshProUGUI tmp = pair.Value;
+            
+            int target = GetTargetValueFor(id);
+            float current = displayedResourceValues.ContainsKey(id) ? displayedResourceValues[id] : 0f;
+
+            if (Mathf.Abs(current - target) > 0.1f)
+            {
+                current = Mathf.Lerp(current, target, Time.deltaTime / numberTweenDuration * 5f);
+                displayedResourceValues[id] = current;
+                tmp.text = Mathf.RoundToInt(current).ToString();
+            }
+            else if (current != target)
+            {
+                current = target;
+                displayedResourceValues[id] = current;
+                tmp.text = target.ToString();
+            }
+        }
+    }
+
+    private int GetTargetValueFor(string id)
+    {
+        if (GameManager.Instance == null) return 0;
+        switch (id)
+        {
+            case "Corn": return GameManager.Instance.Corn;
+            case "Egg": return GameManager.Instance.Eggs;
+            case "Coins": return GameManager.Instance.Coins;
+            case "Wheat": return GameManager.Instance.GetItemCount("Wheat");
+            case "Milk": return GameManager.Instance.GetItemCount("Milk");
+            default: return 0;
+        }
+    }
+
+    private void CreateInventorySidebar()
+    {
+        // Create the sidebar root anchored to the Left Middle
+        GameObject sidebarObj = new GameObject("InventorySidebar");
+        sidebarObj.transform.SetParent(transform, false);
+        inventorySidebar = sidebarObj.AddComponent<RectTransform>();
+        inventorySidebar.anchorMin = new Vector2(0, 0.5f);
+        inventorySidebar.anchorMax = new Vector2(0, 0.5f);
+        inventorySidebar.pivot = new Vector2(0, 0.5f);
+        inventorySidebar.sizeDelta = new Vector2(250, 600);
+        inventorySidebar.anchoredPosition = new Vector3(20, 0, 0);
+
+        // Add a background panel
+        Image bg = sidebarObj.AddComponent<Image>();
+        bg.color = new Color(0, 0, 0, 0.4f); // Semi-transparent dark bg
+        
+        // Add ScrollRect
+        ScrollRect scroll = sidebarObj.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+        scroll.vertical = true;
+
+        // Content Container
+        GameObject contentObj = new GameObject("Content");
+        contentObj.transform.SetParent(sidebarObj.transform, false);
+        sidebarContent = contentObj.AddComponent<RectTransform>();
+        sidebarContent.anchorMin = new Vector2(0, 1);
+        sidebarContent.anchorMax = new Vector2(1, 1);
+        sidebarContent.pivot = new Vector2(0.5f, 1);
+        sidebarContent.sizeDelta = new Vector2(0, 0); // Fitter will handle height
+
+        scroll.content = sidebarContent;
+
+        VerticalLayoutGroup layout = contentObj.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(10, 10, 10, 10);
+        layout.spacing = 10;
+        layout.childAlignment = TextAnchor.UpperCenter;
+        layout.childControlHeight = true;
+        layout.childControlWidth = true;
+        layout.childForceExpandHeight = false;
+
+        ContentSizeFitter fitter = contentObj.AddComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // Populate Slots
+        CreateResourceSlot("Corn", "Sprite_Corn_icon");
+        CreateResourceSlot("Egg", "egg_icon");
+        CreateResourceSlot("Wheat", "Sprite_Wheat_icon");
+        CreateResourceSlot("Milk", "milk_bottle_icon"); // We will generate this
+        CreateResourceSlot("Coins", "Sprite_coin_icon");
+    }
+
+    private void CreateResourceSlot(string id, string iconPath)
+    {
+        GameObject slotObj = new GameObject("Slot_" + id);
+        slotObj.transform.SetParent(sidebarContent, false);
+        RectTransform rt = slotObj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(0, 80);
+
+        // Background for slot
+        Image bg = slotObj.AddComponent<Image>();
+        bg.sprite = Resources.Load<Sprite>("Sprite_Button_Blue");
+        bg.type = Image.Type.Sliced;
+
+        // Icon
+        GameObject iconObj = new GameObject("Icon");
+        iconObj.transform.SetParent(slotObj.transform, false);
+        RectTransform iconRT = iconObj.AddComponent<RectTransform>();
+        iconRT.anchorMin = new Vector2(0, 0.5f);
+        iconRT.anchorMax = new Vector2(0, 0.5f);
+        iconRT.pivot = new Vector2(0, 0.5f);
+        iconRT.anchoredPosition = new Vector3(10, 0, 0);
+        iconRT.sizeDelta = new Vector2(50, 50);
+
+        Image iconImg = iconObj.AddComponent<Image>();
+        iconImg.sprite = Resources.Load<Sprite>(iconPath);
+
+        // Count Text
+        GameObject textObj = new GameObject("Count");
+        textObj.transform.SetParent(slotObj.transform, false);
+        RectTransform textRT = textObj.AddComponent<RectTransform>();
+        textRT.anchorMin = new Vector2(0.5f, 0);
+        textRT.anchorMax = new Vector2(1, 1);
+        textRT.pivot = new Vector2(0.5f, 0.5f);
+        textRT.anchoredPosition = new Vector3(20, 0, 0);
+
+        TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
+        tmp.fontSize = 28;
+        tmp.alignment = TextAlignmentOptions.Right;
+        tmp.text = "0";
+        tmp.color = Color.white;
+        
+        // Add font support
+        tmp.font = cornCountText != null ? cornCountText.font : null;
+
+        resourceCounts[id] = tmp;
+        displayedResourceValues[id] = 0f;
     }
 
     /// <summary>
@@ -715,6 +884,14 @@ public class UIManager : MonoBehaviour
             if (coinsCountText != null) coinsCountText.text = targetCoins.ToString();
             if (helperCountText != null) helperCountText.text = GameManager.Instance.HelperCount.ToString();
             
+            // Sidebar sync
+            foreach(var id in resourceCounts.Keys)
+            {
+                int val = GetTargetValueFor(id);
+                displayedResourceValues[id] = val;
+                resourceCounts[id].text = val.ToString();
+            }
+
             UpdateLevelDisplay();
             UpdateExpansionButtons();
         }
@@ -728,21 +905,32 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    private void UpdateExpansionButtons()
+    public void UpdateExpansionButtons()
     {
         if (GameManager.Instance == null) return;
         
-        int chickenCount = GameManager.Instance.ChickenPositions.Count;
-        int cornCount = GameManager.Instance.CornFieldPositions.Count;
+        // Find counts from active zones
+        FarmZoneController chickenZone = GameManager.Instance.ActiveZoneControllers.Find(z => z.template.id == "Chicken");
+        FarmZoneController cornZone = GameManager.Instance.ActiveZoneControllers.Find(z => z.template.id == "Corn");
 
-        bool canIncubate = chickenCount < 6 && GameManager.Instance.Eggs >= 1;
-        bool canPlant = cornCount < 6 && GameManager.Instance.Corn >= 1;
+        if (chickenZone == null || cornZone == null)
+        {
+            string activeIDs = string.Join(", ", GameManager.Instance.ActiveZoneControllers.ConvertAll(z => z.template.id));
+            Debug.LogWarning($"[UIManager] Zone mismatch detected. Active IDs: [{activeIDs}]. Needed: [Chicken, Corn]");
+        }
+
+        int chickenCount = chickenZone != null ? chickenZone.CurrentCount : 0;
+        int cornCount = cornZone != null ? cornZone.CurrentCount : 0;
+
+        // Resource Cost logic (1 Corn, 1 Egg)
+        bool canIncubate = chickenZone != null && GameManager.Instance.Eggs >= 1;
+        bool canPlant = cornZone != null && GameManager.Instance.Corn >= 1;
 
         if (incubateButton != null) 
         {
             incubateButton.interactable = canIncubate;
             TextMeshProUGUI label = incubateButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.text = chickenCount >= 6 ? "MAX" : "Incubate";
+            if (label != null) label.text = "Incubate (1 Egg)";
             UpdateButtonVisual(incubateButton, canIncubate);
         }
 
@@ -750,15 +938,50 @@ public class UIManager : MonoBehaviour
         {
             plantButton.interactable = canPlant;
             TextMeshProUGUI label = plantButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.text = cornCount >= 6 ? "MAX" : "Plant";
+            if (label != null) label.text = "Plant (1 Corn)";
             UpdateButtonVisual(plantButton, canPlant);
+        }
+
+        // New Wheat expansion button logic
+        Button wheatButton = null; // We would find this if we had a field for it
+        if (wheatButton != null)
+        {
+            bool hasPurchased = GameManager.Instance.HasPurchasedWheat;
+            wheatButton.interactable = hasPurchased || GameManager.Instance.GetItemCount("Wheat") > 0;
+            TextMeshProUGUI label = wheatButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.text = hasPurchased ? "Expand Wheat (FREE)" : "Plant Wheat (1 Wheat)";
+        }
+        
+        // New Cow expansion button logic
+        Button cowButton = null; 
+        if (cowButton != null)
+        {
+            bool hasPurchased = GameManager.Instance.HasPurchasedCow;
+            cowButton.interactable = hasPurchased || GameManager.Instance.GetItemCount("Milk") > 0;
+            TextMeshProUGUI label = cowButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.text = hasPurchased ? "Expand Cows (FREE)" : "Add Cow (1 Milk)";
         }
     }
 
     private void SetupExpansionButtons()
     {
+        Sprite greenBtn = Resources.Load<Sprite>("Sprite_Button_green");
+        Sprite blueBtn = Resources.Load<Sprite>("Sprite_Button_Blue");
+        TMP_FontAsset font = Resources.Load<TMP_FontAsset>("LiberationSans SDF");
+        if (font == null) font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+
         if (incubateButton != null)
         {
+            if (blueBtn != null) incubateButton.image.sprite = blueBtn;
+            incubateButton.image.type = Image.Type.Sliced;
+            
+            TextMeshProUGUI label = incubateButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) {
+                if (font != null) label.font = font;
+                label.color = Color.white;
+                label.fontStyle = FontStyles.Bold;
+            }
+
             incubateButton.onClick.RemoveAllListeners();
             incubateButton.onClick.AddListener(() => {
                  GameManager.Instance.AddChicken();
@@ -768,6 +991,16 @@ public class UIManager : MonoBehaviour
         
         if (plantButton != null)
         {
+            if (greenBtn != null) plantButton.image.sprite = greenBtn;
+            plantButton.image.type = Image.Type.Sliced;
+
+            TextMeshProUGUI label = plantButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) {
+                if (font != null) label.font = font;
+                label.color = Color.white;
+                label.fontStyle = FontStyles.Bold;
+            }
+
             plantButton.onClick.RemoveAllListeners();
             plantButton.onClick.AddListener(() => {
                 GameManager.Instance.AddCornField();
@@ -782,12 +1015,17 @@ public class UIManager : MonoBehaviour
         bool increased = newValue > targetCorn;
         targetCorn = newValue;
 
+        // Legacy UI
         if (increased && cornIcon != null)
         {
             PunchScale(cornIcon);
         }
-
-        UpdateExpansionButtons();
+        
+        // Sidebar UI
+        if (resourceCounts.ContainsKey("Corn") && increased)
+        {
+            PunchScale(resourceCounts["Corn"].rectTransform);
+        }
     }
 
     private void OnEggsChanged(int newValue)
@@ -795,12 +1033,17 @@ public class UIManager : MonoBehaviour
         bool increased = newValue > targetEggs;
         targetEggs = newValue;
 
+        // Legacy UI
         if (increased && eggsIcon != null)
         {
             PunchScale(eggsIcon);
         }
 
-        UpdateExpansionButtons();
+        // Sidebar UI
+        if (resourceCounts.ContainsKey("Egg") && increased)
+        {
+            PunchScale(resourceCounts["Egg"].rectTransform);
+        }
     }
 
     private void OnCoinsChanged(int newValue)
@@ -808,13 +1051,30 @@ public class UIManager : MonoBehaviour
         bool increased = newValue > targetCoins;
         targetCoins = newValue;
 
+        // Legacy UI
         if (increased && coinsIcon != null)
         {
             PunchScale(coinsIcon);
         }
 
+        // Sidebar UI
+        if (resourceCounts.ContainsKey("Coins") && increased)
+        {
+            PunchScale(resourceCounts["Coins"].rectTransform);
+        }
+
         UpdateNextGoal();
         UpdateIncomeRate();
+        UpdateExpansionButtons();
+    }
+
+    // Generic handler for sidebar resources (Wheat, Milk, etc.)
+    public void UpdateResourceUI(string id)
+    {
+        if (resourceCounts.ContainsKey(id))
+        {
+            PunchScale(resourceCounts[id].rectTransform);
+        }
     }
 
     private void OnHelperCountChanged(int newValue)

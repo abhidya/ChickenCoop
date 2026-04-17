@@ -107,11 +107,18 @@ public class StoreCounter : MonoBehaviour, IInteractable
     {
         if (spriteRenderer != null)
         {
-            bool hasEggs = GameManager.Instance != null && GameManager.Instance.Eggs > 0;
-            spriteRenderer.color = hasEggs ? activeColor : inactiveColor;
+            bool hasItems = GameManager.Instance != null && (GameManager.Instance.Eggs > 0 || 
+                          GameManager.Instance.Corn > 0 || 
+                          GameManager.Instance.GetItemCount("Wheat") > 0 || 
+                          GameManager.Instance.GetItemCount("Milk") > 0);
+            spriteRenderer.color = hasItems ? activeColor : inactiveColor;
         }
 
-        ApplyStoryTint(GameManager.Instance != null && GameManager.Instance.Eggs > 0 ? activeColor : inactiveColor);
+        bool itemsToSell = GameManager.Instance != null && (GameManager.Instance.Eggs > 0 || 
+                          GameManager.Instance.Corn > 0 || 
+                          GameManager.Instance.GetItemCount("Wheat") > 0 || 
+                          GameManager.Instance.GetItemCount("Milk") > 0);
+        ApplyStoryTint(itemsToSell ? activeColor : inactiveColor);
     }
 
     /// <summary>
@@ -130,39 +137,73 @@ public class StoreCounter : MonoBehaviour, IInteractable
     /// </summary>
     public bool CanInteract()
     {
-        return GameManager.Instance != null && canSell && GameManager.Instance.Eggs > 0;
+        if (GameManager.Instance == null || !canSell) return false;
+        return GameManager.Instance.Eggs > 0 || 
+               GameManager.Instance.Corn > 0 || 
+               GameManager.Instance.GetItemCount("Wheat") > 0 || 
+               GameManager.Instance.GetItemCount("Milk") > 0;
     }
 
     /// <summary>
-    /// Sell all eggs currently held by the player
+    /// Sell all items currently held by the player
     /// </summary>
     public void SellAllEggs()
     {
-        if (!canSell || GameManager.Instance.Eggs <= 0) return;
+        if (!canSell || !CanInteract()) return;
 
         canSell = false;
-        int count = GameManager.Instance.Eggs;
-        StartCoroutine(SellAllCoroutine(count));
+        StartCoroutine(SellEverythingCoroutine());
     }
 
-    private IEnumerator SellAllCoroutine(int totalEggs)
+    private IEnumerator SellEverythingCoroutine()
     {
         Vector3 salePosition = coinSpawnPoint != null ? coinSpawnPoint.position : transform.position + new Vector3(0, 0.5f, 0);
-        
-        // Sell in a quick burst
         float burstInterval = 0.05f;
-        for (int i = 0; i < totalEggs; i++)
+
+        // Sell Eggs
+        int eggCount = GameManager.Instance.Eggs;
+        for (int i = 0; i < eggCount; i++)
         {
             if (GameManager.Instance.SellEgg(salePosition))
             {
-                // Rapid-fire effects
                 if (i % 2 == 0) StartCoroutine(SaleAnimation());
                 SpawnCoinBurst();
                 yield return new WaitForSeconds(burstInterval);
             }
         }
 
-        // Cooldown after entire burst finishes
+        // Sell Corn (if player wants to sell it at market)
+        int cornCount = GameManager.Instance.Corn;
+        for (int i = 0; i < cornCount; i++)
+        {
+            if (GameManager.Instance.SpendCorn(1)) 
+            {
+                GameManager.Instance.AddCoins(2, salePosition); // Corn price
+                SpawnCoinBurst();
+                yield return new WaitForSeconds(burstInterval);
+            }
+        }
+
+        // Sell Wheat
+        int wheatCount = GameManager.Instance.GetItemCount("Wheat");
+        for (int i = 0; i < wheatCount; i++)
+        {
+            GameManager.Instance.RemoveItem("Wheat", 1);
+            GameManager.Instance.AddCoins(10, salePosition); // Wheat price
+            SpawnCoinBurst();
+            yield return new WaitForSeconds(burstInterval);
+        }
+
+        // Sell Milk
+        int milkCount = GameManager.Instance.GetItemCount("Milk");
+        for (int i = 0; i < milkCount; i++)
+        {
+            GameManager.Instance.RemoveItem("Milk", 1);
+            GameManager.Instance.AddCoins(50, salePosition); // Milk price
+            SpawnCoinBurst();
+            yield return new WaitForSeconds(burstInterval);
+        }
+
         StartCoroutine(SellCooldown());
     }
 
