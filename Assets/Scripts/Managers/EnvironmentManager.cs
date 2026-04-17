@@ -17,7 +17,7 @@ namespace ChickenCoop.Managers
         [Header("Fencing Settings")]
         [SerializeField] private string fenceResourcePath = "HappyHarvestFence";
         [SerializeField] private float chickenPenPadding = 2f;
-        [SerializeField] private float cornFieldPadding = 0.5f;
+        [SerializeField] private float cornFieldPadding = 1.5f;
         
         private GameObject fencePrefab;
         private Transform fenceContainer;

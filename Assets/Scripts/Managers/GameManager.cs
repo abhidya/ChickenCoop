@@ -297,8 +297,9 @@ namespace ChickenCoop.Managers
         {
             if (UseEggs(1))
             {
-                Vector3 origin = chickenPositions[0].position;
-                Vector3 nextGridPos = GetNextGridPosition(chickenPositions.Count, origin, 1.8f, 1.4f);
+                // Align Chickens on the RIGHT side of the farm
+                Vector3 origin = (chickenPositions.Count > 0) ? chickenPositions[0].position : new Vector3(8.0f, -1.0f, 0f);
+                Vector3 nextGridPos = GetNextGridPosition(chickenPositions.Count, origin, 1.8f, 1.4f, true);
                 
                 GameObject newPosObj = new GameObject("ChickenPos_" + chickenPositions.Count);
                 newPosObj.transform.position = nextGridPos;
@@ -308,6 +309,9 @@ namespace ChickenCoop.Managers
                 
                 if (chickenPositions.Count == 2) currentAct = 2;
                 if (chickenPositions.Count >= 3) currentAct = 3;
+
+                // Sync environment visuals
+                EnvironmentManager.Instance?.RefreshFences();
             }
         }
     }
@@ -318,24 +322,29 @@ namespace ChickenCoop.Managers
         {
             if (UseCorn(1))
             {
-                Vector3 origin = cornFieldPositions[0].position;
-                Vector3 nextGridPos = GetNextGridPosition(cornFieldPositions.Count, origin, 1.8f, 1.4f);
+                // Align Corn on the LEFT side of the farm
+                Vector3 origin = (cornFieldPositions.Count > 0) ? cornFieldPositions[0].position : new Vector3(-8.0f, -1.0f, 0f);
+                Vector3 nextGridPos = GetNextGridPosition(cornFieldPositions.Count, origin, 1.8f, 1.4f, false);
                 
                 GameObject newPosObj = new GameObject("CornPos_" + cornFieldPositions.Count);
                 newPosObj.transform.position = nextGridPos;
                 cornFieldPositions.Add(newPosObj.transform);
                 
                 SpawnCornFieldAt(newPosObj.transform.position, "CornField_" + (cornFieldPositions.Count - 1));
+
+                // Sync environment visuals
+                EnvironmentManager.Instance?.RefreshFences();
             }
         }
     }
 
-    private Vector3 GetNextGridPosition(int index, Vector3 origin, float spacingX, float spacingY)
+    private Vector3 GetNextGridPosition(int index, Vector3 origin, float spacingX, float spacingY, bool growRight)
     {
         int col = index % 3;
         int row = index / 3;
-        // Expand left (-X) and up (+Y) into the background
-        return origin + new Vector3(-col * spacingX, row * spacingY, 0);
+        // Corn expands left (-X), Chickens expand right (+X), both grow to background (+Y)
+        float directionMultiplier = growRight ? 1f : -1f;
+        return origin + new Vector3(col * spacingX * directionMultiplier, row * spacingY, 0);
     }
 
     /// <summary>
@@ -767,21 +776,30 @@ namespace ChickenCoop.Managers
 
     private void SpawnCornFieldAt(Vector3 pos, string name = "CornField")
     {
-        Collider2D hit = Physics2D.OverlapPoint(pos);
-        if (hit != null && hit.GetComponent<HarvestableField>() != null) return;
+        Collider2D hit = Physics2D.OverlapPoint(pos, 1 << LayerMask.NameToLayer("Environment"));
+        GameObject corn;
+        
+        if (hit != null && hit.GetComponent<HarvestableField>() != null)
+        {
+            corn = hit.gameObject;
+        }
+        else
+        {
+            corn = new GameObject(name);
+            corn.tag = "CornField";
+            corn.layer = LayerMask.NameToLayer("Environment");
+            corn.transform.position = pos;
 
-        GameObject corn = new GameObject(name);
-        corn.tag = "CornField";
-        corn.transform.position = pos;
+            corn.AddComponent<HarvestableField>();
+            
+            BoxCollider2D collider = corn.AddComponent<BoxCollider2D>();
+            collider.isTrigger = true;
+            collider.size = new Vector2(1f, 1f);
+        }
 
-        SpriteRenderer renderer = corn.AddComponent<SpriteRenderer>();
+        SpriteRenderer renderer = corn.GetComponent<SpriteRenderer>();
+        if (renderer == null) renderer = corn.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
-
-        BoxCollider2D collider = corn.AddComponent<BoxCollider2D>();
-        collider.isTrigger = true;
-        collider.size = new Vector2(1f, 1f);
-
-        corn.AddComponent<HarvestableField>();
 
         GameObject visualPrefab = Resources.Load<GameObject>(RuntimeCornVisualResourcePath);
         if (visualPrefab != null)
@@ -815,14 +833,18 @@ namespace ChickenCoop.Managers
         if (existing != null)
         {
             existing.transform.position = new Vector3(-10f, 4f, 15f);
-            existing.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
+            existing.transform.localScale = new Vector3(0.05f, 0.05f, 1f);
+            existing.originalScale = existing.transform.localScale;
             return;
         }
 
         GameObject store = new GameObject("StoreCounter");
         store.tag = "Store";
         store.transform.position = new Vector3(-10f, 4f, 15f); // Background
-        store.transform.localScale = new Vector3(0.1f, 0.1f, 1f);
+        store.transform.localScale = new Vector3(0.05f, 0.05f, 1f);
+        
+        StoreCounter sc = store.AddComponent<StoreCounter>();
+        sc.originalScale = store.transform.localScale;
 
         SpriteRenderer renderer = store.AddComponent<SpriteRenderer>();
         renderer.enabled = false;
@@ -990,7 +1012,6 @@ namespace ChickenCoop.Managers
             if (playerRenderer != null)
             {
                 helperRenderer.sortingLayerID = playerRenderer.sortingLayerID;
-                // Force helpers to stay in front (5000) regardless of player's relative order
                 helperRenderer.sortingOrder = 5000; 
                 if (playerRenderer.sprite != null)
                 {
@@ -998,6 +1019,11 @@ namespace ChickenCoop.Managers
                 }
             }
         }
+
+        // Ensure helper is always visible with a SortingGroup
+        var sGroup = helper.GetComponent<UnityEngine.Rendering.SortingGroup>();
+        if (sGroup == null) sGroup = helper.AddComponent<UnityEngine.Rendering.SortingGroup>();
+        sGroup.sortingOrder = 10; // In front of standard world objects
 
         GameObject happyHarvestCharacter = Resources.Load<GameObject>("Character");
         if (happyHarvestCharacter != null)
@@ -1012,9 +1038,9 @@ namespace ChickenCoop.Managers
                 if (follower != null) follower.offset = new Vector3(0f, -0.35f, 0f);
 
                 // Add SortingGroup and set high order to stay in front of background
-                UnityEngine.Rendering.SortingGroup sGroup = visualInstance.GetComponent<UnityEngine.Rendering.SortingGroup>();
-                if (sGroup == null) sGroup = visualInstance.AddComponent<UnityEngine.Rendering.SortingGroup>();
-                sGroup.sortingOrder = 5000;
+                UnityEngine.Rendering.SortingGroup visualSGroup = visualInstance.GetComponent<UnityEngine.Rendering.SortingGroup>();
+                if (visualSGroup == null) visualSGroup = visualInstance.AddComponent<UnityEngine.Rendering.SortingGroup>();
+                visualSGroup.sortingOrder = 5000;
 
                 // Ensure all renderers are enabled and correctly colored
                 SpriteRenderer[] renderers = visualInstance.GetComponentsInChildren<SpriteRenderer>(true);

@@ -205,8 +205,12 @@ public class Chicken : MonoBehaviour, IInteractable
                 Bounds bounds = EnvironmentManager.Instance.ChickenPenBounds;
                 if (bounds.size.magnitude > 0.5f)
                 {
+                    // Restrict chickens to the right side of the farm (x > 1.0)
+                    float targetX = Random.Range(bounds.min.x, bounds.max.x);
+                    targetX = Mathf.Max(targetX, 1.0f); 
+
                     Vector3 dest = new Vector3(
-                        Random.Range(bounds.min.x, bounds.max.x),
+                        targetX,
                         Random.Range(bounds.min.y, bounds.max.y),
                         transform.position.z
                     );

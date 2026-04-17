@@ -27,13 +27,20 @@ public class StoreCounter : MonoBehaviour, IInteractable
 
     // State
     private bool canSell = true;
-    private Vector3 originalScale;
+    private Vector3 _originalScale;
+    public Vector3 originalScale
+    {
+        get => _originalScale;
+        set => _originalScale = value;
+    }
     private float bounceTimer = 0f;
     private SpriteRenderer[] storyRenderers;
 
     private void Start()
     {
-        originalScale = transform.localScale;
+        // Enforce the desired small scale for the market if not already set
+        if (transform.localScale.x > 0.05f) transform.localScale = new Vector3(0.05f, 0.05f, 1f);
+        _originalScale = transform.localScale;
 
         if (spriteRenderer == null)
         {
@@ -52,8 +59,8 @@ public class StoreCounter : MonoBehaviour, IInteractable
             if (visual != null)
             {
                 storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
-                // Reduce scale for Market Stall to fit world better
-                visual.transform.localScale = Vector3.one * 0.7f;
+                // Keep scale at 1.0 to respect root scale (0.05)
+                visual.transform.localScale = Vector3.one;
                 // Move visual up slightly so character stands "in front" of the counter
                 visual.transform.localPosition = new Vector3(0, -0.2f, 0);
             }
