@@ -232,6 +232,19 @@ public static class StoryVisualBinder
             return;
         }
 
+        SpriteRenderer[] renderers = visualRoot.GetComponentsInChildren<SpriteRenderer>(true);
+        if (renderers != null && renderers.Length > 0)
+        {
+            foreach (SpriteRenderer renderer in renderers)
+            {
+                if (renderer != null)
+                {
+                    renderer.flipX = faceLeft;
+                }
+            }
+            return;
+        }
+
         Vector3 localScale = visualRoot.localScale;
         float magnitude = Mathf.Abs(localScale.x);
         localScale.x = faceLeft ? -magnitude : magnitude;

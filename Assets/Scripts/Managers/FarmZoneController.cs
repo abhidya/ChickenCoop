@@ -81,6 +81,21 @@ public class FarmZoneController : MonoBehaviour
             slotRoot = transform.Find("SlotRoot") ?? transform.Find("Slots") ?? transform.Find("PlacementSlots");
         }
 
+        if (decorRoot == null)
+        {
+            decorRoot = transform.Find("DecorRoot") ?? transform.Find("Decor") ?? transform.Find("DecorationRoot");
+        }
+
+        if (fenceRoot == null)
+        {
+            fenceRoot = transform.Find("FenceRoot") ?? transform.Find("Fences") ?? transform.Find("Fence");
+        }
+
+        if (productRoot == null)
+        {
+            productRoot = transform.Find("ProductRoot") ?? transform.Find("Products");
+        }
+
         if (slotRoot == null)
         {
             return;
@@ -185,8 +200,40 @@ public class FarmZoneController : MonoBehaviour
             }
         }
 
+        bool hasFenceBounds = false;
+        Bounds fenceBounds = new Bounds();
+        if (fenceRoot != null)
+        {
+            Renderer[] fenceRenderers = fenceRoot.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer fenceRenderer in fenceRenderers)
+            {
+                if (fenceRenderer == null || !fenceRenderer.enabled)
+                {
+                    continue;
+                }
+
+                if (!hasFenceBounds)
+                {
+                    fenceBounds = fenceRenderer.bounds;
+                    hasFenceBounds = true;
+                }
+                else
+                {
+                    fenceBounds.Encapsulate(fenceRenderer.bounds.min);
+                    fenceBounds.Encapsulate(fenceRenderer.bounds.max);
+                }
+            }
+        }
+
         if (boundsPoints.Count == 0)
         {
+            if (hasFenceBounds)
+            {
+                float fencePad = Mathf.Max(template.spacing.x, template.spacing.y) * 0.15f;
+                fenceBounds.Expand(new Vector3(fencePad, fencePad, 0f));
+                return fenceBounds;
+            }
+
             if (authoredSlots.Count > 0)
             {
                 Bounds authoredBounds = new Bounds(authoredSlots[0].position, Vector3.zero);
@@ -211,6 +258,12 @@ public class FarmZoneController : MonoBehaviour
         foreach (var slot in boundsPoints)
         {
             bounds.Encapsulate(slot.position);
+        }
+
+        if (hasFenceBounds)
+        {
+            bounds.Encapsulate(fenceBounds.min);
+            bounds.Encapsulate(fenceBounds.max);
         }
         
         // Add minimal padding - only enough for fence, not full max grid

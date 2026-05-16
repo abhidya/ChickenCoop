@@ -40,6 +40,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     private float bounceTimer = 0f;
     private SpriteRenderer[] storyRenderers;
     private Transform progressBarPivot;
+    private Transform visualRoot;
     private float visualScaleMultiplier = 1f;
     private Color visualTint = Color.white;
     private string visualBadgeLabel;
@@ -68,6 +69,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
 
         EnsureProgressBar();
         EnsureVisualComponents();
+        EnsureFallbackCornVisual();
         UpdateVisuals();
     }
 
@@ -165,6 +167,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
                 storyRenderers = existingVisual.GetComponentsInChildren<SpriteRenderer>(true);
                 if (spriteRenderer != null) spriteRenderer.enabled = false;
                 cornVisual = existingVisual;
+                visualRoot = existingVisual;
             }
             else
             {
@@ -174,8 +177,53 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
                 {
                     storyRenderers = visual.GetComponentsInChildren<SpriteRenderer>(true);
                     cornVisual = visual.transform;
+                    visualRoot = visual.transform;
                 }
             }
+        }
+
+        if (visualRoot == null)
+        {
+            visualRoot = transform.Find("Visual");
+        }
+    }
+
+    private void EnsureFallbackCornVisual()
+    {
+        if (cornVisual != null && cornVisual.GetComponentInChildren<SpriteRenderer>(true) != null)
+        {
+            return;
+        }
+
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        Sprite fallback = Resources.Load<Sprite>("Sprite_Corn_icon");
+        if (fallback == null)
+        {
+            fallback = Resources.Load<Sprite>("Sprite_Corn_03");
+        }
+
+        if (fallback == null || spriteRenderer == null)
+        {
+            return;
+        }
+
+        spriteRenderer.sprite = fallback;
+        spriteRenderer.enabled = true;
+        spriteRenderer.color = Color.white;
+        spriteRenderer.sortingOrder = 6;
+        if (string.IsNullOrWhiteSpace(spriteRenderer.sortingLayerName))
+        {
+            spriteRenderer.sortingLayerName = "Objects";
+        }
+
+        if (cornVisual == null)
+        {
+            visualRoot = transform;
+            cornVisual = transform;
         }
     }
 
@@ -245,20 +293,21 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
         bounceTimer += Time.deltaTime * bounceSpeed;
 
         // Corn visual bounces/pulses when ready to harvest (but no rotation sway)
-        if (cornVisual != null)
+        Transform target = visualRoot != null ? visualRoot : cornVisual;
+        if (target != null)
         {
             // Keep rotation static - no swaying
-            cornVisual.localRotation = Quaternion.identity;
+            target.localRotation = Quaternion.identity;
             
             // Bounce/scale when ready to harvest
             if (canHarvest)
             {
                 float bounce = 1f + Mathf.Sin(bounceTimer * 2f) * bounceAmount * 0.3f;
-                cornVisual.localScale = Vector3.one * bounce * visualScaleMultiplier;
+                target.localScale = Vector3.one * bounce * visualScaleMultiplier;
             }
             else
             {
-                cornVisual.localScale = Vector3.one * 0.8f * visualScaleMultiplier;
+                target.localScale = Vector3.one * 0.8f * visualScaleMultiplier;
             }
         }
         

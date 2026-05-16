@@ -41,6 +41,9 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     private Vector3 originalScale;
     private Vector3 baseScale;
     private Quaternion originalRotation;
+    private Transform visualRoot;
+    private Vector3 visualOriginalScale;
+    private Quaternion visualOriginalRotation;
     private float productionProgress = 0f;
     private Transform progressBarPivot;
     private FarmZoneController zoneController;
@@ -94,14 +97,17 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
             if (existingVisual != null)
             {
                 if (bodySprite != null) bodySprite.enabled = false;
+                visualRoot = existingVisual;
             }
             else
             {
                 StoryVisualBinder.AttachVisualPrefab(transform, resolvedPrefab, bodySprite);
+                visualRoot = StoryVisualBinder.FindAttachedVisualRoot(transform);
             }
         }
 
         EnsureVisualComponents();
+        CacheMotionVisualRoot();
 
         // Randomize initial blink timer
         blinkTimer = Random.Range(0f, blinkInterval);
@@ -245,7 +251,15 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     {
         wiggleTimer += Time.deltaTime * wiggleSpeed;
         float wiggle = Mathf.Sin(wiggleTimer) * wiggleAmount * 0.3f;
-        transform.localRotation = originalRotation * Quaternion.Euler(0, 0, wiggle);
+        Transform target = GetMotionVisualRoot();
+        if (target != null)
+        {
+            target.localRotation = visualOriginalRotation * Quaternion.Euler(0, 0, wiggle);
+        }
+        else
+        {
+            transform.localRotation = originalRotation * Quaternion.Euler(0, 0, wiggle);
+        }
     }
 
     /// <summary>
@@ -302,6 +316,10 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
 
         // Facing
         Transform visualRoot = StoryVisualBinder.FindAttachedVisualRoot(transform);
+        if (visualRoot == null)
+        {
+            visualRoot = GetMotionVisualRoot();
+        }
         if (visualRoot != null)
         {
             StoryVisualBinder.SetFacing(visualRoot, destination.x < startPos.x);
@@ -326,7 +344,15 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         if (!isLayingEgg)
         {
             float bob = Mathf.Sin(Time.time * 2f) * bobAmount;
-            transform.localScale = originalScale + new Vector3(0, bob, 0);
+            Transform target = GetMotionVisualRoot();
+            if (target != null)
+            {
+                target.localScale = visualOriginalScale + new Vector3(0, bob, 0);
+            }
+            else
+            {
+                transform.localScale = originalScale + new Vector3(0, bob, 0);
+            }
         }
     }
 
@@ -488,7 +514,15 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
             while (t < 0.1f)
             {
                 t += Time.deltaTime;
-                transform.localRotation = Quaternion.Lerp(originalRotation, Quaternion.Euler(peckRotation), t / 0.1f);
+                Transform target = GetMotionVisualRoot();
+                if (target != null)
+                {
+                    target.localRotation = Quaternion.Lerp(visualOriginalRotation, Quaternion.Euler(peckRotation), t / 0.1f);
+                }
+                else
+                {
+                    transform.localRotation = Quaternion.Lerp(originalRotation, Quaternion.Euler(peckRotation), t / 0.1f);
+                }
                 yield return null;
             }
 
@@ -499,7 +533,15 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
             while (t < 0.1f)
             {
                 t += Time.deltaTime;
-                transform.localRotation = Quaternion.Lerp(Quaternion.Euler(peckRotation), originalRotation, t / 0.1f);
+                Transform target = GetMotionVisualRoot();
+                if (target != null)
+                {
+                    target.localRotation = Quaternion.Lerp(Quaternion.Euler(peckRotation), visualOriginalRotation, t / 0.1f);
+                }
+                else
+                {
+                    transform.localRotation = Quaternion.Lerp(Quaternion.Euler(peckRotation), originalRotation, t / 0.1f);
+                }
                 yield return null;
             }
 
@@ -515,23 +557,40 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     {
         AudioManager.Instance?.PlaySound("egg");
 
+        Transform target = GetMotionVisualRoot();
+        Vector3 baseScaleForAnimation = target != null ? visualOriginalScale : originalScale;
+
         // Build up - squash wider
-        Vector3 squash = new Vector3(originalScale.x * 1.3f, originalScale.y * 0.7f, originalScale.z);
+        Vector3 squash = new Vector3(baseScaleForAnimation.x * 1.3f, baseScaleForAnimation.y * 0.7f, baseScaleForAnimation.z);
         float t = 0;
         while (t < 0.3f)
         {
             t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(originalScale, squash, t / 0.3f);
+            if (target != null)
+            {
+                target.localScale = Vector3.Lerp(baseScaleForAnimation, squash, t / 0.3f);
+            }
+            else
+            {
+                transform.localScale = Vector3.Lerp(originalScale, squash, t / 0.3f);
+            }
             yield return null;
         }
 
         // Pop! - stretch tall
-        Vector3 stretch = new Vector3(originalScale.x * 0.8f, originalScale.y * 1.2f, originalScale.z);
+        Vector3 stretch = new Vector3(baseScaleForAnimation.x * 0.8f, baseScaleForAnimation.y * 1.2f, baseScaleForAnimation.z);
         t = 0;
         while (t < 0.1f)
         {
             t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(squash, stretch, t / 0.1f);
+            if (target != null)
+            {
+                target.localScale = Vector3.Lerp(squash, stretch, t / 0.1f);
+            }
+            else
+            {
+                transform.localScale = Vector3.Lerp(squash, stretch, t / 0.1f);
+            }
             yield return null;
         }
 
@@ -541,11 +600,27 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         {
             t += Time.deltaTime;
             float bounce = 1f + Mathf.Sin(t * 20f) * 0.1f * (1f - t / 0.2f);
-            transform.localScale = Vector3.Lerp(stretch, originalScale, t / 0.2f) * bounce;
+            Transform bounceTarget = GetMotionVisualRoot();
+            if (bounceTarget != null)
+            {
+                bounceTarget.localScale = Vector3.Lerp(stretch, baseScaleForAnimation, t / 0.2f) * bounce;
+            }
+            else
+            {
+                transform.localScale = Vector3.Lerp(stretch, originalScale, t / 0.2f) * bounce;
+            }
             yield return null;
         }
 
-        transform.localScale = originalScale;
+        Transform finalTarget = GetMotionVisualRoot();
+        if (finalTarget != null)
+        {
+            finalTarget.localScale = visualOriginalScale;
+        }
+        else
+        {
+            transform.localScale = originalScale;
+        }
     }
 
     /// <summary>
@@ -781,6 +856,35 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         Destroy(dust, 0.5f);
     }
 
+    private void CacheMotionVisualRoot()
+    {
+        if (visualRoot == null)
+        {
+            visualRoot = StoryVisualBinder.FindAttachedVisualRoot(transform);
+        }
+
+        if (visualRoot == null)
+        {
+            visualRoot = transform.Find("Visual");
+        }
+
+        if (visualRoot != null)
+        {
+            visualOriginalScale = visualRoot.localScale;
+            visualOriginalRotation = visualRoot.localRotation;
+        }
+    }
+
+    private Transform GetMotionVisualRoot()
+    {
+        if (visualRoot == null)
+        {
+            CacheMotionVisualRoot();
+        }
+
+        return visualRoot;
+    }
+
     /// <summary>
     /// Happy wiggle when fed
     /// </summary>
@@ -797,10 +901,26 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         {
             t += Time.deltaTime;
             float wiggle = Mathf.Sin(t * 30f) * wiggleAmount * (1f - t / duration);
-            transform.localRotation = originalRotation * Quaternion.Euler(0, 0, wiggle);
+            Transform target = GetMotionVisualRoot();
+            if (target != null)
+            {
+                target.localRotation = visualOriginalRotation * Quaternion.Euler(0, 0, wiggle);
+            }
+            else
+            {
+                transform.localRotation = originalRotation * Quaternion.Euler(0, 0, wiggle);
+            }
             yield return null;
         }
-        transform.localRotation = originalRotation;
+        Transform finalTarget = GetMotionVisualRoot();
+        if (finalTarget != null)
+        {
+            finalTarget.localRotation = visualOriginalRotation;
+        }
+        else
+        {
+            transform.localRotation = originalRotation;
+        }
     }
 
     /// <summary>

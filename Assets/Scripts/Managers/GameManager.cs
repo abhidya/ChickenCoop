@@ -57,7 +57,18 @@ namespace ChickenCoop.Managers
 
     // Data-Driven Zone Management
     private List<FarmZoneController> activeZoneControllers = new List<FarmZoneController>();
-    public List<FarmZoneController> ActiveZoneControllers => activeZoneControllers;
+    public List<FarmZoneController> ActiveZoneControllers
+    {
+        get
+        {
+            if (activeZoneControllers.Count == 0)
+            {
+                ResolveSceneReferences();
+            }
+
+            return activeZoneControllers;
+        }
+    }
     private Dictionary<string, int> inventory = new Dictionary<string, int>();
 
     // Current resource counts (Maintained for UI backward compatibility)
