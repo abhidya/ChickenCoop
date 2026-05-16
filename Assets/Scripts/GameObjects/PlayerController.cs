@@ -30,8 +30,6 @@ public class PlayerController : MonoBehaviour
     private static readonly Vector3 HappyHarvestVisualOffset = new Vector3(0f, -0.35f, 0f);
     private const float HappyHarvestVisualScale = 0.75f; // Scaled up to fit environment properly
     private Vector2 lastMoveDirection = Vector2.down;
-    private bool facingLeft;
-    private const float FacingDeadzone = 0.05f;
 
     private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
@@ -490,11 +488,6 @@ public class PlayerController : MonoBehaviour
 
         happyHarvestVisualRoot.localPosition = HappyHarvestVisualOffset;
         happyHarvestVisualRoot.localScale = Vector3.one * HappyHarvestVisualScale;
-    }
-
-    private void SetFacing(bool faceLeft)
-    {
-        facingLeft = faceLeft;
     }
 
     private void UpdateAnimatorParameters(Vector2 moveDelta, bool movingNow)
