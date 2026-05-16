@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using ChickenCoop.Managers;
 
 /// <summary>
@@ -741,7 +742,6 @@ public class UIManager : MonoBehaviour
         scroll.viewport = sidebarObj.GetComponent<RectTransform>();
         
         // Add Mask for clipping
-        sidebarObj.AddComponent<CanvasRenderer>();
         sidebarObj.AddComponent<RectMask2D>();
 
         // Content Container
@@ -955,7 +955,7 @@ public class UIManager : MonoBehaviour
             if (upgradeCostTexts != null && i < upgradeCostTexts.Length && upgradeCostTexts[i] != null)
             {
                 upgradeCostTexts[i].text = $"Gold {cost}";
-                upgradeCostTexts[i].color = canAfford ? Color.white : Color.red;
+                upgradeCostTexts[i].color = canAfford ? Color.white : new Color(1f, 0.85f, 0.35f);
             }
 
             // Update name text
@@ -1024,19 +1024,19 @@ public class UIManager : MonoBehaviour
         if (GameManager.Instance == null) return;
         
         // Find counts from active zones
-        FarmZoneController chickenZone = GameManager.Instance.ActiveZoneControllers.Find(z => z.template.id == "Chicken");
-        FarmZoneController cornZone = GameManager.Instance.ActiveZoneControllers.Find(z => z.template.id == "Corn");
+        FarmZoneController chickenZone = GameManager.Instance.ActiveZoneControllers.Find(z => z != null && z.ZoneIdMatches("Chicken"));
+        FarmZoneController cornZone = GameManager.Instance.ActiveZoneControllers.Find(z => z != null && z.ZoneIdMatches("Corn"));
 
         if (chickenZone == null || cornZone == null)
         {
-            string activeIDs = string.Join(", ", GameManager.Instance.ActiveZoneControllers.ConvertAll(z => z.template.id));
+            string activeIDs = string.Join(", ", GameManager.Instance.ActiveZoneControllers.Where(z => z != null).Select(z => z.ZoneId));
             Debug.LogWarning($"[UIManager] Zone mismatch detected. Active IDs: [{activeIDs}]. Needed: [Chicken, Corn]");
         }
 
         int chickenCount = chickenZone != null ? chickenZone.CurrentCount : 0;
         int cornCount = cornZone != null ? cornZone.CurrentCount : 0;
-        int chickenMax = chickenZone != null ? chickenZone.template.maxSlots : 9;
-        int cornMax = cornZone != null ? cornZone.template.maxSlots : 9;
+        int chickenMax = chickenZone != null && chickenZone.template != null ? chickenZone.template.maxSlots : 9;
+        int cornMax = cornZone != null && cornZone.template != null ? cornZone.template.maxSlots : 9;
 
         bool chickenAtMax = chickenCount >= chickenMax;
         bool cornAtMax = cornCount >= cornMax;
@@ -1115,8 +1115,8 @@ public class UIManager : MonoBehaviour
         Debug.Log("[UIManager] Incubate button clicked!");
         if (GameManager.Instance != null)
         {
-            Debug.Log($"[UIManager] Calling AddChicken(). Current Eggs: {GameManager.Instance.Eggs}");
-            GameManager.Instance.AddChicken();
+            Debug.Log($"[UIManager] Calling TryHatchChicken(). Current Eggs: {GameManager.Instance.Eggs}");
+            GameManager.Instance.TryHatchChicken(5);
         }
         else
         {

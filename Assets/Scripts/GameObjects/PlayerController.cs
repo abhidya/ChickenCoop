@@ -30,6 +30,8 @@ public class PlayerController : MonoBehaviour
     private static readonly Vector3 HappyHarvestVisualOffset = new Vector3(0f, -0.35f, 0f);
     private const float HappyHarvestVisualScale = 0.75f; // Scaled up to fit environment properly
     private Vector2 lastMoveDirection = Vector2.down;
+    private bool facingLeft;
+    private const float FacingDeadzone = 0.05f;
 
     private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
@@ -205,13 +207,6 @@ public class PlayerController : MonoBehaviour
         }
 
         // Flip sprite based on movement direction
-        if (spriteRenderer != null)
-        {
-            bool faceLeft = position.x < transform.position.x;
-            spriteRenderer.flipX = faceLeft;
-            StoryVisualBinder.SetFacing(happyHarvestVisualRoot, faceLeft);
-        }
-
         // Spawn dust puff at start of movement
         SpawnDustPuff();
 
@@ -464,10 +459,6 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        if (spriteRenderer != null)
-        {
-            StoryVisualBinder.SetFacing(happyHarvestVisualRoot, spriteRenderer.flipX);
-        }
     }
 
     private GameObject FindExistingHappyHarvestVisual()
@@ -498,12 +489,12 @@ public class PlayerController : MonoBehaviour
         }
 
         happyHarvestVisualRoot.localPosition = HappyHarvestVisualOffset;
+        happyHarvestVisualRoot.localScale = Vector3.one * HappyHarvestVisualScale;
+    }
 
-        float facing = (spriteRenderer != null && spriteRenderer.flipX) ? -1f : 1f;
-        happyHarvestVisualRoot.localScale = new Vector3(
-            HappyHarvestVisualScale * facing,
-            HappyHarvestVisualScale,
-            HappyHarvestVisualScale);
+    private void SetFacing(bool faceLeft)
+    {
+        facingLeft = faceLeft;
     }
 
     private void UpdateAnimatorParameters(Vector2 moveDelta, bool movingNow)

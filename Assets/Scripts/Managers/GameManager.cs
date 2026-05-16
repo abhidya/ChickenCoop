@@ -5,6 +5,7 @@ using UnityEngine.EventSystems;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ChickenCoop.Managers
 {
@@ -52,6 +53,7 @@ namespace ChickenCoop.Managers
     [SerializeField] private GameObject coinParticlePrefab;
     [SerializeField] private GameObject sparkleParticlePrefab;
     [SerializeField] private GameObject zoneControllerPrefab;
+    [SerializeField] private SceneRegistry sceneRegistry;
 
     // Data-Driven Zone Management
     private List<FarmZoneController> activeZoneControllers = new List<FarmZoneController>();
@@ -118,7 +120,7 @@ namespace ChickenCoop.Managers
     public float StoreEfficiencyMultiplier => storeEfficiencyMultiplier;
     public bool HasPurchasedWheat => hasPurchasedWheat;
     public bool HasPurchasedCow => hasPurchasedCow;
-    public PlayerController Player => FindFirstObjectByType<PlayerController>();
+    public PlayerController Player => sceneRegistry != null ? sceneRegistry.Player : FindFirstObjectByType<PlayerController>();
     
     // Leveling State
     private int currentAct = 1;
@@ -165,7 +167,7 @@ namespace ChickenCoop.Managers
     // Position getters for helpers and other systems
     public List<Transform> CornFieldPositions => cornFieldPositions;
     public List<Transform> ChickenPositions => chickenPositions;
-    public Transform StorePosition => storePosition;
+    public Transform StorePosition => sceneRegistry != null && sceneRegistry.Store != null ? sceneRegistry.Store.transform : storePosition;
 
     private void Awake()
     {
@@ -411,6 +413,19 @@ namespace ChickenCoop.Managers
     public bool UseCorn(int amount) => UseItem("Corn", amount);
     public bool UseEggs(int amount) => UseItem("Egg", amount);
 
+    public void RefundEggs(int amount)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+
+        eggs += amount;
+        inventory["Egg"] = eggs;
+        OnEggsChanged?.Invoke(eggs);
+        UIManager.Instance?.UpdateAllResourceText();
+    }
+
     public bool RemoveItem(string itemId, int amount) => UseItem(itemId, amount);
     public bool UseCoins(int amount)
     {
@@ -425,60 +440,7 @@ namespace ChickenCoop.Managers
 
     public FarmZoneController GetOrCreateZone(string zoneID)
     {
-        // Null-safe search for existing controller
-        FarmZoneController controller = activeZoneControllers.Find(c => c != null && c.template != null && c.template.id == zoneID);
-        
-        if (controller == null)
-        {
-            FarmZoneTemplate template = (config != null && config.zoneTemplates != null) 
-                ? config.zoneTemplates.Find(t => t != null && t.id == zoneID) 
-                : null;
-            
-            // Proper runtime initialization if template missing from config
-            if (template == null)
-            {
-                template = CreateProperTemplate(zoneID);
-            }
-
-            GameObject obj = (zoneControllerPrefab != null) ? Instantiate(zoneControllerPrefab) : new GameObject("Zone_" + zoneID);
-            controller = obj.GetComponent<FarmZoneController>();
-            if (controller == null) controller = obj.AddComponent<FarmZoneController>();
-            
-            controller.Initialize(template);
-            
-            float startX;
-            
-            if (activeZoneControllers.Count == 0)
-            {
-                startX = -16.0f;
-            }
-            else
-            {
-                var lastZone = activeZoneControllers[activeZoneControllers.Count - 1];
-                
-                // Calculate grid width based on max slots, not current slots
-                int lastMaxCols = Mathf.Min(lastZone.template.itemsPerRow, lastZone.template.maxSlots);
-                float lastGridWidth = (lastMaxCols - 1) * lastZone.template.spacing.x;
-                float lastZoneRightEdge = lastZone.transform.position.x + (lastGridWidth / 2f);
-                
-                int ourMaxCols = Mathf.Min(template.itemsPerRow, template.maxSlots);
-                float ourGridWidth = (ourMaxCols - 1) * template.spacing.x;
-                
-                // Minimal gap - zones only need space for fences
-                float gapBetweenZones = 1.5f;
-                float halfOurGrid = ourGridWidth / 2f;
-                
-                startX = lastZoneRightEdge + gapBetweenZones + halfOurGrid;
-            }
-            
-            startX = Mathf.Clamp(startX, -20f, 20f);
-            obj.transform.position = new Vector3(startX, -2.5f, 0f);
-            activeZoneControllers.Add(controller);
-            EnvironmentManager.Instance?.RefreshFences();
-            
-            Debug.Log($"[GameManager] Initialized Zone: {zoneID} with template: {template.id} at {obj.transform.position}");
-        }
-        return controller;
+        return GetZone(zoneID);
     }
 
     private FarmZoneTemplate CreateProperTemplate(string zoneID)
@@ -489,105 +451,165 @@ namespace ChickenCoop.Managers
 
     public void AddObjectToZone(string zoneID)
     {
+        TryAddObjectToZone(zoneID, true);
+    }
+
+    public bool TryAddObjectToZoneWithoutCost(string zoneID)
+    {
+        return TryAddObjectToZone(zoneID, false);
+    }
+
+    public bool TryPlaceChickenInNextSlot()
+    {
+        return TryAddObjectToZoneWithoutCost("Chicken");
+    }
+
+    public bool TryHatchChicken(int eggCost)
+    {
+        if (eggCost <= 0)
+        {
+            eggCost = 1;
+        }
+
+        FarmZoneController zone = GetZone("Chicken");
+        if (zone == null)
+        {
+            Debug.LogWarning("[GameManager] Cannot hatch chicken: Chicken zone missing.");
+            return false;
+        }
+
+        zone.RefreshAuthoredSlots();
+        if (zone.GetNextAvailableAuthoredSlot() == null)
+        {
+            Debug.LogWarning("[GameManager] Cannot hatch chicken: Chicken zone full.");
+            return false;
+        }
+
+        if (Eggs < eggCost)
+        {
+            Debug.LogWarning($"[GameManager] Cannot hatch chicken: need {eggCost} eggs, have {Eggs}.");
+            return false;
+        }
+
+        if (!UseEggs(eggCost))
+        {
+            return false;
+        }
+
+        if (!TryAddObjectToZoneWithoutCost("Chicken"))
+        {
+            RefundEggs(eggCost);
+            Debug.LogWarning("[GameManager] Chicken hatch failed after cost; eggs refunded.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool TryAddObjectToZone(string zoneID, bool chargeCost)
+    {
         Debug.Log($"[GameManager] AddObjectToZone called with zoneID={zoneID}");
         FarmZoneController zone = GetOrCreateZone(zoneID);
         if (zone == null) {
-            Debug.LogError($"[GameManager] GetOrCreateZone returned null for {zoneID}");
-            return;
-        }
-        
-        Debug.Log($"[GameManager] Zone {zoneID}: CurrentCount={zone.CurrentCount}, maxSlots={zone.template.maxSlots}");
-        
-        if (zone.CurrentCount >= zone.template.maxSlots)
-        {
-            Debug.Log($"[GameManager] {zoneID} already at max slots ({zone.template.maxSlots})");
-            return;
+            Debug.LogError($"[GameManager] Authored zone missing for {zoneID}");
+            return false;
         }
 
-        bool canAfford = false;
-        
-        Debug.Log($"[GameManager] Checking affordability. Corn={Corn}, Eggs={Eggs}");
-        
-        // 1-to-1 Resource Barter for basic expansion
-        // Market purchase logic would be handled by a separate Shop method, but here we enforce resource growth for Plant/Incubate
-        if (zoneID == "Corn")
+        zone.RefreshAuthoredSlots();
+        Debug.Log($"[GameManager] Zone {zoneID}: CurrentCount={zone.CurrentCount}, maxSlots={(zone.template != null ? zone.template.maxSlots : -1)}");
+
+        Transform slot = zone.GetNextAvailableAuthoredSlot();
+        if (slot == null)
         {
-            if (Corn >= 1) 
-            {
-                UseCorn(1);
-                canAfford = true;
-            }
-        }
-        else if (zoneID == "Chicken")
-        {
-            if (Eggs >= 1)
-            {
-                UseEggs(1);
-                canAfford = true;
-            }
-        }
-        else if (zoneID == "Wheat")
-        {
-            // Free after first seed purchase
-            if (hasPurchasedWheat)
-            {
-                canAfford = true;
-            }
-            else if (GetItemCount("Wheat") >= 1)
-            {
-                UseItem("Wheat", 1);
-                canAfford = true;
-            }
-        }
-        else if (zoneID == "Cow")
-        {
-            // Free after first cow purchase
-            if (hasPurchasedCow)
-            {
-                canAfford = true;
-            }
-            else if (GetItemCount("Milk") >= 1)
-            {
-                UseItem("Milk", 1);
-                canAfford = true;
-            }
-        }
-        else
-        {
-            // Generic fallback to coins
-            int cost = (zone.CurrentCount == 0) ? zone.template.baseUnlockCost : zone.template.costPerAdditionalSlot;
-            if (coins >= cost)
-            {
-                canAfford = UseCoins(cost);
-            }
+            Debug.LogError($"[GameManager] No authored slots available for {zoneID}");
+            return false;
         }
 
-        if (canAfford)
+        if (chargeCost)
         {
-            Vector3 pos = zone.GetNextSlotPosition();
-            GameObject instance = SpawnFromTemplate(zone, pos, $"{zoneID}_{zone.CurrentCount}");
+            bool canAfford = false;
 
-            if (instance != null)
+            Debug.Log($"[GameManager] Checking affordability. Corn={Corn}, Eggs={Eggs}");
+
+            // 1-to-1 Resource Barter for basic expansion
+            // Market purchase logic would be handled by a separate Shop method, but here we enforce resource growth for Plant/Incubate
+            if (zoneID == "Corn")
             {
-                zone.AddSlot(instance.transform);
-                Debug.Log($"[GameManager] Added instance to zone. Triggering OnZoneExpanded({zoneID}, {zone.CurrentCount})");
-                OnZoneExpanded?.Invoke(zoneID, zone.CurrentCount);
-                
-                // Spawn decorations for this zone
-                SpawnZoneDecorations(zone, instance.transform);
-                
-                EnvironmentManager.Instance?.RefreshFences();
-                UpdateExpansionButtons();
+                if (Corn >= 1)
+                {
+                    UseCorn(1);
+                    canAfford = true;
+                }
+            }
+            else if (zoneID == "Chicken")
+            {
+                if (Eggs >= 1)
+                {
+                    UseEggs(1);
+                    canAfford = true;
+                }
+            }
+            else if (zoneID == "Wheat")
+            {
+                // Free after first seed purchase
+                if (hasPurchasedWheat)
+                {
+                    canAfford = true;
+                }
+                else if (GetItemCount("Wheat") >= 1)
+                {
+                    UseItem("Wheat", 1);
+                    canAfford = true;
+                }
+            }
+            else if (zoneID == "Cow")
+            {
+                // Free after first cow purchase
+                if (hasPurchasedCow)
+                {
+                    canAfford = true;
+                }
+                else if (GetItemCount("Milk") >= 1)
+                {
+                    UseItem("Milk", 1);
+                    canAfford = true;
+                }
             }
             else
             {
-                Debug.LogError($"[GameManager] Failed to spawn instance for zone {zoneID}");
+                // Generic fallback to coins
+                int cost = (zone.CurrentCount == 0 && zone.template != null) ? zone.template.baseUnlockCost : zone.template != null ? zone.template.costPerAdditionalSlot : 0;
+                if (coins >= cost)
+                {
+                    canAfford = UseCoins(cost);
+                }
+            }
+
+            if (!canAfford)
+            {
+                Debug.LogWarning($"[GameManager] Cannot afford to add {zoneID}. Corn={Corn}, Eggs={Eggs}");
+                return false;
             }
         }
-        else
+
+        GameObject instance = SpawnFromTemplate(zone, slot, $"{zoneID}_{zone.CurrentCount}");
+
+        if (instance != null)
         {
-            Debug.LogWarning($"[GameManager] Cannot afford to add {zoneID}. Corn={Corn}, Eggs={Eggs}");
+            zone.AddSlot(instance.transform);
+            Debug.Log($"[GameManager] Added instance to zone. Triggering OnZoneExpanded({zoneID}, {zone.CurrentCount})");
+            OnZoneExpanded?.Invoke(zoneID, zone.CurrentCount);
+
+            // Spawn decorations for this zone
+            SpawnZoneDecorations(zone, instance.transform);
+
+            EnvironmentManager.Instance?.RefreshFences();
+            UpdateExpansionButtons();
+            return true;
         }
+
+        Debug.LogError($"[GameManager] Failed to spawn instance for zone {zoneID}");
+        return false;
     }
 
     private void UpdateExpansionButtons()
@@ -609,8 +631,14 @@ namespace ChickenCoop.Managers
             return;
         }
 
-        Vector3 pos = zone.GetNextSlotPosition();
-        GameObject instance = SpawnFromTemplate(zone, pos, $"{zoneID}_{zone.CurrentCount}");
+        Transform slot = zone.GetNextAvailableAuthoredSlot();
+        if (slot == null)
+        {
+            Debug.LogWarning($"[GameManager] No authored slot available for {zoneID}");
+            return;
+        }
+
+        GameObject instance = SpawnFromTemplate(zone, slot, $"{zoneID}_{zone.CurrentCount}");
         if (instance != null)
         {
             zone.AddSlot(instance.transform);
@@ -1001,7 +1029,31 @@ namespace ChickenCoop.Managers
 
     private void ResolveSceneReferences()
     {
-        if (cornFieldPositions.Count == 0)
+        sceneRegistry = sceneRegistry != null ? sceneRegistry : FindFirstObjectByType<SceneRegistry>();
+        if (sceneRegistry != null)
+        {
+            sceneRegistry.RefreshCache();
+            activeZoneControllers.Clear();
+            activeZoneControllers.AddRange(sceneRegistry.Zones.Where(zone => zone != null));
+
+            if (storePosition == null && sceneRegistry.Store != null)
+            {
+                storePosition = sceneRegistry.Store.transform;
+            }
+
+            if (helperSpawnPoint == null && sceneRegistry.HelperSpawn != null)
+            {
+                helperSpawnPoint = sceneRegistry.HelperSpawn;
+            }
+        }
+
+        if (activeZoneControllers.Count == 0)
+        {
+            activeZoneControllers.Clear();
+            activeZoneControllers.AddRange(FindObjectsByType<FarmZoneController>(FindObjectsSortMode.None).Where(zone => zone != null));
+        }
+
+        if (cornFieldPositions.Count == 0 && sceneRegistry == null)
         {
             HarvestableField field = FindFirstObjectByType<HarvestableField>();
             if (field != null)
@@ -1010,7 +1062,7 @@ namespace ChickenCoop.Managers
             }
         }
 
-        if (chickenPositions.Count == 0)
+        if (chickenPositions.Count == 0 && sceneRegistry == null)
         {
             Chicken chicken = FindFirstObjectByType<Chicken>();
             if (chicken != null)
@@ -1019,7 +1071,7 @@ namespace ChickenCoop.Managers
             }
         }
 
-        if (storePosition == null)
+        if (storePosition == null && sceneRegistry == null)
         {
             StoreCounter storeCounter = FindFirstObjectByType<StoreCounter>();
             if (storeCounter != null)
@@ -1028,7 +1080,7 @@ namespace ChickenCoop.Managers
             }
         }
 
-        if (helperSpawnPoint == null)
+        if (helperSpawnPoint == null && sceneRegistry == null)
         {
             PlayerController player = FindFirstObjectByType<PlayerController>();
             if (player != null)
@@ -1254,9 +1306,28 @@ namespace ChickenCoop.Managers
         }
     }
 
-    private GameObject SpawnFromTemplate(FarmZoneController zone, Vector3 pos, string name)
+    public FarmZoneController GetZone(string zoneID)
     {
-        if (zone.template == null || string.IsNullOrEmpty(zone.template.slotObjectResourcePath))
+        if (string.IsNullOrWhiteSpace(zoneID))
+        {
+            return null;
+        }
+
+        if (sceneRegistry != null)
+        {
+            FarmZoneController registryZone = sceneRegistry.GetZone(zoneID);
+            if (registryZone != null)
+            {
+                return registryZone;
+            }
+        }
+
+        return activeZoneControllers.FirstOrDefault(c => c != null && c.ZoneIdMatches(zoneID));
+    }
+
+    private GameObject SpawnFromTemplate(FarmZoneController zone, Transform slot, string name)
+    {
+        if (zone == null || zone.template == null || string.IsNullOrEmpty(zone.template.slotObjectResourcePath) || slot == null)
         {
             Debug.LogError($"[GameManager] Template missing resource path for zone");
             return null;
@@ -1269,7 +1340,7 @@ namespace ChickenCoop.Managers
             return null;
         }
 
-        GameObject instance = Instantiate(prefab, pos, Quaternion.identity);
+        GameObject instance = Instantiate(prefab, slot.position, Quaternion.identity, slot);
         instance.name = name;
 
         // Attach appropriate component based on zone type and ID

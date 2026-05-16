@@ -45,14 +45,31 @@ public class Incubator : MonoBehaviour, IInteractable
 
     public bool CanInteract()
     {
-        return !isIncubating && GameManager.Instance.Eggs >= eggCost;
+        return !isIncubating
+               && GameManager.Instance != null
+               && GameManager.Instance.Eggs >= eggCost
+               && GameManager.Instance.GetZone("Chicken") != null
+               && GameManager.Instance.GetZone("Chicken").GetNextAvailableAuthoredSlot() != null;
     }
 
     public float GetProgress() => progress;
 
     private IEnumerator IncubateSequence()
     {
-        if (!GameManager.Instance.UseEggs(eggCost)) yield break;
+        if (GameManager.Instance == null)
+        {
+            yield break;
+        }
+
+        GameManager gm = GameManager.Instance;
+        FarmZoneController chickenZone = gm.GetZone("Chicken");
+        if (chickenZone == null || chickenZone.GetNextAvailableAuthoredSlot() == null)
+        {
+            Debug.LogWarning("[Incubator] Chicken zone missing or full. Hatch cancelled.");
+            yield break;
+        }
+
+        if (!gm.UseEggs(eggCost)) yield break;
 
         isIncubating = true;
         progress = 0.01f;
@@ -75,7 +92,14 @@ public class Incubator : MonoBehaviour, IInteractable
         transform.localEulerAngles = originalRotation;
         
         // Complete!
-        GameManager.Instance.AddChicken();
+        if (!gm.TryAddObjectToZoneWithoutCost("Chicken"))
+        {
+            gm.RefundEggs(eggCost);
+            Debug.LogWarning("[Incubator] Chicken spawn failed after egg spend. Eggs refunded.");
+            isIncubating = false;
+            progress = 0f;
+            yield break;
+        }
         
         isIncubating = false;
         progress = 0f;
