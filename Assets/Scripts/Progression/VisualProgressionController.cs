@@ -106,6 +106,7 @@ public sealed class VisualProgressionController : MonoBehaviour
             return;
         }
 
+        ClearCachedVisualState();
         appliedMutations.Clear();
 
         foreach (UpgradeVisualMutation mutation in mutationData.Mutations)
@@ -125,6 +126,14 @@ public sealed class VisualProgressionController : MonoBehaviour
         }
 
         RefreshEntityStyles();
+    }
+
+    private void ClearCachedVisualState()
+    {
+        zoneStates.Clear();
+        productStates.Clear();
+        helperStates.Clear();
+        storeState = new StoreVisualState();
     }
 
     public void NotifyUpgradeApplied(UpgradeType upgradeType)

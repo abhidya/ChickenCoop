@@ -86,7 +86,7 @@ public class FarmZoneController : MonoBehaviour
         }
 
         CacheBaseScale();
-        transform.localScale = Vector3.Scale(baseScale, state.localScale);
+        transform.localScale = baseScale;
 
         if (!string.IsNullOrWhiteSpace(state.markerName))
         {

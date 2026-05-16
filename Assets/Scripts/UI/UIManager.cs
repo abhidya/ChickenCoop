@@ -172,11 +172,9 @@ public class UIManager : MonoBehaviour
         // Ensure only one EventSystem
         CleanupDuplicateEventSystems();
 
-        // Initialize Background Systems
         if (EnvironmentManager.Instance == null)
         {
-            GameObject envObj = new GameObject("EnvironmentManager");
-            envObj.AddComponent<EnvironmentManager>();
+            Debug.LogWarning("[UIManager] EnvironmentManager missing from scene. Expected authored scene object, not runtime bootstrap.");
         }
 
         // Initialize displays
