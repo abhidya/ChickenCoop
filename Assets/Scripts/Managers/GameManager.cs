@@ -1041,54 +1041,43 @@ namespace ChickenCoop.Managers
     private void EnsureRuntimeStorySupport()
     {
         ResolveSceneReferences();
-        EnsureCoreGameplayObjects();
         ResolveSceneReferences();
 
         if (FindFirstObjectByType<FloatingTextManager>() == null)
         {
-            new GameObject("FloatingTextManager").AddComponent<FloatingTextManager>();
+            Debug.LogWarning("[GameManager] FloatingTextManager missing from authored scene.");
         }
 
         if (FindFirstObjectByType<EnvironmentAnimator>() == null)
         {
-            EnvironmentAnimator environmentAnimator = new GameObject("EnvironmentAnimator").AddComponent<EnvironmentAnimator>();
-            environmentAnimator.CreateAmbientParticles();
+            Debug.LogWarning("[GameManager] EnvironmentAnimator missing from authored scene.");
         }
 
         if (FindFirstObjectByType<EnvironmentManager>() == null)
         {
-            new GameObject("EnvironmentManager").AddComponent<EnvironmentManager>();
+            Debug.LogWarning("[GameManager] EnvironmentManager missing from authored scene.");
         }
 
         EnsureRuntimeUIRoot();
 
         if (FindFirstObjectByType<VisualProgressionController>() == null)
         {
-            new GameObject("VisualProgressionController").AddComponent<VisualProgressionController>();
+            Debug.LogWarning("[GameManager] VisualProgressionController missing from authored scene.");
         }
 
         if (FindFirstObjectByType<DayNightCycle>() == null)
         {
-            GameObject dayNightHost = Camera.main != null ? Camera.main.gameObject : new GameObject("DayNightCycle");
-            DayNightCycle cycle = dayNightHost.GetComponent<DayNightCycle>();
-            if (cycle == null)
-            {
-                cycle = dayNightHost.AddComponent<DayNightCycle>();
-            }
-
-            cycle.SetTimeOfDay(0.23f);
+            Debug.LogWarning("[GameManager] DayNightCycle missing from authored scene.");
         }
 
         if (FindFirstObjectByType<TutorialManager>() == null)
         {
-            Canvas canvas = FindFirstObjectByType<Canvas>();
-            GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
-            tutorialHost.AddComponent<TutorialManager>();
+            Debug.LogWarning("[GameManager] TutorialManager missing from authored scene.");
         }
         
         if (FindFirstObjectByType<TitleCardManager>() == null)
         {
-            new GameObject("TitleCardManager").AddComponent<TitleCardManager>();
+            Debug.LogWarning("[GameManager] TitleCardManager missing from authored scene.");
         }
 
         EnsureEnvironmentDecoration();
@@ -1096,15 +1085,13 @@ namespace ChickenCoop.Managers
         // Add Global Light 2D if missing for URP 2D
         if (FindFirstObjectByType<UnityEngine.Rendering.Universal.Light2D>() == null)
         {
-            GameObject lightHost = new GameObject("Global Light 2D");
-            var light = lightHost.AddComponent<UnityEngine.Rendering.Universal.Light2D>();
-            light.lightType = UnityEngine.Rendering.Universal.Light2D.LightType.Global;
-            light.intensity = 1.0f;
+            Debug.LogWarning("[GameManager] Global Light 2D missing from authored scene.");
         }
     }
 
     private void EnsureCoreGameplayObjects()
     {
+        Debug.LogWarning("[GameManager] EnsureCoreGameplayObjects is legacy bootstrap only; authored scene should supply core gameplay roots.");
         EnsureChickenObjects();
         EnsureCornFieldObjects();
         EnsureStoreCounterObject();
@@ -1120,7 +1107,8 @@ namespace ChickenCoop.Managers
 
         if (uiRoot == null)
         {
-            uiRoot = new GameObject("Canvas");
+            Debug.LogWarning("[GameManager] Authored Canvas/UIManager missing from scene.");
+            return null;
         }
 
         Canvas rootCanvas = uiRoot.GetComponent<Canvas>();
@@ -1148,7 +1136,7 @@ namespace ChickenCoop.Managers
 
         if (uiManager == null)
         {
-            uiRoot.AddComponent<UIManager>();
+            Debug.LogWarning("[GameManager] UIManager missing from authored scene.");
         }
 
         EnsureEventSystem();
