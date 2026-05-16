@@ -28,14 +28,6 @@ public class UIManager : MonoBehaviour
         "Speed Boots",
         "Bigger Store"
     };
-        "Cow Feed",
-        "Dairy Care",
-        "Carrot Garden",
-        "Fertilizer",
-        "Pig Pen",
-        "Speed Boots",
-        "Bigger Store"
-    };
 
     public static UIManager Instance { get; private set; }
 
@@ -216,7 +208,7 @@ public class UIManager : MonoBehaviour
             {
                 SetPanelActiveWithShadow(managementDrawer, true);
 
-                VisualFeedbackManager drawerVfx = VisualFeedbackManager.Instance ?? FindObjectOfType<VisualFeedbackManager>();
+                VisualFeedbackManager drawerVfx = VisualFeedbackManager.Instance ?? FindFirstObjectByType<VisualFeedbackManager>();
                 drawerVfx?.SlideIn(rect, new Vector2(0, -1000f), 0.4f);
                 
                 OnManagementOpened?.Invoke();
@@ -233,7 +225,7 @@ public class UIManager : MonoBehaviour
             if (label != null) label.text = isManagementOpen ? "Close Shop" : "Shop / Build";
         }
         
-        VisualFeedbackManager globalVfx = VisualFeedbackManager.Instance ?? FindObjectOfType<VisualFeedbackManager>();
+        VisualFeedbackManager globalVfx = VisualFeedbackManager.Instance ?? FindFirstObjectByType<VisualFeedbackManager>();
         globalVfx?.ShakeCamera(0.1f, 0.05f);
     }
 
@@ -479,7 +471,7 @@ public class UIManager : MonoBehaviour
     {
         if (timeText != null)
         {
-            DayNightCycle cycle = FindObjectOfType<DayNightCycle>();
+            DayNightCycle cycle = FindFirstObjectByType<DayNightCycle>();
             if (cycle != null)
             {
                 timeText.text = cycle.GetTimeString();
@@ -492,7 +484,7 @@ public class UIManager : MonoBehaviour
         // Update Corn Progress
         if (cornProgressBar != null)
         {
-            HarvestableField field = FindObjectOfType<HarvestableField>();
+            HarvestableField field = FindFirstObjectByType<HarvestableField>();
             if (field != null)
             {
                 float progress = field.GetGrowthProgress();
@@ -505,7 +497,7 @@ public class UIManager : MonoBehaviour
         // Update Egg Progress
         if (eggProgressBar != null)
         {
-            Chicken chicken = FindObjectOfType<Chicken>();
+            Chicken chicken = FindFirstObjectByType<Chicken>();
             if (chicken != null)
             {
                 float progress = chicken.GetProductionProgress();
@@ -808,7 +800,7 @@ public class UIManager : MonoBehaviour
         // Feed button - needs corn
         if (harvestButton != null)
         {
-            HarvestableField field = FindObjectOfType<HarvestableField>();
+            HarvestableField field = FindFirstObjectByType<HarvestableField>();
             bool canHarvest = field == null || field.CanInteract();
             harvestButton.interactable = canHarvest;
             UpdateButtonVisual(harvestButton, canHarvest);
@@ -823,7 +815,7 @@ public class UIManager : MonoBehaviour
 
         if (collectButton != null)
         {
-            bool canCollect = FindObjectsOfType<CollectibleEgg>().Length > 0;
+            bool canCollect = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None).Length > 0;
             collectButton.interactable = canCollect;
             UpdateButtonVisual(collectButton, canCollect);
         }
@@ -915,7 +907,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void ShowActTitle(int actIndex)
     {
-        TitleCardManager tcm = FindObjectOfType<TitleCardManager>();
+        TitleCardManager tcm = FindFirstObjectByType<TitleCardManager>();
         if (tcm != null)
         {
             tcm.ShowTitleCard(actIndex);
@@ -1156,13 +1148,13 @@ public class UIManager : MonoBehaviour
 
     private PlayerController GetPlayer()
     {
-        return FindObjectOfType<PlayerController>();
+        return FindFirstObjectByType<PlayerController>();
     }
 
     private void OnHarvestClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        HarvestableField field = FindObjectOfType<HarvestableField>();
+        HarvestableField field = FindFirstObjectByType<HarvestableField>();
         if (field != null)
         {
             PlayerController player = GetPlayer();
@@ -1180,7 +1172,7 @@ public class UIManager : MonoBehaviour
     private void OnFeedClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        Chicken chicken = FindObjectOfType<Chicken>();
+        Chicken chicken = FindFirstObjectByType<Chicken>();
         if (chicken != null)
         {
             if (chicken.CanInteract())
@@ -1199,7 +1191,7 @@ public class UIManager : MonoBehaviour
     private void OnCollectClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        CollectibleEgg[] eggs = FindObjectsOfType<CollectibleEgg>();
+        CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
         foreach (var egg in eggs)
         {
             PlayerController player = GetPlayer();
@@ -1214,7 +1206,7 @@ public class UIManager : MonoBehaviour
     private void OnSellClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        StoreCounter store = FindObjectOfType<StoreCounter>();
+        StoreCounter store = FindFirstObjectByType<StoreCounter>();
         if (store != null)
         {
             PlayerController player = GetPlayer();
@@ -1329,7 +1321,7 @@ public class UIManager : MonoBehaviour
                 ShowUpgradeNotification($"Upgrade purchased!");
                 UpdateNextGoal();
                 UpdateIncomeRate();
-                TitleCardManager titleCardManager = FindObjectOfType<TitleCardManager>();
+                TitleCardManager titleCardManager = FindFirstObjectByType<TitleCardManager>();
                 if (titleCardManager != null)
                 {
                     titleCardManager.EvaluateStoryProgress();
@@ -1599,7 +1591,7 @@ public class UIManager : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        EventSystem[] systems = FindObjectsOfType<EventSystem>();
+        EventSystem[] systems = FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
         if (systems.Length > 1)
         {
             for (int i = 1; i < systems.Length; i++) Destroy(systems[i].gameObject);
@@ -1616,7 +1608,7 @@ public class UIManager : MonoBehaviour
 
     private void CleanupDuplicateEventSystems()
     {
-        EventSystem[] systems = FindObjectsOfType<EventSystem>();
+        EventSystem[] systems = FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
         if (systems.Length > 1)
         {
             for (int i = 1; i < systems.Length; i++) 

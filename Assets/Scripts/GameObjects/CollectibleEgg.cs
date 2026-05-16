@@ -7,8 +7,17 @@ using ChickenCoop.Managers;
 /// </summary>
 public class CollectibleEgg : MonoBehaviour, IInteractable
 {
+    [SerializeField] private string itemId = "Egg";
     private bool isCollected = false;
     private const float CollectionDistance = 2.0f; // increased for easier pickup
+
+    public void SetItemId(string newItemId)
+    {
+        if (!string.IsNullOrEmpty(newItemId))
+        {
+            itemId = newItemId;
+        }
+    }
 
     private void Update()
     {
@@ -41,7 +50,7 @@ public class CollectibleEgg : MonoBehaviour, IInteractable
     private void Collect()
     {
         isCollected = true;
-        GameManager.Instance.AddEgg(1, transform.position + Vector3.up * 0.4f);
+        GameManager.Instance.AddItem(itemId, 1, transform.position + Vector3.up * 0.4f);
 
         // Fly to UI animation
         StartCoroutine(CollectAnimation());

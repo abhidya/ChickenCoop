@@ -27,28 +27,43 @@ namespace HappyHarvest
 
         public void TriggerFrontVFX()
         {
-            SideEffect.gameObject.SetActive(false);
-            UpEffect.gameObject.SetActive(false);
+            if (Application.platform == RuntimePlatform.WebGLPlayer || FrontEffect == null)
+            {
+                return;
+            }
+
+            if (SideEffect != null) SideEffect.gameObject.SetActive(false);
+            if (UpEffect != null) UpEffect.gameObject.SetActive(false);
             FrontEffect.gameObject.SetActive(true);
-        
+
             FrontEffect.SendEvent(FrontEffectId);
         }
-    
+
         public void TriggerSideVFX()
         {
-            SideEffect.gameObject.SetActive(true);
-            UpEffect.gameObject.SetActive(false);
-            FrontEffect.gameObject.SetActive(false);
-        
+            if (Application.platform == RuntimePlatform.WebGLPlayer || SideEffect == null)
+            {
+                return;
+            }
+
+            if (SideEffect != null) SideEffect.gameObject.SetActive(true);
+            if (UpEffect != null) UpEffect.gameObject.SetActive(false);
+            if (FrontEffect != null) FrontEffect.gameObject.SetActive(false);
+
             SideEffect.SendEvent(SideEffectId);
         }
-    
+
         public void TriggerUpVFX()
         {
-            SideEffect.gameObject.SetActive(false);
-            UpEffect.gameObject.SetActive(true);
-            FrontEffect.gameObject.SetActive(false);
-        
+            if (Application.platform == RuntimePlatform.WebGLPlayer || UpEffect == null)
+            {
+                return;
+            }
+
+            if (SideEffect != null) SideEffect.gameObject.SetActive(false);
+            if (UpEffect != null) UpEffect.gameObject.SetActive(true);
+            if (FrontEffect != null) FrontEffect.gameObject.SetActive(false);
+
             UpEffect.SendEvent(UpEffectId);
         }
     }
