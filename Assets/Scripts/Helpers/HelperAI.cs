@@ -114,7 +114,7 @@ public class HelperAI : MonoBehaviour
             if (GameManager.Instance.StorePosition != null)
             {
                 yield return StartCoroutine(MoveAndAction(GameManager.Instance.StorePosition.position, "GOLD", () => {
-                    StoreCounter store = FindObjectOfType<StoreCounter>();
+                    StoreCounter store = FindFirstObjectByType<StoreCounter>();
                     if (store != null) store.SellEgg();
                     else GameManager.Instance.SellEgg(transform.position);
                 }));
@@ -137,7 +137,7 @@ public class HelperAI : MonoBehaviour
 
     private IHarvestable FindRandomHarvestable()
     {
-        var harvestables = FindObjectsOfType<MonoBehaviour>().OfType<IHarvestable>()
+        var harvestables = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None).OfType<IHarvestable>()
             .Where(h => h.IsReadyToHarvest())
             .ToList();
         
@@ -158,7 +158,7 @@ public class HelperAI : MonoBehaviour
     private IFeedable FindRandomFeedable()
     {
         // Prioritize animals that NEED feeding (not just can interact)
-        var feedables = FindObjectsOfType<MonoBehaviour>().OfType<IFeedable>()
+        var feedables = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None).OfType<IFeedable>()
             .Where(f => f.NeedsFeeding()) // Only hungry animals
             .ToList();
         
@@ -178,7 +178,7 @@ public class HelperAI : MonoBehaviour
 
     private T FindRandomCollectible<T>() where T : MonoBehaviour, IInteractable
     {
-        var collectibles = FindObjectsOfType<T>()
+        var collectibles = FindObjectsByType<T>(FindObjectsSortMode.None)
             .Where(i => i.CanInteract())
             .ToList();
         
@@ -198,7 +198,7 @@ public class HelperAI : MonoBehaviour
     private float GetMinDistanceToOtherHelpers(Vector3 position)
     {
         float minDist = float.MaxValue;
-        var otherHelpers = FindObjectsOfType<HelperAI>().Where(h => h != this);
+        var otherHelpers = FindObjectsByType<HelperAI>(FindObjectsSortMode.None).Where(h => h != this);
         foreach (var helper in otherHelpers)
         {
             float dist = Vector3.Distance(position, helper.transform.position);

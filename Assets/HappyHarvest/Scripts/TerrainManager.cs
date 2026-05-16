@@ -33,7 +33,7 @@ namespace HappyHarvest
                 public int HarvestCount;
                 public float DyingTimer;
             }
-            
+
             public Crop GrowingCrop = null;
             public int CurrentGrowthStage = 0;
 
@@ -41,7 +41,7 @@ namespace HappyHarvest
             public float GrowthTimer = 0.0f;
 
             public int HarvestCount = 0;
-            
+
             public float DyingTimer;
             public bool HarvestDone => HarvestCount == GrowingCrop.NumberOfHarvest;
 
@@ -91,24 +91,25 @@ namespace HappyHarvest
         }
 
         public Grid Grid;
-        
+
         public Tilemap GroundTilemap;
         public Tilemap CropTilemap;
-        
+
         [Header("Watering")]
         public Tilemap WaterTilemap;
         public TileBase WateredTile;
-        
-        [Header("Tilling")] 
+
+        [Header("Tilling")]
         public TileBase TilleableTile;
         public TileBase TilledTile;
         public VisualEffect TillingEffectPrefab;
-        
+
         private Dictionary<Vector3Int, GroundData> m_GroundData = new();
         private Dictionary<Vector3Int, CropData> m_CropData = new();
 
         private Dictionary<Crop, List<VisualEffect>> m_HarvestEffectPool = new();
         private List<VisualEffect> m_TillingEffectPool = new();
+        private bool m_DisableVfx;
 
         public bool IsTillable(Vector3Int target)
         {
@@ -129,16 +130,21 @@ namespace HappyHarvest
         {
             if (IsTilled(target))
                 return;
-            
+
             GroundTilemap.SetTile(target, TilledTile);
             m_GroundData.Add(target, new GroundData());
+
+            if (m_DisableVfx || m_TillingEffectPool.Count == 0)
+            {
+                return;
+            }
 
             var inst = m_TillingEffectPool[0];
             m_TillingEffectPool.RemoveAt(0);
             m_TillingEffectPool.Add(inst);
 
             inst.gameObject.transform.position = Grid.GetCellCenterWorld(target);
-            
+
             inst.Stop();
             inst.Play();
         }
@@ -146,13 +152,11 @@ namespace HappyHarvest
         public void PlantAt(Vector3Int target, Crop cropToPlant)
         {
             var cropData = new CropData();
-            
             cropData.GrowingCrop = cropToPlant;
             cropData.GrowthTimer = 0.0f;
             cropData.CurrentGrowthStage = 0;
-            
+
             m_CropData.Add(target, cropData);
-            
             UpdateCropVisual(target);
 
             if (!m_HarvestEffectPool.ContainsKey(cropToPlant))
@@ -160,9 +164,13 @@ namespace HappyHarvest
                 InitHarvestEffect(cropToPlant);
             }
         }
-
         public void InitHarvestEffect(Crop crop)
         {
+            if (m_DisableVfx || crop == null || crop.HarvestEffect == null)
+            {
+                return;
+            }
+
             m_HarvestEffectPool[crop] = new List<VisualEffect>();
             for (int i = 0; i < 4; ++i)
             {
@@ -177,7 +185,7 @@ namespace HappyHarvest
             var groundData = m_GroundData[target];
 
             groundData.WaterTimer = GroundData.WaterDuration;
-            
+
             WaterTilemap.SetTile(target, WateredTile);
             //GroundTilemap.SetColor(target, WateredTiledColorTint);
         }
@@ -187,15 +195,20 @@ namespace HappyHarvest
             m_CropData.TryGetValue(target, out var data);
 
             if (data == null || !Mathf.Approximately(data.GrowthRatio,1.0f)) return null;
-            
+
             var produce = data.Harvest();
 
             if (data.HarvestDone)
             {
                 m_CropData.Remove(target);
             }
-            
+
             UpdateCropVisual(target);
+
+            if (m_DisableVfx || !m_HarvestEffectPool.ContainsKey(data.GrowingCrop) || m_HarvestEffectPool[data.GrowingCrop].Count == 0)
+            {
+                return produce;
+            }
 
             var effect = m_HarvestEffectPool[data.GrowingCrop][0];
             effect.transform.position = Grid.GetCellCenterWorld(target);
@@ -219,13 +232,19 @@ namespace HappyHarvest
             data.GrowthRatio = Mathf.Clamp01((newGrowthStage+1) / (float)data.GrowingCrop.GrowthStagesTiles.Length);
             data.GrowthTimer = data.GrowthRatio * data.GrowingCrop.GrowthTime;
             data.CurrentGrowthStage = newGrowthStage;
-            
+
             UpdateCropVisual(target);
         }
 
         private void Awake()
         {
             GameManager.Instance.Terrain = this;
+            m_DisableVfx = Application.platform == RuntimePlatform.WebGLPlayer;
+
+            if (m_DisableVfx || TillingEffectPrefab == null)
+            {
+                return;
+            }
 
             for (int i = 0; i < 4; ++i)
             {
@@ -323,21 +342,24 @@ namespace HappyHarvest
             {
                 var pos = data.GroundDataPositions[i];
                 m_GroundData.Add(pos, data.GroundDatas[i]);
-                
+
                 GroundTilemap.SetTile(pos, TilledTile);
-                
+
                 WaterTilemap.SetTile(data.GroundDataPositions[i], data.GroundDatas[i].WaterTimer > 0.0f ? WateredTile : null);
                 //GroundTilemap.SetColor(data.GroundDataPositions[i], data.GroundDatas[i].WaterTimer > 0.0f ? WateredTiledColorTint : Color.white);
             }
 
             //clear all existing effect as we will reload new one
-            foreach (var pool in m_HarvestEffectPool)
+            if (!m_DisableVfx)
             {
-                if (pool.Value != null)
+                foreach (var pool in m_HarvestEffectPool)
                 {
-                    foreach (var effect in pool.Value)
+                    if (pool.Value != null)
                     {
-                        Destroy(effect.gameObject);
+                        foreach (var effect in pool.Value)
+                        {
+                            Destroy(effect.gameObject);
+                        }
                     }
                 }
             }
@@ -347,11 +369,11 @@ namespace HappyHarvest
             {
                 CropData newData = new CropData();
                 newData.Load(data.CropDatas[i]);
-                
+
                 m_CropData.Add(data.CropDataPositions[i], newData);
                 UpdateCropVisual(data.CropDataPositions[i]);
-                
-                if (!m_HarvestEffectPool.ContainsKey(newData.GrowingCrop))
+
+                if (!m_DisableVfx && !m_HarvestEffectPool.ContainsKey(newData.GrowingCrop))
                 {
                     InitHarvestEffect(newData.GrowingCrop);
                 }

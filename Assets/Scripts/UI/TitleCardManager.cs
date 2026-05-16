@@ -292,7 +292,7 @@ public class TitleCardManager : MonoBehaviour
 
     private void EnsureRuntimeReferences()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             // Try searching by name if standard lookup fails

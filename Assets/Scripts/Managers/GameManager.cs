@@ -114,7 +114,7 @@ namespace ChickenCoop.Managers
     public float StoreEfficiencyMultiplier => storeEfficiencyMultiplier;
     public bool HasPurchasedWheat => hasPurchasedWheat;
     public bool HasPurchasedCow => hasPurchasedCow;
-    public PlayerController Player => FindObjectOfType<PlayerController>();
+    public PlayerController Player => FindFirstObjectByType<PlayerController>();
     
     // Leveling State
     private int currentAct = 1;
@@ -166,7 +166,7 @@ namespace ChickenCoop.Managers
     /// </summary>
     private void EnsureEventSystem()
     {
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject es = new GameObject("EventSystem");
             es.AddComponent<EventSystem>();
@@ -176,7 +176,7 @@ namespace ChickenCoop.Managers
         else
         {
             // Resolve duplicate event systems in the scene
-            EventSystem[] systems = FindObjectsOfType<EventSystem>();
+            EventSystem[] systems = FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
             if (systems.Length > 1)
             {
                 Debug.LogWarning($"[GameManager] Purging {systems.Length - 1} duplicate EventSystems.");
@@ -869,7 +869,7 @@ namespace ChickenCoop.Managers
     {
         if (cornFieldPositions.Count == 0)
         {
-            HarvestableField field = FindObjectOfType<HarvestableField>();
+            HarvestableField field = FindFirstObjectByType<HarvestableField>();
             if (field != null)
             {
                 cornFieldPositions.Add(field.transform);
@@ -878,7 +878,7 @@ namespace ChickenCoop.Managers
 
         if (chickenPositions.Count == 0)
         {
-            Chicken chicken = FindObjectOfType<Chicken>();
+            Chicken chicken = FindFirstObjectByType<Chicken>();
             if (chicken != null)
             {
                 chickenPositions.Add(chicken.transform);
@@ -887,7 +887,7 @@ namespace ChickenCoop.Managers
 
         if (storePosition == null)
         {
-            StoreCounter storeCounter = FindObjectOfType<StoreCounter>();
+            StoreCounter storeCounter = FindFirstObjectByType<StoreCounter>();
             if (storeCounter != null)
             {
                 storePosition = storeCounter.transform;
@@ -896,7 +896,7 @@ namespace ChickenCoop.Managers
 
         if (helperSpawnPoint == null)
         {
-            PlayerController player = FindObjectOfType<PlayerController>();
+            PlayerController player = FindFirstObjectByType<PlayerController>();
             if (player != null)
             {
                 helperSpawnPoint = player.transform;
@@ -910,28 +910,28 @@ namespace ChickenCoop.Managers
         EnsureCoreGameplayObjects();
         ResolveSceneReferences();
 
-        if (FindObjectOfType<FloatingTextManager>() == null)
+        if (FindFirstObjectByType<FloatingTextManager>() == null)
         {
             new GameObject("FloatingTextManager").AddComponent<FloatingTextManager>();
         }
 
-        if (FindObjectOfType<EnvironmentAnimator>() == null)
+        if (FindFirstObjectByType<EnvironmentAnimator>() == null)
         {
             EnvironmentAnimator environmentAnimator = new GameObject("EnvironmentAnimator").AddComponent<EnvironmentAnimator>();
             environmentAnimator.CreateAmbientParticles();
         }
 
-        if (FindObjectOfType<EnvironmentManager>() == null)
+        if (FindFirstObjectByType<EnvironmentManager>() == null)
         {
             new GameObject("EnvironmentManager").AddComponent<EnvironmentManager>();
         }
 
-        if (FindObjectOfType<UIManager>() == null)
+        if (FindFirstObjectByType<UIManager>() == null)
         {
             new GameObject("UIManager").AddComponent<UIManager>();
         }
 
-        if (FindObjectOfType<DayNightCycle>() == null)
+        if (FindFirstObjectByType<DayNightCycle>() == null)
         {
             GameObject dayNightHost = Camera.main != null ? Camera.main.gameObject : new GameObject("DayNightCycle");
             DayNightCycle cycle = dayNightHost.GetComponent<DayNightCycle>();
@@ -943,14 +943,14 @@ namespace ChickenCoop.Managers
             cycle.SetTimeOfDay(0.23f);
         }
 
-        if (FindObjectOfType<TutorialManager>() == null)
+        if (FindFirstObjectByType<TutorialManager>() == null)
         {
-            Canvas canvas = FindObjectOfType<Canvas>();
+            Canvas canvas = FindFirstObjectByType<Canvas>();
             GameObject tutorialHost = canvas != null ? canvas.gameObject : gameObject;
             tutorialHost.AddComponent<TutorialManager>();
         }
         
-        if (FindObjectOfType<TitleCardManager>() == null)
+        if (FindFirstObjectByType<TitleCardManager>() == null)
         {
             new GameObject("TitleCardManager").AddComponent<TitleCardManager>();
         }
@@ -958,7 +958,7 @@ namespace ChickenCoop.Managers
         EnsureEnvironmentDecoration();
 
         // Add Global Light 2D if missing for URP 2D
-        if (FindObjectOfType<UnityEngine.Rendering.Universal.Light2D>() == null)
+        if (FindFirstObjectByType<UnityEngine.Rendering.Universal.Light2D>() == null)
         {
             GameObject lightHost = new GameObject("Global Light 2D");
             var light = lightHost.AddComponent<UnityEngine.Rendering.Universal.Light2D>();
@@ -1143,17 +1143,6 @@ namespace ChickenCoop.Managers
                     animal = instance.AddComponent<AnimalProduct>();
                     animal.Initialize(zone.template.outputItem.id, zone.template.baseProductionTime);
                 }
-                
-                // Add roaming bounds if BasicAnimalMovement exists
-                BasicAnimalMovement movement = instance.GetComponent<BasicAnimalMovement>();
-                if (movement != null && movement.Area == null)
-                {
-                    // Create a simple box collider for roaming bounds
-                    BoxCollider2D roamArea = instance.AddComponent<BoxCollider2D>();
-                    roamArea.isTrigger = true;
-                    roamArea.size = new Vector2(template.spacing.x * 2, template.spacing.y * 2);
-                    movement.Area = roamArea;
-                }
             }
             
             instance.tag = zone.template.id;
@@ -1243,7 +1232,7 @@ namespace ChickenCoop.Managers
 
     private void EnsureIncubatorObject()
     {
-        if (FindObjectOfType<Incubator>() != null) return;
+        if (FindFirstObjectByType<Incubator>() != null) return;
         
         GameObject incubator = new GameObject("Incubator");
         incubator.transform.position = new Vector3(8f, 2f, 10f); // Positioned in background near market
@@ -1271,7 +1260,7 @@ namespace ChickenCoop.Managers
     
     private void EnsureTitleCardManager()
     {
-        if (FindObjectOfType<TitleCardManager>() != null) return;
+        if (FindFirstObjectByType<TitleCardManager>() != null) return;
 
         GameObject manager = new GameObject("TitleCardManager");
         manager.AddComponent<TitleCardManager>();
@@ -1396,7 +1385,7 @@ namespace ChickenCoop.Managers
             return;
         }
 
-        int existingHelperCount = FindObjectsOfType<HelperAI>().Length;
+        int existingHelperCount = FindObjectsByType<HelperAI>(FindObjectsSortMode.None).Length;
         if (existingHelperCount >= helperCount)
         {
             return;
@@ -1419,7 +1408,7 @@ namespace ChickenCoop.Managers
             return helperSpawnPoint.position;
         }
 
-        PlayerController player = FindObjectOfType<PlayerController>();
+        PlayerController player = FindFirstObjectByType<PlayerController>();
         if (player != null)
         {
             return player.transform.position + new Vector3(0.8f, -0.4f, 0f);
@@ -1440,7 +1429,7 @@ namespace ChickenCoop.Managers
         helperRenderer.color = StoryColorPalette.GetHelperColor(helperCount);
         helperRenderer.sortingOrder = 5000;
 
-        PlayerController player = FindObjectOfType<PlayerController>();
+        PlayerController player = FindFirstObjectByType<PlayerController>();
         if (player != null)
         {
             helper.layer = player.gameObject.layer;
@@ -1550,7 +1539,7 @@ namespace ChickenCoop.Managers
     /// </summary>
     public string CurrentTimeAsString()
     {
-        DayNightCycle cycle = FindObjectOfType<DayNightCycle>();
+        DayNightCycle cycle = FindFirstObjectByType<DayNightCycle>();
         return cycle != null ? cycle.GetTimeString() : "00:00";
     }
 }
