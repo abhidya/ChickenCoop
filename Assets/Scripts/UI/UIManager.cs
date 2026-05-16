@@ -154,6 +154,7 @@ public class UIManager : MonoBehaviour
 
         // Initialize upgrade tracking
         upgradesPurchased = new bool[availableUpgrades != null ? availableUpgrades.Length : 0];
+        SyncUpgradeLevelsFromGameManager();
 
         // Subscribe to game events
         if (GameManager.Instance != null)
@@ -656,14 +657,69 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void UnlockResourceSlot(string slotId)
     {
+        if (sidebarContent == null)
+        {
+            CreateInventorySidebar();
+        }
+
+        if (!resourceSlots.ContainsKey(slotId) || resourceSlots[slotId] == null)
+        {
+            CreateResourceSlot(slotId, GetFallbackIconPathForSlot(slotId));
+        }
+
         if (resourceSlots.ContainsKey(slotId) && resourceSlots[slotId] != null)
         {
             resourceSlots[slotId].SetActive(true);
         }
     }
 
+    private string GetFallbackIconPathForSlot(string slotId)
+    {
+        switch (slotId)
+        {
+            case "Corn":
+                return "Sprite_Corn_icon";
+            case "Egg":
+                return "egg_icon";
+            case "Wheat":
+                return "Sprite_Wheat_icon";
+            case "Milk":
+                return "Sprite_coin_icon";
+            case "Carrot":
+                return "Sprite_Corn_icon";
+            case "Truffle":
+                return "Sprite_coin_icon";
+            default:
+                return "Sprite_Button_Blue";
+        }
+    }
+
+    public void SyncUpgradeLevelsFromGameManager()
+    {
+        if (GameManager.Instance == null || availableUpgrades == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < availableUpgrades.Length; i++)
+        {
+            UpgradeData data = availableUpgrades[i];
+            if (data == null)
+            {
+                continue;
+            }
+
+            data.currentLevel = GameManager.Instance.GetUpgradeLevel(data.upgradeType);
+        }
+    }
+
     private void CreateInventorySidebar()
     {
+        if (sidebarContent != null)
+        {
+            return;
+        }
+
         // Create the sidebar root anchored to the Left Middle - compact size
         GameObject sidebarObj = new GameObject("InventorySidebar");
         sidebarObj.transform.SetParent(transform, false);
@@ -719,12 +775,18 @@ public class UIManager : MonoBehaviour
         CreateResourceSlot("Egg", "egg_icon");
         CreateResourceSlot("Wheat", "Sprite_Wheat_icon");
         CreateResourceSlot("Milk", "milk_bottle_icon");
+        CreateResourceSlot("Carrot", "Sprite_Corn_icon");
+        CreateResourceSlot("Truffle", "Sprite_coin_icon");
         
         // Gate Wheat/Milk slots until unlocked
         if (resourceSlots.ContainsKey("Wheat"))
             resourceSlots["Wheat"]?.SetActive(false);
         if (resourceSlots.ContainsKey("Milk"))
             resourceSlots["Milk"]?.SetActive(false); 
+        if (resourceSlots.ContainsKey("Carrot"))
+            resourceSlots["Carrot"]?.SetActive(false);
+        if (resourceSlots.ContainsKey("Truffle"))
+            resourceSlots["Truffle"]?.SetActive(false);
     }
 
     private void CreateResourceSlot(string id, string iconPath)
@@ -757,6 +819,10 @@ public class UIManager : MonoBehaviour
 
         Image iconImg = iconObj.AddComponent<Image>();
         iconImg.sprite = Resources.Load<Sprite>(iconPath);
+        if (iconImg.sprite == null)
+        {
+            iconImg.sprite = Resources.Load<Sprite>("Sprite_Button_Blue");
+        }
         iconImg.preserveAspect = true;
 
         // Name/Label
@@ -815,7 +881,7 @@ public class UIManager : MonoBehaviour
 
         if (collectButton != null)
         {
-            bool canCollect = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None).Length > 0;
+            bool canCollect = FindObjectsByType<CollectibleItem>(FindObjectsSortMode.None).Length > 0;
             collectButton.interactable = canCollect;
             UpdateButtonVisual(collectButton, canCollect);
         }
@@ -1191,8 +1257,8 @@ public class UIManager : MonoBehaviour
     private void OnCollectClicked()
     {
         try { AudioManager.Instance?.PlaySound("click"); } catch {}
-        CollectibleEgg[] eggs = FindObjectsByType<CollectibleEgg>(FindObjectsSortMode.None);
-        foreach (var egg in eggs)
+        CollectibleItem[] items = FindObjectsByType<CollectibleItem>(FindObjectsSortMode.None);
+        foreach (var egg in items)
         {
             PlayerController player = GetPlayer();
             if (player != null)

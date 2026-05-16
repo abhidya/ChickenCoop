@@ -13,7 +13,7 @@ public static class StorySceneVisualSetup
     private const string CornPrefabPath = "Assets/HappyHarvest/Art/Crops/Corn/Prefabs/Prefab_Corn_04.prefab";
     private const string MarketPrefabPath = "Assets/HappyHarvest/Art/Environment/Market/Prefab_Market.prefab";
 
-    [MenuItem("Tools/Story/Apply Happy Harvest Visuals")]
+    [MenuItem("Tools/Migration Only/Story/Apply Happy Harvest Visuals")]
     public static void ApplyHappyHarvestVisualsMenu()
     {
         string report = ApplyHappyHarvestVisuals();

@@ -16,6 +16,7 @@ using System.Linq;
 public class HelperAI : MonoBehaviour
 {
     public enum HelperState { Idle, Moving, Harvesting, Feeding, Selling, Waiting }
+    private enum WorkStream { Feed, Harvest, Collect, Sell }
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 3f;
@@ -32,15 +33,22 @@ public class HelperAI : MonoBehaviour
     private bool isMoving = false;
     private float bobTimer = 0f;
     private Vector3 originalScale;
+    private Vector3 baseScale;
     private Transform happyHarvestVisualRoot;
+    private HelperVisualState visualState = new HelperVisualState();
+    private float lastStepDustTime = -999f;
+    private static Sprite fallbackCircleSprite;
 
     private int helperId;
+    private WorkStream assignedWorkStream;
     private static int helperCounter = 0;
 
     private void Start()
     {
         helperId = helperCounter++;
-        originalScale = transform.localScale;
+        assignedWorkStream = (WorkStream)(helperId % 4);
+        baseScale = transform.localScale;
+        originalScale = baseScale;
 
         GameConfig config = GameManager.Instance != null ? GameManager.Instance.Config : null;
         if (config != null)
@@ -59,6 +67,7 @@ public class HelperAI : MonoBehaviour
             spriteRenderer.color = Color.HSVToRGB((h + hueOffset) % 1f, s, v);
         }
 
+        VisualProgressionController.Instance?.ApplyCurrentStyleToHelper(this);
         StartCoroutine(StartHelperLoop());
     }
 
@@ -74,50 +83,30 @@ public class HelperAI : MonoBehaviour
         while (true)
         {
             yield return StartCoroutine(PerformNextTask());
-            float wait = waitTime / Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f);
+            float speedMultiplier = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+            float wait = waitTime / Mathf.Max(speedMultiplier, 0.01f);
             yield return new WaitForSeconds(wait);
         }
     }
 
     private IEnumerator PerformNextTask()
     {
-        // === PRIORITY 1: FEED HUNGRY ANIMALS (HIGHEST - NEVER IGNORE) ===
-        var feedable = FindRandomFeedable();
-        if (feedable != null)
+        if (TryGetTaskRoutine(assignedWorkStream, out IEnumerator routine))
         {
-            MonoBehaviour mono = feedable as MonoBehaviour;
-            Vector3 targetPos = mono != null ? mono.transform.position : transform.position;
-            yield return StartCoroutine(MoveAndAction(targetPos, "FEED", () => feedable.Feed("Generic")));
+            yield return StartCoroutine(routine);
             yield break;
         }
 
-        // === PRIORITY 2: HARVEST READY CROPS ===
-        var harvestable = FindRandomHarvestable();
-        if (harvestable != null)
+        foreach (WorkStream stream in new[] { WorkStream.Feed, WorkStream.Harvest, WorkStream.Collect, WorkStream.Sell })
         {
-            MonoBehaviour mono = harvestable as MonoBehaviour;
-            Vector3 targetPos = mono != null ? mono.transform.position : transform.position;
-            yield return StartCoroutine(MoveAndAction(targetPos, "WORK", () => harvestable.Harvest()));
-            yield break;
-        }
-
-        var collectible = FindRandomCollectible<CollectibleEgg>();
-        if (collectible != null)
-        {
-            yield return StartCoroutine(MoveAndAction(collectible.transform.position, "ITEM", () => collectible.Interact()));
-            yield break;
-        }
-
-        // === PRIORITY 4: SELL INVENTORY ===
-        if (GameManager.Instance.Eggs > 0 || GameManager.Instance.Corn > 10)
-        {
-            if (GameManager.Instance.StorePosition != null)
+            if (stream == assignedWorkStream)
             {
-                yield return StartCoroutine(MoveAndAction(GameManager.Instance.StorePosition.position, "GOLD", () => {
-                    StoreCounter store = FindFirstObjectByType<StoreCounter>();
-                    if (store != null) store.SellEgg();
-                    else GameManager.Instance.SellEgg(transform.position);
-                }));
+                continue;
+            }
+
+            if (TryGetTaskRoutine(stream, out routine))
+            {
+                yield return StartCoroutine(routine);
                 yield break;
             }
         }
@@ -125,14 +114,126 @@ public class HelperAI : MonoBehaviour
         yield return new WaitForSeconds(1.0f);
     }
 
+    private bool TryGetTaskRoutine(WorkStream stream, out IEnumerator routine)
+    {
+        routine = null;
+
+        switch (stream)
+        {
+            case WorkStream.Feed:
+                if (TryBuildFeedRoutine(out routine)) return true;
+                break;
+            case WorkStream.Harvest:
+                if (TryBuildHarvestRoutine(out routine)) return true;
+                break;
+            case WorkStream.Collect:
+                if (TryBuildCollectRoutine(out routine)) return true;
+                break;
+            case WorkStream.Sell:
+                if (TryBuildSellRoutine(out routine)) return true;
+                break;
+        }
+
+        return false;
+    }
+
+    private bool TryBuildFeedRoutine(out IEnumerator routine)
+    {
+        routine = null;
+        var feedable = FindRandomFeedable();
+        if (feedable == null) return false;
+
+        MonoBehaviour mono = feedable as MonoBehaviour;
+        if (mono == null) return false;
+
+        string foodId = ResolveFoodFor(feedable);
+        if (string.IsNullOrEmpty(foodId)) return false;
+        if (!HasFoodFor(foodId)) return false;
+        if (!feedable.CanAcceptFood(foodId)) return false;
+
+        routine = MoveAndAction(mono.transform.position, "FEED", () => feedable.Feed(foodId));
+        return true;
+    }
+
+    private bool TryBuildHarvestRoutine(out IEnumerator routine)
+    {
+        routine = null;
+        var harvestable = FindRandomHarvestable();
+        if (harvestable == null) return false;
+
+        MonoBehaviour mono = harvestable as MonoBehaviour;
+        if (mono == null) return false;
+
+        routine = MoveAndAction(mono.transform.position, "WORK", harvestable.Harvest);
+        return true;
+    }
+
+    private bool TryBuildCollectRoutine(out IEnumerator routine)
+    {
+        routine = null;
+        var collectible = FindRandomCollectible<CollectibleItem>();
+        if (collectible == null) return false;
+
+        routine = MoveAndAction(collectible.transform.position, "ITEM", collectible.Interact);
+        return true;
+    }
+
+    private bool TryBuildSellRoutine(out IEnumerator routine)
+    {
+        routine = null;
+        if (GameManager.Instance == null || GameManager.Instance.StorePosition == null)
+        {
+            return false;
+        }
+
+        if (GameManager.Instance.Eggs <= 0 &&
+            GameManager.Instance.Corn <= 0 &&
+            GameManager.Instance.GetItemCount("Wheat") <= 0 &&
+            GameManager.Instance.GetItemCount("Milk") <= 0 &&
+            GameManager.Instance.GetItemCount("Carrot") <= 0 &&
+            GameManager.Instance.GetItemCount("Truffle") <= 0)
+        {
+            return false;
+        }
+
+        routine = MoveAndAction(GameManager.Instance.StorePosition.position, "GOLD", () =>
+        {
+            StoreCounter store = FindFirstObjectByType<StoreCounter>();
+            if (store != null) store.SellEgg();
+            else GameManager.Instance.SellEgg(transform.position);
+        });
+        return true;
+    }
+
+    private bool HasFoodFor(string foodId)
+    {
+        if (GameManager.Instance == null) return false;
+        return GameManager.Instance.GetItemCount(foodId) > 0 || (foodId == "Corn" && GameManager.Instance.Corn > 0);
+    }
+
+    private string ResolveFoodFor(IFeedable feedable)
+    {
+        string[] knownFoods = { "Corn", "Carrot", "Wheat", "Milk" };
+        foreach (string food in knownFoods)
+        {
+            if (HasFoodFor(food) && feedable.CanAcceptFood(food))
+            {
+                return food;
+            }
+        }
+
+        return feedable.CanAcceptFood("Generic") ? "Generic" : string.Empty;
+    }
+
     private IEnumerator MoveAndAction(Vector3 pos, string bubbleText, System.Action action)
     {
         SpawnTaskBubble(bubbleText);
         yield return StartCoroutine(MoveTo(pos));
         PlaySquashStretch();
-        yield return new WaitForSeconds(0.4f / GameManager.Instance.SpeedMultiplier);
+        float actionSpeedMultiplier = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+        yield return new WaitForSeconds(0.4f / Mathf.Max(actionSpeedMultiplier, 0.01f));
         action?.Invoke();
-        yield return new WaitForSeconds(0.2f / GameManager.Instance.SpeedMultiplier);
+        yield return new WaitForSeconds(0.2f / Mathf.Max(actionSpeedMultiplier, 0.01f));
     }
 
     private IHarvestable FindRandomHarvestable()
@@ -221,13 +322,19 @@ public class HelperAI : MonoBehaviour
         }
 
         float distance = Vector3.Distance(startPos, position);
-        float duration = distance / Mathf.Max(moveSpeed * GameManager.Instance.SpeedMultiplier, 0.1f);
+        float speedMultiplierMove = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+        float duration = distance / Mathf.Max(moveSpeed * speedMultiplierMove, 0.1f);
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             transform.position = Vector3.Lerp(startPos, position, elapsed / duration);
+            if (visualState.showStepDust && Time.time - lastStepDustTime > 0.14f)
+            {
+                lastStepDustTime = Time.time;
+                SpawnStepDust(transform.position - new Vector3(0f, 0.4f, 0f));
+            }
             yield return null;
         }
 
@@ -239,7 +346,136 @@ public class HelperAI : MonoBehaviour
     {
         bobTimer += Time.deltaTime * bobSpeed;
         float bob = (isMoving ? Mathf.Abs(Mathf.Sin(bobTimer * 2f)) : Mathf.Sin(bobTimer) * 0.3f) * bobAmount;
-        transform.localScale = originalScale + new Vector3(0, bob, 0);
+        transform.localScale = (originalScale * Mathf.Max(0.9f, visualState.localScale.x)) + new Vector3(0, bob, 0);
+    }
+
+    public void ApplyVisualState(HelperVisualState state)
+    {
+        if (state == null)
+        {
+            return;
+        }
+
+        visualState = state;
+        Vector3 resolvedBase = baseScale == Vector3.zero ? transform.localScale : baseScale;
+        baseScale = resolvedBase;
+        originalScale = resolvedBase * Mathf.Max(0.9f, state.localScale.x);
+        transform.localScale = originalScale;
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = Color.Lerp(helperColor, state.tint, 0.65f);
+        }
+
+        string markerName = string.IsNullOrWhiteSpace(state.auraMarkerName) ? "HelperAura" : state.auraMarkerName;
+        Transform aura = transform.Find(markerName);
+        if (state.showAura)
+        {
+            if (aura == null)
+            {
+                GameObject auraObject = new GameObject(markerName);
+                auraObject.transform.SetParent(transform, false);
+                aura = auraObject.transform;
+            }
+
+            aura.localPosition = new Vector3(0f, 0.1f, 0f);
+            aura.localScale = Vector3.one * 1.1f;
+
+            SpriteRenderer auraRenderer = aura.GetComponent<SpriteRenderer>();
+            if (auraRenderer == null)
+            {
+                auraRenderer = aura.gameObject.AddComponent<SpriteRenderer>();
+            }
+
+            Sprite auraSprite = Resources.Load<Sprite>("Sprite_Circle");
+            if (auraSprite == null)
+            {
+                auraSprite = CreateFallbackCircleSprite();
+            }
+            if (auraSprite != null)
+            {
+                auraRenderer.sprite = auraSprite;
+            }
+            auraRenderer.color = new Color(state.tint.r, state.tint.g, state.tint.b, 0.25f);
+            auraRenderer.sortingOrder = 5;
+        }
+        else if (aura != null)
+        {
+            aura.gameObject.SetActive(false);
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.badgeText))
+        {
+            Transform badge = transform.Find("HelperBadge");
+            if (badge == null)
+            {
+                GameObject badgeObject = new GameObject("HelperBadge");
+                badgeObject.transform.SetParent(transform, false);
+                badge = badgeObject.transform;
+            }
+
+            badge.localPosition = new Vector3(0f, 1.0f, 0f);
+            badge.localScale = Vector3.one * 0.35f;
+            TextMesh tm = badge.GetComponent<TextMesh>();
+            if (tm == null)
+            {
+                tm = badge.gameObject.AddComponent<TextMesh>();
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.fontSize = 18;
+            }
+
+            tm.text = state.badgeText;
+            tm.color = state.tint;
+            badge.GetComponent<MeshRenderer>().sortingOrder = 20;
+        }
+    }
+
+    private void SpawnStepDust(Vector3 position)
+    {
+        GameObject dust = new GameObject("HelperStepDust");
+        dust.transform.position = position;
+        ParticleSystem ps = dust.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startSize = 0.08f;
+        main.startLifetime = 0.35f;
+        main.startColor = Color.Lerp(helperColor, Color.white, 0.5f);
+        main.startSpeed = 0.45f;
+        main.gravityModifier = -0.05f;
+        main.maxParticles = 4;
+        main.duration = 0.08f;
+        main.loop = false;
+        var emission = ps.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 4) });
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 0.12f;
+        ps.Play();
+        Destroy(dust, 0.8f);
+    }
+
+    private static Sprite CreateFallbackCircleSprite()
+    {
+        if (fallbackCircleSprite != null)
+        {
+            return fallbackCircleSprite;
+        }
+
+        Texture2D texture = new Texture2D(24, 24, TextureFormat.RGBA32, false);
+        Vector2 center = new Vector2(11.5f, 11.5f);
+        for (int y = 0; y < texture.height; y++)
+        {
+            for (int x = 0; x < texture.width; x++)
+            {
+                float dx = (x - center.x) / 9f;
+                float dy = (y - center.y) / 9f;
+                texture.SetPixel(x, y, dx * dx + dy * dy <= 1f ? Color.white : Color.clear);
+            }
+        }
+        texture.Apply();
+        fallbackCircleSprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 24f);
+        return fallbackCircleSprite;
     }
 
     private void PlaySquashStretch() => StartCoroutine(SquashStretchAnimation());

@@ -24,6 +24,7 @@ namespace ChickenCoop.Managers
     public event Action<int> OnHelperCountChanged;
     public event Action<string, int> OnZoneExpanded; // zoneID, newCount
     public event Action<string, Vector3, Color> OnResourceGained; // For floating text feedback
+    public event Action<UpgradeType, int> OnUpgradeApplied;
 
     [Header("Game Configuration")]
     [SerializeField] private GameConfig config;
@@ -79,6 +80,9 @@ namespace ChickenCoop.Managers
     private bool hasUnlockedCarrot = false;
     private bool hasUnlockedPig = false;
 
+    // Upgrade progression state
+    private readonly Dictionary<UpgradeType, int> upgradeLevels = new Dictionary<UpgradeType, int>();
+
     // Upgrade multipliers
     private float cornMultiplier = 1f;
     private float wheatMultiplier = 1f;
@@ -119,6 +123,26 @@ namespace ChickenCoop.Managers
     // Leveling State
     private int currentAct = 1;
     public int CurrentAct => currentAct;
+
+    public int GetUpgradeLevel(UpgradeType type)
+    {
+        return upgradeLevels.TryGetValue(type, out int level) ? level : 0;
+    }
+
+    public bool HasUpgrade(UpgradeType type)
+    {
+        return GetUpgradeLevel(type) > 0;
+    }
+
+    private void SetUpgradeLevel(UpgradeType type, int level)
+    {
+        upgradeLevels[type] = Mathf.Max(0, level);
+    }
+
+    private void IncrementUpgradeLevel(UpgradeType type)
+    {
+        SetUpgradeLevel(type, GetUpgradeLevel(type) + 1);
+    }
 
     public void AdvanceAct()
     {
@@ -227,11 +251,20 @@ namespace ChickenCoop.Managers
     /// </summary>
     private void InitializeGame()
     {
+        inventory.Clear();
         corn = GetStartingCorn();
         eggs = GetStartingEggs();
         coins = GetStartingCoins();
         helperCount = 0;
         currentAct = 1;
+        upgradeLevels.Clear();
+        hasPurchasedWheat = false;
+        hasPurchasedCow = false;
+        hasUnlockedWheat = false;
+        hasUnlockedChicken = false;
+        hasUnlockedCow = false;
+        hasUnlockedCarrot = false;
+        hasUnlockedPig = false;
 
         // Initialize generic inventory
         inventory["Corn"] = corn;
@@ -355,6 +388,7 @@ namespace ChickenCoop.Managers
             if (itemId == "Egg") eggs = inventory[itemId];
             
             NotifyResourcesChanged(itemId);
+            UIManager.Instance?.UpdateAllResourceText();
             return true;
         }
         return false;
@@ -562,6 +596,30 @@ namespace ChickenCoop.Managers
         UIManager.Instance?.UpdateExpansionButtons();
     }
 
+    public void EnsureZoneHasVisibleMember(string zoneID)
+    {
+        if (string.IsNullOrWhiteSpace(zoneID))
+        {
+            return;
+        }
+
+        FarmZoneController zone = GetOrCreateZone(zoneID);
+        if (zone == null || zone.CurrentCount > 0)
+        {
+            return;
+        }
+
+        Vector3 pos = zone.GetNextSlotPosition();
+        GameObject instance = SpawnFromTemplate(zone, pos, $"{zoneID}_{zone.CurrentCount}");
+        if (instance != null)
+        {
+            zone.AddSlot(instance.transform);
+            OnZoneExpanded?.Invoke(zoneID, zone.CurrentCount);
+            SpawnZoneDecorations(zone, instance.transform);
+            EnvironmentManager.Instance?.RefreshFences();
+        }
+    }
+
     // Legacy Support for UI buttons
     public void AddChicken() => AddObjectToZone("Chicken");
     public void AddCornField() => AddObjectToZone("Corn");
@@ -673,25 +731,37 @@ namespace ChickenCoop.Managers
 
     public void ApplyUpgrade(UpgradeType type, float multiplier)
     {
+        IncrementUpgradeLevel(type);
+
         switch (type)
         {
             case UpgradeType.WheatField:
                 hasUnlockedWheat = true;
+                hasPurchasedWheat = true;
+                UIManager.Instance?.UnlockResourceSlot("Wheat");
+                EnsureZoneHasVisibleMember("Wheat");
                 break;
             case UpgradeType.ChickenCare:
+                hasUnlockedChicken = true;
                 eggMultiplier *= multiplier;
                 break;
             case UpgradeType.CowPen:
                 hasUnlockedCow = true;
+                hasPurchasedCow = true;
+                UIManager.Instance?.UnlockResourceSlot("Milk");
+                EnsureZoneHasVisibleMember("Cow");
                 break;
             case UpgradeType.CowFeed:
                 wheatMultiplier *= multiplier;
                 break;
             case UpgradeType.MilkProduction:
                 milkMultiplier *= multiplier;
+                UIManager.Instance?.UnlockResourceSlot("Milk");
                 break;
             case UpgradeType.CarrotGarden:
                 hasUnlockedCarrot = true;
+                UIManager.Instance?.UnlockResourceSlot("Carrot");
+                EnsureZoneHasVisibleMember("Carrot");
                 break;
             case UpgradeType.Fertilizer:
                 cornMultiplier *= multiplier;
@@ -700,6 +770,8 @@ namespace ChickenCoop.Managers
                 break;
             case UpgradeType.PigPen:
                 hasUnlockedPig = true;
+                UIManager.Instance?.UnlockResourceSlot("Truffle");
+                EnsureZoneHasVisibleMember("Pig");
                 break;
             case UpgradeType.HelperSpeed:
                 speedMultiplier *= multiplier;
@@ -708,6 +780,8 @@ namespace ChickenCoop.Managers
                 storeEfficiencyMultiplier *= multiplier;
                 break;
         }
+
+        OnUpgradeApplied?.Invoke(type, GetUpgradeLevel(type));
 
         // Spawn sparkle effect
         if (sparkleParticlePrefab != null)
@@ -720,6 +794,7 @@ namespace ChickenCoop.Managers
         }
 
         AudioManager.Instance?.PlaySound("upgrade");
+        SaveGame();
     }
 
     /// <summary>
@@ -783,15 +858,25 @@ namespace ChickenCoop.Managers
     /// </summary>
     public void ResetProgress()
     {
+        inventory.Clear();
         corn = GetStartingCorn();
         eggs = GetStartingEggs();
         coins = GetStartingCoins();
         helperCount = 0;
+        currentAct = 1;
         cornMultiplier = 1f;
         eggMultiplier = 1f;
         priceMultiplier = 1f;
         speedMultiplier = 1f;
         storeEfficiencyMultiplier = 1f;
+        upgradeLevels.Clear();
+        hasPurchasedWheat = false;
+        hasPurchasedCow = false;
+        hasUnlockedWheat = false;
+        hasUnlockedChicken = false;
+        hasUnlockedCow = false;
+        hasUnlockedCarrot = false;
+        hasUnlockedPig = false;
 
         // Update UI
         OnCornChanged?.Invoke(corn);
@@ -813,6 +898,7 @@ namespace ChickenCoop.Managers
         PlayerPrefs.SetInt("Eggs", eggs);
         PlayerPrefs.SetInt("Coins", coins);
         PlayerPrefs.SetInt("Helpers", helperCount);
+        PlayerPrefs.SetInt("CurrentAct", currentAct);
         PlayerPrefs.SetFloat("CornMultiplier", cornMultiplier);
         PlayerPrefs.SetFloat("EggMultiplier", eggMultiplier);
         PlayerPrefs.SetFloat("PriceMultiplier", priceMultiplier);
@@ -820,6 +906,24 @@ namespace ChickenCoop.Managers
         PlayerPrefs.SetFloat("StoreEfficiencyMultiplier", storeEfficiencyMultiplier);
         PlayerPrefs.SetInt("HasPurchasedWheat", hasPurchasedWheat ? 1 : 0);
         PlayerPrefs.SetInt("HasPurchasedCow", hasPurchasedCow ? 1 : 0);
+        PlayerPrefs.SetInt("HasUnlockedWheat", hasUnlockedWheat ? 1 : 0);
+        PlayerPrefs.SetInt("HasUnlockedChicken", hasUnlockedChicken ? 1 : 0);
+        PlayerPrefs.SetInt("HasUnlockedCow", hasUnlockedCow ? 1 : 0);
+        PlayerPrefs.SetInt("HasUnlockedCarrot", hasUnlockedCarrot ? 1 : 0);
+        PlayerPrefs.SetInt("HasUnlockedPig", hasUnlockedPig ? 1 : 0);
+
+        List<string> savedInventoryKeys = new List<string>(inventory.Keys);
+        PlayerPrefs.SetString("InventoryKeys", string.Join("|", savedInventoryKeys));
+        foreach (string key in savedInventoryKeys)
+        {
+            PlayerPrefs.SetInt($"Inventory_{key}", GetItemCount(key));
+        }
+
+        foreach (UpgradeType upgradeType in Enum.GetValues(typeof(UpgradeType)))
+        {
+            PlayerPrefs.SetInt($"UpgradeLevel_{upgradeType}", GetUpgradeLevel(upgradeType));
+        }
+
         PlayerPrefs.Save();
     }
 
@@ -837,6 +941,7 @@ namespace ChickenCoop.Managers
         eggs = PlayerPrefs.GetInt("Eggs");
         coins = PlayerPrefs.GetInt("Coins");
         helperCount = PlayerPrefs.GetInt("Helpers");
+        currentAct = PlayerPrefs.GetInt("CurrentAct", 1);
         cornMultiplier = PlayerPrefs.GetFloat("CornMultiplier", 1f);
         eggMultiplier = PlayerPrefs.GetFloat("EggMultiplier", 1f);
         priceMultiplier = PlayerPrefs.GetFloat("PriceMultiplier", 1f);
@@ -844,6 +949,32 @@ namespace ChickenCoop.Managers
         storeEfficiencyMultiplier = PlayerPrefs.GetFloat("StoreEfficiencyMultiplier", 1f);
         hasPurchasedWheat = PlayerPrefs.GetInt("HasPurchasedWheat", 0) == 1;
         hasPurchasedCow = PlayerPrefs.GetInt("HasPurchasedCow", 0) == 1;
+        hasUnlockedWheat = PlayerPrefs.GetInt("HasUnlockedWheat", 0) == 1;
+        hasUnlockedChicken = PlayerPrefs.GetInt("HasUnlockedChicken", 0) == 1;
+        hasUnlockedCow = PlayerPrefs.GetInt("HasUnlockedCow", 0) == 1;
+        hasUnlockedCarrot = PlayerPrefs.GetInt("HasUnlockedCarrot", 0) == 1;
+        hasUnlockedPig = PlayerPrefs.GetInt("HasUnlockedPig", 0) == 1;
+
+        inventory.Clear();
+        string inventoryKeyCsv = PlayerPrefs.GetString("InventoryKeys", string.Empty);
+        if (!string.IsNullOrWhiteSpace(inventoryKeyCsv))
+        {
+            string[] keys = inventoryKeyCsv.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string key in keys)
+            {
+                int value = PlayerPrefs.GetInt($"Inventory_{key}", 0);
+                inventory[key] = value;
+            }
+        }
+
+        inventory["Corn"] = corn;
+        inventory["Egg"] = eggs;
+
+        upgradeLevels.Clear();
+        foreach (UpgradeType upgradeType in Enum.GetValues(typeof(UpgradeType)))
+        {
+            SetUpgradeLevel(upgradeType, PlayerPrefs.GetInt($"UpgradeLevel_{upgradeType}", 0));
+        }
 
         RestoreLoadedHelpers();
 
@@ -852,6 +983,9 @@ namespace ChickenCoop.Managers
         OnEggsChanged?.Invoke(eggs);
         OnCoinsChanged?.Invoke(coins);
         OnHelperCountChanged?.Invoke(helperCount);
+
+        UIManager.Instance?.SyncUpgradeLevelsFromGameManager();
+        VisualProgressionController.Instance?.RefreshFromGameState();
     }
 
     private IEnumerator BootstrapStorySupport()
@@ -926,9 +1060,11 @@ namespace ChickenCoop.Managers
             new GameObject("EnvironmentManager").AddComponent<EnvironmentManager>();
         }
 
-        if (FindFirstObjectByType<UIManager>() == null)
+        EnsureRuntimeUIRoot();
+
+        if (FindFirstObjectByType<VisualProgressionController>() == null)
         {
-            new GameObject("UIManager").AddComponent<UIManager>();
+            new GameObject("VisualProgressionController").AddComponent<VisualProgressionController>();
         }
 
         if (FindFirstObjectByType<DayNightCycle>() == null)
@@ -974,6 +1110,49 @@ namespace ChickenCoop.Managers
         EnsureStoreCounterObject();
         EnsureIncubatorObject();
         EnsureTitleCardManager();
+    }
+
+    private GameObject EnsureRuntimeUIRoot()
+    {
+        UIManager uiManager = FindFirstObjectByType<UIManager>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
+        GameObject uiRoot = uiManager != null ? uiManager.gameObject : canvas != null ? canvas.gameObject : null;
+
+        if (uiRoot == null)
+        {
+            uiRoot = new GameObject("Canvas");
+        }
+
+        Canvas rootCanvas = uiRoot.GetComponent<Canvas>();
+        if (rootCanvas == null)
+        {
+            rootCanvas = uiRoot.AddComponent<Canvas>();
+        }
+        rootCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        rootCanvas.sortingOrder = 999;
+
+        CanvasScaler scaler = uiRoot.GetComponent<CanvasScaler>();
+        if (scaler == null)
+        {
+            scaler = uiRoot.AddComponent<CanvasScaler>();
+        }
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
+
+        if (uiRoot.GetComponent<GraphicRaycaster>() == null)
+        {
+            uiRoot.AddComponent<GraphicRaycaster>();
+        }
+
+        if (uiManager == null)
+        {
+            uiRoot.AddComponent<UIManager>();
+        }
+
+        EnsureEventSystem();
+        return uiRoot;
     }
 
     private void EnsureChickenObjects()
@@ -1242,20 +1421,12 @@ namespace ChickenCoop.Managers
     // Purchase Handlers for Market
     public void RegisterWheatPurchase()
     {
-        hasPurchasedWheat = true;
-        AddObjectToZone("Wheat");
-        OnZoneExpanded?.Invoke("Wheat", 0);
-        UIManager.Instance?.UnlockResourceSlot("Wheat");
-        SaveGame();
+        ApplyUpgrade(UpgradeType.WheatField, 1f);
     }
 
     public void RegisterCowPurchase()
     {
-        hasPurchasedCow = true;
-        AddObjectToZone("Cow");
-        OnZoneExpanded?.Invoke("Cow", 0);
-        UIManager.Instance?.UnlockResourceSlot("Milk");
-        SaveGame();
+        ApplyUpgrade(UpgradeType.CowPen, 1f);
     }
     
     private void EnsureTitleCardManager()

@@ -228,11 +228,26 @@ public class PlayerController : MonoBehaviour
     {
         Vector3 startPos = transform.position;
         float elapsed = 0f;
-        float duration = Vector3.Distance(startPos, targetPosition) / moveSpeed;
+        float speed = Mathf.Max(moveSpeed, 0.01f);
+        float duration = Vector3.Distance(startPos, targetPosition) / speed;
+        if (duration <= 0.001f)
+        {
+            transform.position = targetPosition;
+            isMoving = false;
+            UpdateAnimatorParameters(Vector2.zero, false);
+            if (currentTarget != null)
+            {
+                currentTarget.Interact();
+                currentTarget = null;
+            }
+            yield break;
+        }
+
+        float speedMultiplier = GameManager.Instance != null ? Mathf.Max(GameManager.Instance.SpeedMultiplier, 0.01f) : 1f;
 
         while (elapsed < duration)
         {
-            elapsed += Time.deltaTime * GameManager.Instance.SpeedMultiplier;
+            elapsed += Time.deltaTime * speedMultiplier;
             float t = elapsed / duration;
 
             // Use smooth step for easing

@@ -536,8 +536,8 @@ public static class StoryUpgradeSceneWiringUtility
             ? UIManager.StoryUpgradeNames[index]
             : "Upgrade " + (index + 1);
         string upgradeCost = index < UIManager.StoryUpgradeCosts.Length
-            ? "💰" + UIManager.StoryUpgradeCosts[index]
-            : "💰100";
+            ? "Gold " + UIManager.StoryUpgradeCosts[index]
+            : "Gold 100";
 
         TextMeshProUGUI nameText = FindText(button.transform, "UpgradeName");
         if (nameText == null)

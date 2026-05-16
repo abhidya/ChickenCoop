@@ -40,6 +40,9 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     private float bounceTimer = 0f;
     private SpriteRenderer[] storyRenderers;
     private Transform progressBarPivot;
+    private float visualScaleMultiplier = 1f;
+    private Color visualTint = Color.white;
+    private string visualBadgeLabel;
 
     private void Start()
     {
@@ -71,6 +74,7 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
     private void UpdateVisuals()
     {
         Color color = canHarvest ? readyColor : cooldownColor;
+        color = Color.Lerp(color, visualTint, 0.25f);
 
         if (spriteRenderer != null)
         {
@@ -250,11 +254,11 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
             if (canHarvest)
             {
                 float bounce = 1f + Mathf.Sin(bounceTimer * 2f) * bounceAmount * 0.3f;
-                cornVisual.localScale = Vector3.one * bounce;
+                cornVisual.localScale = Vector3.one * bounce * visualScaleMultiplier;
             }
             else
             {
-                cornVisual.localScale = Vector3.one * 0.8f;
+                cornVisual.localScale = Vector3.one * 0.8f * visualScaleMultiplier;
             }
         }
         
@@ -264,6 +268,66 @@ public class HarvestableField : MonoBehaviour, IInteractable, IHarvestable, IZon
             soilRenderer.transform.localRotation = Quaternion.identity;
             soilRenderer.transform.localScale = Vector3.one;
         }
+    }
+
+    public void ApplyVisualState(float scaleMultiplier, Color tint, string badgeLabel = null)
+    {
+        visualScaleMultiplier = Mathf.Max(0.9f, scaleMultiplier);
+        visualTint = tint;
+        visualBadgeLabel = badgeLabel;
+        UpdateVisuals();
+
+        if (string.IsNullOrWhiteSpace(visualBadgeLabel))
+        {
+            return;
+        }
+
+        Transform badge = transform.Find("FertilizerBadge");
+        if (badge == null)
+        {
+            GameObject badgeObject = new GameObject("FertilizerBadge");
+            badgeObject.transform.SetParent(transform, false);
+            badge = badgeObject.transform;
+        }
+
+        badge.localPosition = new Vector3(0f, 0.7f, 0f);
+        badge.localScale = Vector3.one * 0.4f;
+        SpriteRenderer badgeRenderer = badge.GetComponent<SpriteRenderer>();
+        if (badgeRenderer == null)
+        {
+            badgeRenderer = badge.gameObject.AddComponent<SpriteRenderer>();
+        }
+
+        Sprite sprite = Resources.Load<Sprite>("Sprite_Button_green");
+        if (sprite != null)
+        {
+            badgeRenderer.sprite = sprite;
+        }
+        badgeRenderer.color = tint;
+        badgeRenderer.sortingOrder = 35;
+
+        Transform label = badge.Find("Label");
+        if (label == null)
+        {
+            GameObject labelObject = new GameObject("Label");
+            labelObject.transform.SetParent(badge, false);
+            label = labelObject.transform;
+        }
+
+        label.localPosition = Vector3.zero;
+        label.localScale = Vector3.one * 0.5f;
+        TextMesh textMesh = label.GetComponent<TextMesh>();
+        if (textMesh == null)
+        {
+            textMesh = label.gameObject.AddComponent<TextMesh>();
+            textMesh.fontSize = 20;
+            textMesh.anchor = TextAnchor.MiddleCenter;
+            textMesh.alignment = TextAlignment.Center;
+        }
+
+        textMesh.text = visualBadgeLabel;
+        textMesh.color = Color.white;
+        label.GetComponent<MeshRenderer>().sortingOrder = 36;
     }
 
     /// <summary>

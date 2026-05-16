@@ -27,14 +27,17 @@ public class Pig : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     private float productionProgress = 0f;
     private bool isWandering = false;
     private Vector3 originalScale;
+    private Vector3 baseScale;
     private Quaternion originalRotation;
     private float wiggleTimer = 0f;
     private Transform progressBarPivot;
     private FarmZoneController zoneController;
+    private PigVisualState visualState = new PigVisualState();
 
     private void Start()
     {
         originalScale = transform.localScale;
+        baseScale = originalScale;
         originalRotation = transform.localRotation;
         zoneController = GetComponentInParent<FarmZoneController>();
 
@@ -132,6 +135,53 @@ public class Pig : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     public bool NeedsFeeding() => !isProducing;
     public bool CanAcceptFood(string itemID) => !isProducing && itemID == "Carrot";
     public float GetProductionProgress() => productionProgress;
+
+    public void ApplyVisualState(PigVisualState state)
+    {
+        if (state == null)
+        {
+            return;
+        }
+
+        visualState = state;
+        Vector3 resolvedBase = baseScale == Vector3.zero ? transform.localScale : baseScale;
+        baseScale = resolvedBase;
+        originalScale = resolvedBase * Mathf.Max(0.9f, state.localScale.x);
+        transform.localScale = originalScale;
+
+        if (bodySprite != null)
+        {
+            bodySprite.color = Color.Lerp(Color.white, state.tint, 0.6f);
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.mudLabel))
+        {
+            Transform mud = transform.Find("PigMudPatch");
+            if (mud == null)
+            {
+                GameObject mudObject = new GameObject("PigMudPatch");
+                mudObject.transform.SetParent(transform, false);
+                mud = mudObject.transform;
+            }
+
+            mud.localPosition = new Vector3(0.15f, -0.5f, 0f);
+            mud.localScale = Vector3.one * 0.55f;
+
+            SpriteRenderer renderer = mud.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                renderer = mud.gameObject.AddComponent<SpriteRenderer>();
+            }
+
+            Sprite sprite = Resources.Load<Sprite>("Sprite_Tiles_Soil");
+            if (sprite != null)
+            {
+                renderer.sprite = sprite;
+            }
+            renderer.color = state.tint;
+            renderer.sortingOrder = 3;
+        }
+    }
 
     public void Initialize(string zoneID, int slotIndex)
     {

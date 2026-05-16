@@ -9,7 +9,7 @@ using ChickenCoop.Managers;
 /// </summary>
 public class StoryUpgradeSetup : EditorWindow
 {
-    [MenuItem("Tools/Story Upgrade/Setup Game Config")]
+    [MenuItem("Tools/Migration Only/Story Upgrade/Setup Game Config")]
     public static void SetupGameConfig()
     {
         // Check if Resources folder exists
@@ -67,7 +67,7 @@ public class StoryUpgradeSetup : EditorWindow
         Selection.activeObject = config;
     }
 
-    [MenuItem("Tools/Story Upgrade/Create All Upgrade Assets")]
+    [MenuItem("Tools/Migration Only/Story Upgrade/Create All Upgrade Assets")]
     public static void CreateAllUpgrades()
     {
         string soPath = "Assets/ScriptableObjects";
@@ -158,7 +158,7 @@ public class StoryUpgradeSetup : EditorWindow
         Debug.Log("Created upgrade: " + upgradeName + " at " + assetPath);
     }
 
-    [MenuItem("Tools/Story Upgrade/Open Documentation")]
+    [MenuItem("Tools/Migration Only/Story Upgrade/Open Documentation")]
     public static void OpenDocumentation()
     {
         string[] docs = new string[]
@@ -188,7 +188,7 @@ public class StoryUpgradeSetup : EditorWindow
             "OK");
     }
 
-    [MenuItem("Tools/Story Upgrade/Show Asset Locations")]
+    [MenuItem("Tools/Migration Only/Story Upgrade/Show Asset Locations")]
     public static void ShowAssetLocations()
     {
         string message = "Asset Locations for Story Integration:\n\n";
@@ -223,21 +223,21 @@ public class StoryUpgradeSetup : EditorWindow
         EditorUtility.DisplayDialog("Asset Locations", message, "OK");
     }
 
-    [MenuItem("Tools/Story Upgrade/Setup Title Card")]
+    [MenuItem("Tools/Migration Only/Story Upgrade/Setup Title Card")]
     public static void SetupTitleCard()
     {
         string summary = StoryUpgradeSceneWiringUtility.AutoWireTitleCardOnly();
         EditorUtility.DisplayDialog("Title Card Setup", summary, "OK");
     }
 
-    [MenuItem("Tools/Story Upgrade/Auto Wire UI + Title Card")]
+    [MenuItem("Tools/Migration Only/Story Upgrade/Auto Wire UI + Title Card")]
     public static void AutoWireUIAndTitleCard()
     {
         string summary = StoryUpgradeSceneWiringUtility.AutoWireStoryScene();
         EditorUtility.DisplayDialog("Story Upgrade Auto-Wire", summary, "OK");
     }
 
-    [MenuItem("Tools/Story Upgrade/Validate Scene Setup")]
+    [MenuItem("Tools/Validation/Story Upgrade/Validate Scene Setup")]
     public static void ValidateSceneSetup()
     {
         string report = StoryUpgradeSceneWiringUtility.BuildValidationReport();

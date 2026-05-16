@@ -7,7 +7,7 @@ using System.Linq;
 
 public static class FixDuplicateRoots
 {
-    [MenuItem("Tools/Fix Duplicate Roots")]
+    [MenuItem("Tools/Migration Only/Legacy/Fix Duplicate Roots")]
     public static void Run()
     {
         EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);

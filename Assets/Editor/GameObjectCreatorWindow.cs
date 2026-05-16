@@ -7,13 +7,13 @@ using UnityEditor;
 /// </summary>
 public class GameObjectCreatorWindow : EditorWindow
 {
-    [MenuItem("Tools/Game Objects/Create Visual GameObjects")]
+    [MenuItem("Tools/Migration Only/Legacy/Create Visual GameObjects")]
     public static void ShowWindow()
     {
-        GetWindow<GameObjectCreatorWindow>("Visual GameObject Creator");
+        GetWindow<GameObjectCreatorWindow>("Legacy Visual Bootstrap");
     }
     
-    [MenuItem("Tools/Game Objects/Create Player")]
+    [MenuItem("Tools/Migration Only/Legacy/Create Player")]
     public static void CreatePlayer()
     {
         GameObject go = Object.FindFirstObjectByType<VisualGameObjectCreator>()?.CreatePlayerVisual();
@@ -33,7 +33,7 @@ public class GameObjectCreatorWindow : EditorWindow
         }
     }
     
-    [MenuItem("Tools/Game Objects/Create Chicken")]
+    [MenuItem("Tools/Migration Only/Legacy/Create Chicken")]
     public static void CreateChicken()
     {
         GameObject go = null;
@@ -49,7 +49,7 @@ public class GameObjectCreatorWindow : EditorWindow
         }
     }
     
-    [MenuItem("Tools/Game Objects/Create Environment")]
+    [MenuItem("Tools/Migration Only/Legacy/Create Environment")]
     public static void CreateEnvironment()
     {
         GameObject temp = new GameObject("TempCreator");
@@ -67,7 +67,7 @@ public class GameObjectCreatorWindow : EditorWindow
             "OK");
     }
     
-    [MenuItem("Tools/Game Objects/Create Egg Prefab")]
+    [MenuItem("Tools/Migration Only/Legacy/Create Egg Prefab")]
     public static void CreateEggPrefab()
     {
         GameObject temp = new GameObject("TempCreator");
@@ -94,7 +94,7 @@ public class GameObjectCreatorWindow : EditorWindow
         }
     }
     
-    [MenuItem("Tools/Game Objects/Create All Visuals")]
+    [MenuItem("Tools/Migration Only/Legacy/Create All Visuals")]
     public static void CreateAllVisuals()
     {
         GameObject temp = new GameObject("TempCreator");

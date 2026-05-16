@@ -33,6 +33,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
         get => _originalScale;
         set => _originalScale = value;
     }
+    private Vector3 baseScale;
     private float bounceTimer = 0f;
     private SpriteRenderer[] storyRenderers;
 
@@ -49,6 +50,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
         {
             _originalScale = transform.localScale;
         }
+        baseScale = _originalScale;
 
         if (spriteRenderer == null)
         {
@@ -80,6 +82,7 @@ public class StoreCounter : MonoBehaviour, IInteractable
         sGroup.sortingOrder = 0; // Standard world sorting
 
         UpdateVisual();
+        VisualProgressionController.Instance?.ApplyCurrentStyleToStore(this);
     }
 
     private void Update()
@@ -283,7 +286,9 @@ public class StoreCounter : MonoBehaviour, IInteractable
     /// </summary>
     private IEnumerator SellCooldown()
     {
-        float sellRate = GameManager.Instance.SpeedMultiplier * GameManager.Instance.StoreEfficiencyMultiplier;
+        float speedMultiplier = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+        float storeEfficiency = GameManager.Instance != null ? GameManager.Instance.StoreEfficiencyMultiplier : 1f;
+        float sellRate = Mathf.Max(speedMultiplier * storeEfficiency, 0.01f);
         yield return new WaitForSeconds(sellCooldown / sellRate);
         canSell = true;
     }
@@ -434,6 +439,77 @@ public class StoreCounter : MonoBehaviour, IInteractable
                 renderer.color = tint;
             }
         }
+    }
+
+    public void ApplyVisualState(StoreVisualState state)
+    {
+        if (state == null)
+        {
+            return;
+        }
+
+        float scale = Mathf.Max(0.9f, state.localScale.x);
+        Vector3 baseScaleLocal = baseScale == Vector3.zero ? transform.localScale : baseScale;
+        originalScale = baseScaleLocal * scale;
+        transform.localScale = originalScale;
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = Color.Lerp(activeColor, state.tint, 0.5f);
+        }
+
+        ApplyStoryTint(Color.Lerp(activeColor, state.tint, 0.65f));
+
+        string markerName = string.IsNullOrWhiteSpace(state.markerName) ? "StoreProgression" : state.markerName;
+        Transform marker = transform.Find(markerName);
+        if (marker == null)
+        {
+            GameObject markerObject = new GameObject(markerName);
+            markerObject.transform.SetParent(transform, false);
+            marker = markerObject.transform;
+        }
+
+        marker.localPosition = new Vector3(0f, 1.05f, 0f);
+        marker.localScale = Vector3.one * 0.55f;
+
+        SpriteRenderer markerRenderer = marker.GetComponent<SpriteRenderer>();
+        if (markerRenderer == null)
+        {
+            markerRenderer = marker.gameObject.AddComponent<SpriteRenderer>();
+        }
+
+        Sprite sprite = Resources.Load<Sprite>("Sprite_coin_icon");
+        if (sprite != null)
+        {
+            markerRenderer.sprite = sprite;
+        }
+
+        markerRenderer.color = state.tint;
+        markerRenderer.sortingOrder = 12;
+
+        Transform label = marker.Find("Label");
+        if (label == null)
+        {
+            GameObject labelObject = new GameObject("Label");
+            labelObject.transform.SetParent(marker, false);
+            label = labelObject.transform;
+        }
+
+        label.localPosition = new Vector3(0f, 0.42f, 0f);
+        label.localScale = Vector3.one * 0.35f;
+
+        TextMesh textMesh = label.GetComponent<TextMesh>();
+        if (textMesh == null)
+        {
+            textMesh = label.gameObject.AddComponent<TextMesh>();
+            textMesh.anchor = TextAnchor.MiddleCenter;
+            textMesh.alignment = TextAlignment.Center;
+            textMesh.fontSize = 18;
+        }
+
+        textMesh.text = string.IsNullOrWhiteSpace(state.badgeText) ? "STORE" : state.badgeText;
+        textMesh.color = Color.white;
+        label.GetComponent<MeshRenderer>().sortingOrder = 13;
     }
 
     private static void DestroyTemporaryObject(Object target, float delay = 0f)

@@ -181,7 +181,7 @@ public class TutorialManager : MonoBehaviour
 
         if (tutorialActive && currentStep == TutorialStep.FeedChicken)
         {
-            CollectibleEgg egg = FindFirstObjectByType<CollectibleEgg>();
+            CollectibleItem egg = FindFirstObjectByType<CollectibleItem>();
             if (egg != null)
             {
                 AdvanceToStep(TutorialStep.CollectEgg);

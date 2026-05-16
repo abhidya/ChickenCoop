@@ -9,7 +9,7 @@ using System.IO;
 /// </summary>
 public class CreatePlaceholderSprites : EditorWindow
 {
-    [MenuItem("Tools/Create Placeholder Sprites")]
+    [MenuItem("Tools/Migration Only/Legacy/Create Placeholder Sprites")]
     static void ShowWindow()
     {
         GetWindow(typeof(CreatePlaceholderSprites), false, "Create Placeholders");

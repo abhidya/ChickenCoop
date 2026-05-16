@@ -39,16 +39,19 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     private float blinkTimer = 0f;
     private float wiggleTimer = 0f;
     private Vector3 originalScale;
+    private Vector3 baseScale;
     private Quaternion originalRotation;
     private float productionProgress = 0f;
     private Transform progressBarPivot;
     private FarmZoneController zoneController;
+    private ChickenVisualState visualState = new ChickenVisualState();
 
     public bool IsLayingEgg => isLayingEgg;
 
     private void Start()
     {
         originalScale = transform.localScale;
+        baseScale = originalScale;
         originalRotation = transform.localRotation;
 
         GameConfig config = GameManager.Instance != null ? GameManager.Instance.Config : null;
@@ -144,6 +147,62 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         if (hitbox == null) hitbox = gameObject.AddComponent<CircleCollider2D>();
         hitbox.isTrigger = true;
         hitbox.radius = 1.0f;
+    }
+
+    public void ApplyVisualState(ChickenVisualState state)
+    {
+        if (state == null)
+        {
+            return;
+        }
+
+        visualState = state;
+        Vector3 resolvedBase = baseScale == Vector3.zero ? transform.localScale : baseScale;
+        baseScale = resolvedBase;
+        originalScale = resolvedBase * Mathf.Max(0.9f, state.localScale.x);
+        transform.localScale = originalScale;
+
+        if (bodySprite != null)
+        {
+            bodySprite.color = Color.Lerp(Color.white, state.tint, 0.65f);
+        }
+
+        if (eyeSprite != null)
+        {
+            eyeSprite.color = Color.Lerp(eyeSprite.color, Color.white, 0.35f);
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.nestLabel))
+        {
+            Transform nest = transform.Find("ChickenNest");
+            if (nest == null)
+            {
+                GameObject nestObject = new GameObject("ChickenNest");
+                nestObject.transform.SetParent(transform, false);
+                nest = nestObject.transform;
+            }
+
+            nest.localPosition = new Vector3(0f, -0.45f, 0f);
+            nest.localScale = Vector3.one * 0.45f;
+            SpriteRenderer renderer = nest.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                renderer = nest.gameObject.AddComponent<SpriteRenderer>();
+            }
+
+            Sprite sprite = Resources.Load<Sprite>("Sprite_Button_green");
+            if (sprite != null)
+            {
+                renderer.sprite = sprite;
+            }
+            renderer.color = state.tint;
+            renderer.sortingOrder = 4;
+        }
+
+        if (state.pulseStrength > 0f && progressBarRenderer != null)
+        {
+            progressBarRenderer.color = Color.Lerp(progressBarRenderer.color, StoryColorPalette.CoinGold, 0.35f);
+        }
     }
 
     private void Update()
@@ -350,7 +409,8 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
         AudioManager.Instance?.PlaySound("eat");
 
         // Short pause
-        yield return new WaitForSeconds(0.5f / GameManager.Instance.SpeedMultiplier);
+        float speedMultiplier = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+        yield return new WaitForSeconds(0.5f / Mathf.Max(speedMultiplier, 0.01f));
         productionProgress = 0.6f;
         UpdateProgressBar();
 
@@ -443,7 +503,8 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
                 yield return null;
             }
 
-            yield return new WaitForSeconds(0.1f / GameManager.Instance.SpeedMultiplier);
+            float speedMultiplier = GameManager.Instance != null ? GameManager.Instance.SpeedMultiplier : 1f;
+            yield return new WaitForSeconds(0.1f / Mathf.Max(speedMultiplier, 0.01f));
         }
     }
 
@@ -778,14 +839,16 @@ public class Chicken : MonoBehaviour, IInteractable, IFeedable, IZoneMember
     
     public void Feed(string itemID)
     {
-        // For POC, we assume any food is fine, but we'll eventually check itemID
+        if (!string.Equals(itemID, "Corn", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
         TryFeed(true);
     }
 
     public bool CanAcceptFood(string itemID)
     {
-        // Eventually check if itemID matches template's required food
-        return !isLayingEgg;
+        return !isLayingEgg && string.Equals(itemID, "Corn", System.StringComparison.OrdinalIgnoreCase);
     }
 
     // GetProductionProgress() and other methods are already satisfied by existing public methods
