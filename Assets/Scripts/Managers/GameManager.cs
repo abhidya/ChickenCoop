@@ -1041,7 +1041,6 @@ namespace ChickenCoop.Managers
     private void EnsureRuntimeStorySupport()
     {
         ResolveSceneReferences();
-        ResolveSceneReferences();
 
         if (FindFirstObjectByType<FloatingTextManager>() == null)
         {
@@ -1464,64 +1463,9 @@ namespace ChickenCoop.Managers
 
     private void EnsureEnvironmentDecoration()
     {
-        if (GameObject.Find("Environment_Decor") != null) return;
-        
-        GameObject decorRoot = new GameObject("Environment_Decor");
-        decorRoot.transform.position = Vector3.zero;
-
-        // 1. Distant Backdrops (Trees)
-        string[] treePrefabs = { "Env_Tree_01", "Env_Tree_02", "Env_Tree_03", "Env_Tree_05" };
-        for (int i = 0; i < 20; i++)
+        if (GameObject.Find("Environment_Decor") == null)
         {
-            string prefabName = treePrefabs[UnityEngine.Random.Range(0, treePrefabs.Length)];
-            GameObject treePrefab = Resources.Load<GameObject>(prefabName);
-            if (treePrefab == null) continue;
-
-            Vector3 pos = new Vector3(
-                UnityEngine.Random.Range(-30f, 30f),
-                UnityEngine.Random.Range(10f, 22f),
-                UnityEngine.Random.Range(20f, 30f)
-            );
-            
-            GameObject tree = Instantiate(treePrefab, pos, Quaternion.identity, decorRoot.transform);
-            tree.transform.localScale = Vector3.one * UnityEngine.Random.Range(0.15f, 0.25f);
-            foreach (var r in tree.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -1500;
-        }
-
-        // 2. Mid-ground Accents (Flowers and Bushes)
-        string[] accentPrefabs = { "Env_Flower_01", "Env_Flower_02", "Env_GrassPlant_02", "Env_Rock_02" };
-        for (int i = 0; i < 40; i++)
-        {
-            string prefabName = accentPrefabs[UnityEngine.Random.Range(0, accentPrefabs.Length)];
-            GameObject accentPrefab = Resources.Load<GameObject>(prefabName);
-            if (accentPrefab == null) continue;
-
-            Vector3 pos = new Vector3(
-                UnityEngine.Random.Range(-20f, 20f),
-                UnityEngine.Random.Range(-10f, 15f),
-                12f
-            );
-            
-            GameObject accent = Instantiate(accentPrefab, pos, Quaternion.identity, decorRoot.transform);
-            accent.transform.localScale = Vector3.one * UnityEngine.Random.Range(0.08f, 0.12f);
-            foreach (var r in accent.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -900;
-        }
-
-        // 3. Ground Texture (Grass Clumps)
-        GameObject grassPrefab = Resources.Load<GameObject>("Env_GrassPlant_05");
-        if (grassPrefab != null)
-        {
-            for (int i = 0; i < 50; i++)
-            {
-                Vector3 pos = new Vector3(
-                    UnityEngine.Random.Range(-18f, 18f),
-                    UnityEngine.Random.Range(-12f, 12f),
-                    10f
-                );
-                GameObject grass = Instantiate(grassPrefab, pos, Quaternion.identity, decorRoot.transform);
-                grass.transform.localScale = Vector3.one * 0.08f;
-                foreach (var r in grass.GetComponentsInChildren<SpriteRenderer>()) r.sortingOrder = -950;
-            }
+            Debug.LogWarning("[GameManager] Environment_Decor missing from authored scene.");
         }
     }
 
