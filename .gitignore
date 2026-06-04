@@ -65,7 +65,8 @@ crashlytics-build.properties
 /Assets/AssetStoreTools/
 
 # Exclude build output in docs except for GitHub Pages
-# docs/Build/
+!docs/Build/
+!docs/Build/**
 # docs/StreamingAssets/
 # docs/TemplateData/
 .omx/
